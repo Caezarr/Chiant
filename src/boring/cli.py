@@ -9,6 +9,7 @@ from rich.console import Console
 
 from boring import __version__
 from boring.capture import capture_auto, capture_interactive
+from boring.contest.rapo import RAPOContestClient
 from boring.detect import Detector, run_live_detection
 from boring.glue import make_payment_provider, run_pipeline
 
@@ -66,6 +67,33 @@ def run(
 ) -> None:
     """Pipeline end-to-end : détection → geofence → paiement."""
     run_pipeline(current_lat=lat, current_lon=lon, fps=fps)
+
+
+@app.command("contest-fps")
+def contest_fps(
+    subject: str = typer.Option(..., help="Référence du FPS (ex: FPS-2026-LL-12345)."),
+    reason: str = typer.Option(..., help="Motif de contestation en 1-2 phrases."),
+    amount: float = typer.Option(35.0, help="Montant contesté en €."),
+    output: str = typer.Option(None, help="Chemin où sauver le courrier (sinon stdout)."),
+) -> None:
+    """Génère un RAPO (Recours Administratif Préalable Obligatoire) pour un FPS."""
+    client = RAPOContestClient(dry_run=True)
+    case = client.prepare_case(
+        user_id="cli-user",
+        subject=subject,
+        reason=reason,
+        amount_eur=amount,
+    )
+    console.print(f"[green]✓[/green] Cas {case.case_id} prêt")
+    if output:
+        from pathlib import Path
+
+        path = Path(output)
+        path.write_text(case.drafted_letter or "")
+        console.print(f"[green]✓[/green] Courrier sauvegardé : {path}")
+    else:
+        console.print("\n[dim]--- Courrier généré ---[/dim]")
+        console.print(case.drafted_letter)
 
 
 @app.command("pay-now")

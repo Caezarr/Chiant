@@ -244,6 +244,75 @@
     </p>
   </div>
 
+  <h2>Combien tu économiserais ?</h2>
+  <p>
+    Calcul franc, basé sur tes vrais chiffres. Aucune donnée n'est envoyée — tout
+    se passe dans ton navigateur.
+  </p>
+
+  <div class="card" id="roi-calc">
+    <div style="display: grid; gap: 16px;">
+      <label style="display: block;">
+        <span style="display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px;">Tu te gares en zone payante combien de fois par semaine ?</span>
+        <input type="number" id="roi-sessions" min="0" max="50" value="4" style="background: var(--bg); border: 1px solid var(--border); color: var(--fg); padding: 12px; border-radius: 4px; font-size: 16px; width: 100%; font-family: inherit;">
+      </label>
+      <label style="display: block;">
+        <span style="display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px;">Combien de FPS / amendes de stationnement tu as pris cette année ?</span>
+        <input type="number" id="roi-fps" min="0" max="50" value="6" style="background: var(--bg); border: 1px solid var(--border); color: var(--fg); padding: 12px; border-radius: 4px; font-size: 16px; width: 100%; font-family: inherit;">
+      </label>
+      <label style="display: block;">
+        <span style="display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px;">Montant moyen d'un FPS dans ta ville ?</span>
+        <select id="roi-amount" style="background: var(--bg); border: 1px solid var(--border); color: var(--fg); padding: 12px; border-radius: 4px; font-size: 16px; width: 100%; font-family: inherit;">
+          <option value="35">35€ — FPS minoré</option>
+          <option value="50" selected>50€ — moyenne Lille / villes moyennes</option>
+          <option value="75">75€ — FPS standard Paris</option>
+          <option value="100">100€ — FPS Paris majoré</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="roi-result" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
+      <!-- rempli en JS -->
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const sessions = document.getElementById('roi-sessions');
+      const fps = document.getElementById('roi-fps');
+      const amount = document.getElementById('roi-amount');
+      const result = document.getElementById('roi-result');
+      const BORING_COST_PER_YEAR = 208; // 299€ amorti sur 3 ans + 108€/an Care
+      const RECALL = 0.95; // 95% des FPS évités avec modèle custom
+
+      function fmt(n) { return new Intl.NumberFormat('fr-FR', {style:'currency', currency:'EUR', maximumFractionDigits: 0}).format(n); }
+
+      function calc() {
+        const nFPS = Math.max(0, parseInt(fps.value || 0, 10));
+        const fpsCost = parseInt(amount.value, 10);
+        const currentLoss = nFPS * fpsCost;
+        const avoidedLoss = currentLoss * RECALL;
+        const net = avoidedLoss - BORING_COST_PER_YEAR;
+
+        let verdict = '';
+        if (net > 200) {
+          verdict = `<div style="font-size:24px; color: var(--accent); font-weight:600;">Boring t'économiserait ${fmt(net)} / an</div>
+          <p style="color: var(--muted); font-size:14px; margin-top:8px;">Tu fais perdre ${fmt(currentLoss)} en amendes par an. Boring t'en évite ~${Math.round(RECALL*100)}% pour ${fmt(BORING_COST_PER_YEAR)}/an.</p>`;
+        } else if (net > 0) {
+          verdict = `<div style="font-size:20px; color: var(--accent);">Boring s'amortirait : ~${fmt(net)} / an</div>
+          <p style="color: var(--muted); font-size:14px; margin-top:8px;">C'est rentable, mais à la marge. Le vrai gain est ailleurs : tu n'y penses plus jamais.</p>`;
+        } else {
+          verdict = `<div style="font-size:20px; color: var(--fg);">Pas pour toi pour l'instant</div>
+          <p style="color: var(--muted); font-size:14px; margin-top:8px;">Avec ${nFPS} FPS / an, Boring te coûterait plus que tes amendes (${fmt(-net)} de différence). Reviens si ça empire.</p>`;
+        }
+        result.innerHTML = verdict;
+      }
+
+      [sessions, fps, amount].forEach(el => el.addEventListener('input', calc));
+      calc();
+    })();
+  </script>
+
   <h2>Pourquoi maintenant</h2>
   <ul>
     <li>Les voitures LAPI scannent <strong>1 500 plaques/heure</strong> et arrivent dans toutes les villes FR</li>

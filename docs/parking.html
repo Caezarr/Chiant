@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Boring Parking Box — boîtier autonome qui détecte les véhicules de contrôle et paie automatiquement ton stationnement. 299€ + 9€/mois. Garantie zéro FPS.">
+<meta name="theme-color" content="#0a0a0a">
+<title>Boring Parking — le boîtier qui paie ton stationnement</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🅿️</text></svg>">
+<style>
+  :root { --bg:#0a0a0a; --fg:#f5f5f0; --muted:#8a8a85; --accent:#ff4d00; --border:#1a1a1a; --card:#111110; --max-width:760px; }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif; background: var(--bg); color: var(--fg); line-height:1.55; font-size:17px; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+  .wrap { max-width: var(--max-width); margin:0 auto; padding:64px 24px; }
+  h1, h2, h3 { font-family:"New York", "Times New Roman", Georgia, serif; font-weight:600; letter-spacing:-0.02em; line-height:1.15; }
+  h1 { font-size:48px; margin-bottom:24px; }
+  h2 { font-size:32px; margin:64px 0 16px; }
+  h3 { font-size:21px; margin:32px 0 8px; }
+  p { margin-bottom:16px; }
+  p.lead { font-size:20px; color: var(--muted); margin-bottom:32px; }
+  a { color: var(--accent); text-decoration:none; border-bottom:1px solid currentColor; }
+  a:hover { opacity:0.7; }
+  .kicker { display:inline-block; font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color: var(--accent); margin-bottom:16px; font-weight:500; }
+  .cta { display:inline-block; background: var(--fg); color: var(--bg); padding:14px 24px; border-radius:4px; font-weight:600; border:none; cursor:pointer; margin-top:24px; }
+  .cta:hover { transform:translateY(-1px); border-bottom:none; }
+  .cta.ghost { background:transparent; color: var(--fg); border:1px solid var(--fg); }
+  ul, ol { margin:16px 0 16px 24px; }
+  li { margin-bottom:8px; }
+  .card { background: var(--card); border:1px solid var(--border); padding:24px; border-radius:8px; margin:16px 0; }
+  .small { font-size:14px; color: var(--muted); }
+  hr { border:0; border-top:1px solid var(--border); margin:48px 0; }
+  table { width:100%; border-collapse:collapse; margin:16px 0; font-size:15px; }
+  th, td { padding:12px; text-align:left; border-bottom:1px solid var(--border); }
+  th { color: var(--muted); font-weight:500; font-size:13px; text-transform:uppercase; letter-spacing:0.05em; }
+  code { font-family:"SF Mono", Menlo, monospace; background: var(--card); padding:2px 6px; border-radius:3px; font-size:0.9em; }
+  nav { padding:24px 24px 0; text-align:center; }
+  nav a { color: var(--muted); border:none; margin:0 12px; }
+  footer { padding:32px 24px 64px; text-align:center; color: var(--muted); font-size:14px; border-top:1px solid var(--border); margin-top:64px; }
+  footer a { color: var(--muted); border:none; text-decoration:underline; }
+  @media (max-width: 600px) { h1 { font-size:36px; } h2 { font-size:24px; } .wrap { padding:48px 20px; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/">Accueil</a>
+  <a href="/parking.html">Parking</a>
+  <a href="https://github.com/Caezarr/Chiant">GitHub</a>
+</nav>
+
+<main class="wrap">
+  <div class="kicker">Boring Parking Box</div>
+  <h1>Le boîtier qui paie ton stationnement.</h1>
+
+  <p class="lead">
+    Une caméra discrète dans ton tableau de bord, un Raspberry Pi 5 dans la boîte à gants,
+    et un modèle de vision qui détecte les véhicules de contrôle automatisé à 30 mètres.
+    Dès qu'un passe, ton stationnement est payé. 15 minutes, le minimum légal, automatiquement.
+  </p>
+
+  <p>
+    <a class="cta" href="/#waitlist">Rejoindre la waitlist (–30% early-bird)</a>
+    <a class="cta ghost" href="https://github.com/Caezarr/Chiant" style="margin-left:8px;">Version DIY</a>
+  </p>
+
+  <hr>
+
+  <h2>Comment ça marche, vraiment</h2>
+
+  <h3>1. La détection</h3>
+  <p>
+    Le boîtier embarque un modèle de vision <strong>YOLOv8</strong> entraîné sur ~500 images
+    de véhicules de contrôle automatisé (Streeteo, Indigo, Moovia, etc.). Le rig de caméras
+    LAPI sur le toit est le signal le plus discriminant — on ne dépend pas du modèle de
+    voiture en dessous. <strong>Précision visée : 95% recall, 99% precision</strong> sur le
+    dataset Lille v1.
+  </p>
+  <p class="small">
+    Le tracker anti-faux-positif exige 3 détections consécutives en moins de 2 secondes
+    avant de déclencher un paiement. Une voiture isolée qui ressemble vaguement à un scan
+    car ne suffit pas.
+  </p>
+
+  <h3>2. La géofence</h3>
+  <p>
+    Avant tout paiement, on vérifie via GPS que ta voiture est garée en zone de stationnement
+    payant — sinon on ne fait rien. Pas la peine de payer si tu es chez toi dans ton allée.
+    Les zones payantes sont chargées depuis les données OpenData de chaque ville (Lille en
+    v1, expansion progressive).
+  </p>
+
+  <h3>3. Le paiement</h3>
+  <p>
+    Boring est multi-provider : on appelle l'API de PayByPhone, EasyPark, Flowbird ou OPnGO
+    selon ce que tu as déjà connecté. La session démarre pour <strong>15 minutes — le minimum
+    légal, jamais plus</strong>. Le cooldown anti-doublon empêche de payer 12 fois si la
+    même scan car repasse devant ta caméra.
+  </p>
+  <p class="small">
+    Tu reçois une notification push à chaque paiement. Tu peux toujours désactiver via l'app
+    en 1 tap si tu sors de la voiture.
+  </p>
+
+  <h2>Ce qu'il y a dans la boîte</h2>
+
+  <table>
+    <thead><tr><th>Composant</th><th>Détail</th></tr></thead>
+    <tbody>
+      <tr><td>Mini-ordinateur</td><td>Raspberry Pi 5 8 Go + dissipateur + carte SD 64 Go pré-flashée</td></tr>
+      <tr><td>Caméra</td><td>Camera Module 3 12 MP + objectif grand angle 120°</td></tr>
+      <tr><td>Boîtier</td><td>Aluminium brossé noir 9×6×3 cm, fixation tableau de bord 3M VHB</td></tr>
+      <tr><td>Alimentation</td><td>Allume-cigare 12V → USB-C PD, câble tressé 1.5m</td></tr>
+      <tr><td>App mobile</td><td>iOS + Android (config + monitoring + paiement manuel d'urgence)</td></tr>
+      <tr><td>Mises à jour</td><td>OTA mensuel — modèle scan_car + zones payantes</td></tr>
+    </tbody>
+  </table>
+
+  <p class="small">
+    BOM hardware ~95€. Tu peux assembler le même toi-même via le repo OSS si tu veux. La
+    différence avec le Premium : on te livre prêt à brancher, l'app marche, le support
+    répond, et la garantie tient.
+  </p>
+
+  <h2>Le pricing</h2>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:16px;">
+      <div>
+        <strong style="font-size:24px;">Boring Parking Box</strong>
+        <div class="small" style="margin-top:4px;">Boîtier + app + Care 1 mois inclus</div>
+      </div>
+      <div style="font-size:32px; font-weight:600;">299€</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:16px;">
+      <div>
+        <strong style="font-size:20px;">Boring Care (mensuel)</strong>
+        <div class="small" style="margin-top:4px;">Mises à jour modèle, multi-véhicules, support, garantie active</div>
+      </div>
+      <div style="font-size:24px; font-weight:600;">9€<span class="small" style="font-weight:400;">/mois</span></div>
+    </div>
+  </div>
+
+  <p class="small" style="margin-top:16px;">
+    Les early-bird de la première run Lille (200 unités) ont <strong>–30%</strong> :
+    boîtier à 209€ + premier mois Care offert.
+  </p>
+
+  <h2>La garantie, sans bullshit</h2>
+
+  <div class="card" style="border-color: var(--accent);">
+    <strong style="font-size:18px;">🛡 Si tu reçois un FPS pendant que Boring tourne, on te le rembourse.</strong>
+    <p style="margin-top:12px; margin-bottom:0;">
+      L'app était active. La voiture était bien garée en zone payante. Pourtant tu as quand
+      même chopé un FPS. <strong>On rembourse l'amende, intégralement.</strong>
+    </p>
+  </div>
+
+  <h3>Conditions claires</h3>
+  <ul>
+    <li>L'abonnement <code>Boring Care</code> est actif au moment du FPS</li>
+    <li>Le boîtier était branché et l'app marquait "actif" pendant la session de stationnement</li>
+    <li>La voiture était garée dans une zone payante connue de Boring (centre-ville Lille en v1)</li>
+    <li>Tu déclares le FPS sous 14 jours en uploadant la photo via l'app</li>
+    <li>Limite raisonnable : 4 FPS remboursés par an et par utilisateur</li>
+  </ul>
+
+  <h3>Garantie 30 jours satisfait ou remboursé</h3>
+  <p>
+    Sur le hardware. Si dans les 30 premiers jours tu n'es pas convaincu, tu nous renvoies
+    le boîtier, on te rembourse <strong>299€ + le mois de Care</strong>. Pas de questions
+    pièges.
+  </p>
+
+  <h2>FAQ technique</h2>
+
+  <h3>Ça consomme combien sur la batterie de la voiture ?</h3>
+  <p>
+    ~5W en moyenne (Pi 5 + caméra en inférence à 5 fps). C'est moins qu'une dashcam classique.
+    Si tu laisses Boring branché 24h sur une voiture moteur coupé, ça consomme ~2 Ah —
+    négligeable sur une batterie 60 Ah récente. Pour les longues immobilisations (>3 jours),
+    le boîtier passe en veille automatique.
+  </p>
+
+  <h3>Et si je vis dans une ville non couverte ?</h3>
+  <p>
+    Le boîtier marche dès qu'on a (a) un modèle scan_car entraîné pour ta ville et (b) les
+    zones de stationnement payant en open data. Lille est en v1. Paris, Lyon, Bordeaux,
+    Nantes, Marseille suivent dans les 6 mois. Tu peux voter pour ta ville dans l'app.
+  </p>
+
+  <h3>Mes données vidéo, elles vont où ?</h3>
+  <p>
+    Nulle part. <strong>Local-first.</strong> L'inférence se fait sur le boîtier, aucune
+    image n'est transmise à nos serveurs. Seuls les événements (détection + paiement
+    déclenché) sont remontés pour facturation + suivi garantie. Tu peux désactiver
+    l'envoi d'événements via un opt-out RGPD dans l'app — on n'aura plus de stats mais
+    le boîtier marche pareil.
+  </p>
+
+  <h3>Si je revends ma voiture ?</h3>
+  <p>
+    Tu débranches, tu remontes dans la nouvelle, tu refais la config (5 minutes via l'app).
+    Le boîtier n'est pas appairé à la voiture, juste à ton compte Boring.
+  </p>
+
+  <h3>Pourquoi pas une app pure (sans hardware) ?</h3>
+  <p>
+    Parce que iOS bloque la caméra en arrière-plan depuis 2018 (et c'est tant mieux pour
+    la confiance utilisateur). Un boîtier dédié permet d'avoir une caméra qui tourne
+    7j/7, 24h/24, sans drainer ton téléphone, avec un angle fixe optimisé pour la rue
+    où tu te gares.
+  </p>
+
+  <h3>C'est légal ?</h3>
+  <p>
+    Oui. Boring paie le <strong>minimum légal</strong> pour ton stationnement, pas zéro.
+    L'outil aide à respecter l'obligation de paiement, simplement de façon optimisée
+    temporellement. Le framing "anti-PV / anti-contrôle" a déjà été interdit en justice
+    (Parkeerwekker NL, 2022). On ne fait pas ça. Le code est public, l'intention est
+    documentée.
+  </p>
+
+  <p style="margin-top:48px;">
+    <a class="cta" href="/#waitlist">Je rejoins la waitlist</a>
+    <a class="cta ghost" href="/" style="margin-left:8px;">Retour à l'accueil</a>
+  </p>
+</main>
+
+<footer>
+  <p>Boring · <a href="https://github.com/Caezarr/Chiant">GitHub</a> · <a href="mailto:gabriel@meetwonka.com">Contact</a></p>
+</footer>
+</body>
+</html>

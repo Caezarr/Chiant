@@ -28,6 +28,10 @@ detect:
 run:
 	uv run boring run
 
+contest:
+	@echo "Exemple : uv run boring contest-fps --subject FPS-DEMO --reason 'J''avais payé via PayByPhone.'"
+	@uv run boring contest-fps --subject "FPS-DEMO-001" --reason "Démo CLI" --amount 35
+
 train:
 	uv run python scripts/train_custom.py --data datasets/control_vehicle_v1/data.yaml
 
