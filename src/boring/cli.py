@@ -10,7 +10,7 @@ from rich.console import Console
 from boring import __version__
 from boring.capture import capture_auto, capture_interactive
 from boring.detect import Detector, run_live_detection
-from boring.glue import run_pipeline
+from boring.glue import make_payment_provider, run_pipeline
 
 app = typer.Typer(help="Boring — paiement intelligent du stationnement.")
 console = Console()
@@ -66,6 +66,25 @@ def run(
 ) -> None:
     """Pipeline end-to-end : détection → geofence → paiement."""
     run_pipeline(current_lat=lat, current_lon=lon, fps=fps)
+
+
+@app.command("pay-now")
+def pay_now(
+    plate: str = typer.Option(..., help="Plaque (ex: AB-123-CD)."),
+    duration: int = typer.Option(15, help="Durée en minutes."),
+    lat: float = typer.Option(50.6371, help="Latitude (défaut: Place du Théâtre Lille)."),
+    lon: float = typer.Option(3.0633, help="Longitude."),
+) -> None:
+    """Déclenche un paiement immédiat sans détection (test du flow paiement)."""
+    provider = make_payment_provider()
+    provider.login("", "")
+    zone_id = provider.get_zone_id(lat, lon)
+    session = provider.start_session(plate, zone_id, duration)
+    console.print(f"[green]✓ Session déclenchée[/green] : {session.session_id}")
+    console.print(f"  Provider : {provider.name}")
+    console.print(f"  Plaque   : {session.vehicle_plate}")
+    console.print(f"  Durée    : {duration} min")
+    console.print(f"  Fin      : {session.end.strftime('%H:%M')}")
 
 
 if __name__ == "__main__":

@@ -11,7 +11,19 @@ from rich.console import Console
 from boring.detect import Detector, StreamTracker, run_live_detection
 from boring.geofence import LilleParkingZones
 from boring.notify import notify
+from boring.payment.assisted import AssistedPayByPhone
+from boring.payment.base import PaymentProvider
 from boring.payment.paybyphone import PayByPhoneClient
+
+
+def make_payment_provider() -> PaymentProvider:
+    """Construit le provider de paiement selon PAYMENT_MODE (.env)."""
+    mode = os.getenv("PAYMENT_MODE", "assisted").lower()
+    if mode == "assisted":
+        return AssistedPayByPhone(recipient_phone=os.getenv("ASSISTED_IMESSAGE_RECIPIENT") or None)
+    # mode 'auto' : client API direct (stub jusqu'à Phase 5)
+    return PayByPhoneClient(dry_run=True)
+
 
 load_dotenv()
 console = Console()
@@ -49,11 +61,12 @@ def run_pipeline(
     tracker = StreamTracker(required_consecutive=consecutive)
     cooldown = PaymentCooldown(cooldown_minutes=cooldown_min)
 
-    payment = PayByPhoneClient(dry_run=True)  # passera à False après reverse Phase 5
+    payment = make_payment_provider()
     payment.login(
         os.getenv("PAYBYPHONE_USERNAME", ""),
         os.getenv("PAYBYPHONE_PASSWORD", ""),
     )
+    console.print(f"[dim]Provider paiement actif : {payment.name}[/dim]")
 
     in_paid_zone = True
     if current_lat is not None and current_lon is not None:
