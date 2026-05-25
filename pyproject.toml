@@ -1,0 +1,36 @@
+[project]
+name = "boring"
+version = "0.1.0"
+description = "Boring — assistant de paiement intelligent du stationnement urbain"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "ultralytics>=8.3.0",
+    "opencv-python>=4.10.0",
+    "shapely>=2.0",
+    "typer>=0.15.0",
+    "rich>=13.9",
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
+    "pydantic>=2.9",
+]
+
+[project.scripts]
+boring = "boring.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/boring"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[dependency-groups]
+dev = [
+    "mitmproxy>=11.0",
+    "ipython>=8.0",
+    "ruff>=0.7",
+]

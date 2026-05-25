@@ -1,0 +1,28 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "source": "MVP fallback — bounding box approximative du centre-ville Lille",
+    "note": "L'API OpenData MEL a migré (opendata.lillemetropole.fr → data.lillemetropole.fr en geOrchestra) et la nouvelle API n'est pas encore mappée. Ce fallback couvre Gambetta, Vauban-Esquermes, Vieux-Lille, République-Beaux-Arts, Pierre Legrand (Fives), Wazemmes. À remplacer par les vraies zones une fois l'API MEL stable — make zones."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Lille centre-ville élargi (MVP fallback)",
+        "type": "paid_zone"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [3.000, 50.605],
+            [3.090, 50.605],
+            [3.090, 50.655],
+            [3.000, 50.655],
+            [3.000, 50.605]
+          ]
+        ]
+      }
+    }
+  ]
+}
