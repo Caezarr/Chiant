@@ -93,47 +93,51 @@ Pointe ta webcam vers une fenêtre où passe le bon type de véhicule → tu doi
 
 ---
 
-## ⏳ Action #4 — Capture intégration paiement (1h)
+## ⏳ Action #4 — Capture HAR du paiement web (~10 min)
 
-**Durée** : 1h
-**Sortie attendue** : `scripts/paybyphone_flow.json` (à m'envoyer)
+**Durée** : 10 min
+**Sortie attendue** : `scripts/paybyphone_endpoints.json` (à m'envoyer)
+
+> Tu peux faire cette étape **dès maintenant**, en parallèle des actions 1-3.
+> C'est la plus rapide pour débloquer le paiement automatique réel.
 
 ### Comment
 
-1. Sur ton Mac :
+1. Ouvre **https://m.paybyphone.fr** dans **Safari** (Mac) ou Chrome.
+
+2. Ouvre les DevTools :
+   - **Safari** : Préférences > Avancé > coche "Afficher Développement" > Développement > "Afficher l'inspecteur Web"
+   - **Chrome** : Cmd-Option-J
+
+3. Onglet **Network/Réseau** :
+   - Coche "Preserve log" / "Conserver le journal"
+   - Vide la liste (icône 🚫)
+
+4. Sur le site PayByPhone, dans cet ordre :
+   - **Login** avec ton compte
+   - Renseigne ta **plaque** si pas déjà fait
+   - **Démarre une session de stationnement** : 15 minutes, à un endroit réel de Lille (zone payante)
+   - Vérifie qu'elle apparaît bien comme active dans l'app
+   - **Stoppe la session** (pour pas payer 30 cts pour rien — et pour capturer le flow d'arrêt aussi)
+
+5. Dans Network DevTools :
+   - **Safari** : clic droit dans la liste → "Exporter HAR" → enregistre dans `/Users/gabriel/Desktop/GR/boring/scripts/pbp.har`
+   - **Chrome** : clic droit → "Save all as HAR with content" → même chemin
+
+6. Lance le parseur :
    ```bash
    cd /Users/gabriel/Desktop/GR/boring
-   uv run mitmproxy -s scripts/paybyphone_capture.py
+   uv run python scripts/parse_paybyphone_har.py scripts/pbp.har
    ```
-   (mitmproxy écoute sur `127.0.0.1:8080`)
+   → produit `scripts/paybyphone_endpoints.json` avec **credentials et tokens automatiquement masqués**.
 
-2. Trouve ton IP locale :
-   ```bash
-   ipconfig getifaddr en0   # ou en1 si Wi-Fi vs Ethernet
-   ```
+7. **Envoie-moi `scripts/paybyphone_endpoints.json`** (drag-drop dans le chat).
+   Je code le client réel et tu pourras lancer `boring pay-now` en mode `PAYMENT_MODE=auto` pour un vrai paiement.
 
-3. Sur ton iPhone :
-   - **Réglages > Wi-Fi** > (i) à côté de ton réseau > **Configurer le proxy** → Manuel
-   - **Serveur** : ton IP Mac (étape 2)
-   - **Port** : `8080`
-   - Sauvegarder
+### Si tu veux faire la version mobile à la place (1h)
 
-4. Toujours sur iPhone, Safari → ouvre **http://mitm.it** → télécharge le profil iOS → installe :
-   - Réglages > Général > VPN et gestion d'appareils > installe le profil
-   - Réglages > Général > Informations > **Certificats de confiance** > active "mitmproxy"
-
-5. Ouvre l'app PayByPhone sur iPhone :
-   - **Login** avec ton compte
-   - Renseigne ta plaque
-   - **Démarre une session de stationnement** 15 minutes (à un endroit réel de Lille)
-   - Vérifie qu'elle apparaît bien comme active
-   - **Stoppe la session** (pour pas payer pour rien, et capturer aussi le flow d'arrêt)
-
-6. Sur Mac, dans mitmproxy : tape `q` puis `y` pour quitter.
-
-7. Le fichier `scripts/paybyphone_flow.json` est créé. **Envoie-le moi.**
-
-8. Remets le proxy iPhone sur "Désactivé" pour pas tout faire passer par mitmproxy en permanence.
+Pour capturer l'app iOS native (vs le web), garde l'option `scripts/paybyphone_capture.py` + mitmproxy.
+Moins recommandé : plus de friction (installer cert iOS, configurer proxy Wi-Fi), même résultat fonctionnel.
 
 ---
 
@@ -163,4 +167,4 @@ Pointe ta webcam vers une fenêtre où passe le bon type de véhicule → tu doi
 |-------|---------|----------------------|
 | Après Action #2 | `datasets/control_vehicle_v1.zip` (export Roboflow brut) | Drag-drop dans le chat OU lien Drive/WeTransfer |
 | Après Action #3 | `models/best.pt` | Drag-drop OU push direct sur le repo dans un commit séparé |
-| Après Action #4 | `scripts/paybyphone_flow.json` | Drag-drop dans le chat (penser à anonymiser plaque si visible) |
+| Après Action #4 | `scripts/paybyphone_endpoints.json` (credentials déjà masqués) | Drag-drop dans le chat |

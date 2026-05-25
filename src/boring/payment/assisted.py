@@ -1,15 +1,20 @@
-"""Provider de paiement assisté : la détection construit la requête, l'utilisateur valide.
+"""Provider de paiement assisté : envoie un rappel iMessage contextualisé à l'iPhone.
 
 Pipeline :
 1. La détection émet un événement
-2. Ce provider construit un deep link (URL scheme PayByPhone si dispo, fallback web)
-3. Le lien est envoyé à l'iPhone de l'utilisateur via iMessage (osascript)
-4. L'utilisateur tape sur le lien : l'app s'ouvre pré-remplie, il valide en 1 tap
+2. Ce provider envoie un iMessage à l'iPhone de l'utilisateur (osascript Messages.app)
+   avec : plaque, durée recommandée, lien d'ouverture de l'app PayByPhone
+3. L'utilisateur tape sur le lien → l'app s'ouvre, il saisit/valide manuellement
 
-Architecture défendable juridiquement : l'utilisateur reste décisionnaire final,
-le système est un "assistant de paiement optimisé", pas un automate de paiement.
+⚠️ Note importante : les apps PayByPhone, EasyPark, Flowbird, OPnGO n'exposent
+**pas** d'URL scheme tiers stable permettant de pré-remplir les champs.
+Le deep link `paybyphone://` ou Universal Link `https://m.paybyphone.fr/`
+ne fait qu'ouvrir l'app (pas de pré-remplissage). Pour un pré-remplissage
+ou un paiement automatique, voir `boring.payment.paybyphone.PayByPhoneClient`
+(mode `dry_run=False` après reverse via HAR).
 
-Latence end-to-end visée : < 4 secondes (détection → confirmation user).
+Mode assisted = rappel intelligent légalement défendable, V1 shippable
+immédiatement. Mode auto API = paiement réel, dispo après Phase 5.
 """
 
 from __future__ import annotations
@@ -26,12 +31,13 @@ from boring.payment.base import ParkingSession, PaymentProvider
 
 console = Console()
 
-# Schemas candidats — à raffiner après veille URL scheme.
-# Le 1er qui marche sur iOS est utilisé ; sinon fallback web.
+# Liens candidats — testés dans l'ordre. Universal Link en premier (iOS ouvre l'app
+# si installée, sinon ouvre Safari), URL scheme custom en fallback (peut lancer
+# l'app si elle est listée dans LSApplicationQueriesSchemes du système).
+# Aucun ne supporte le pré-remplissage des champs (cf. veille URL scheme).
 DEEP_LINK_CANDIDATES = [
-    "paybyphone://start-parking",  # hypothèse : à valider via décompilation APK
-    "pbp://start-parking",
-    "https://m.paybyphone.fr/parking/start",  # fallback web
+    "https://m.paybyphone.fr/",  # Universal Link (recommandé)
+    "paybyphone://",  # URL scheme custom, fallback
 ]
 
 DEFAULT_WEB_URL = "https://m.paybyphone.fr/"
@@ -43,7 +49,12 @@ def build_deep_link(
     vehicle_plate: str,
     scheme: str | None = None,
 ) -> str:
-    """Construit l'URL de paiement avec les paramètres pré-remplis."""
+    """Construit l'URL d'ouverture de l'app.
+
+    Les params sont passés à titre informatif (UTM-like, certains brokers
+    de deep link les conservent) mais l'app PayByPhone ne pré-remplit pas
+    les champs à partir d'eux.
+    """
     base = scheme or DEEP_LINK_CANDIDATES[0]
     params = urlencode(
         {
@@ -111,8 +122,9 @@ class AssistedPayByPhone(PaymentProvider):
             scheme=self.deep_link_scheme,
         )
         body = (
-            f"🅿️ Stationnement à valider : {duration_minutes} min sur plaque {vehicle_plate}.\n"
-            f"Tap → {url}"
+            f"🅿️ Boring — contrôle automatisé détecté à proximité.\n"
+            f"Pense à payer ta session : {duration_minutes} min sur plaque {vehicle_plate}.\n"
+            f"Ouvrir l'app → {url}"
         )
         now = datetime.now()
         if self.recipient_phone:
