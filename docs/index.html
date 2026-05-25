@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Boring — assistant de paiement optimisé du stationnement urbain. Détection visuelle + paiement programmatique du minimum légal. Lille first.">
+<meta name="theme-color" content="#0a0a0a">
+<title>Boring — anti-friction admin française</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🅿️</text></svg>">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --fg: #f5f5f0;
+    --muted: #8a8a85;
+    --accent: #ff4d00;
+    --border: #1a1a1a;
+    --card: #111110;
+    --max-width: 760px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.55;
+    font-size: 17px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: var(--max-width); margin: 0 auto; padding: 64px 24px; }
+  h1, h2, h3 {
+    font-family: "New York", "Times New Roman", Georgia, serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  h1 { font-size: 56px; margin-bottom: 24px; }
+  h2 { font-size: 36px; margin: 64px 0 16px; }
+  h3 { font-size: 22px; margin: 32px 0 8px; }
+  p { margin-bottom: 16px; color: var(--fg); }
+  p.lead { font-size: 21px; color: var(--muted); margin-bottom: 32px; max-width: 580px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid currentColor; }
+  a:hover { opacity: 0.7; }
+  .kicker {
+    display: inline-block;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+    font-weight: 500;
+  }
+  .cta {
+    display: inline-block;
+    background: var(--fg);
+    color: var(--bg);
+    padding: 14px 24px;
+    border-radius: 4px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    margin-top: 24px;
+    transition: transform 0.1s;
+  }
+  .cta:hover { transform: translateY(-1px); border-bottom: none; }
+  .cta.ghost {
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--fg);
+  }
+  ul { margin: 16px 0 16px 24px; }
+  li { margin-bottom: 8px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 24px;
+    border-radius: 8px;
+    margin: 16px 0;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .step {
+    counter-increment: step;
+    padding-left: 40px;
+    position: relative;
+    margin-bottom: 24px;
+  }
+  .step::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 28px;
+    height: 28px;
+    background: var(--accent);
+    color: var(--bg);
+    border-radius: 50%;
+    text-align: center;
+    line-height: 28px;
+    font-weight: 700;
+    font-family: monospace;
+  }
+  .steps { counter-reset: step; margin: 24px 0; }
+  .num { font-family: "SF Mono", Menlo, monospace; color: var(--accent); }
+  .small { font-size: 14px; color: var(--muted); }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 48px 0; }
+  footer {
+    padding: 32px 24px 64px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    border-top: 1px solid var(--border);
+    margin-top: 64px;
+  }
+  footer a { color: var(--muted); border: none; text-decoration: underline; }
+  form { margin-top: 24px; display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=email] {
+    flex: 1;
+    min-width: 200px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 14px 16px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-family: inherit;
+  }
+  input[type=email]:focus { outline: none; border-color: var(--accent); }
+  @media (max-width: 600px) {
+    h1 { font-size: 40px; }
+    h2 { font-size: 28px; }
+    p.lead { font-size: 18px; }
+    .wrap { padding: 48px 20px; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <div class="kicker">Boring · anti-friction admin française</div>
+  <h1>Tu te gares.<br>On paye.<br>Tu oublies.</h1>
+
+  <p class="lead">
+    Détection visuelle des véhicules de contrôle automatisé, paiement programmatique
+    du minimum légal. Plus jamais un FPS oublié, jamais un centime de plus que nécessaire.
+  </p>
+
+  <p>
+    <a class="cta" href="#waitlist">Rejoindre la waitlist</a>
+    <a class="cta ghost" href="https://github.com/Caezarr/Chiant" style="margin-left:8px;">Code source</a>
+  </p>
+
+  <p class="small" style="margin-top:48px;">
+    Lille first · <span class="num">v0.1</span> en construction · OSS sous Apache 2.0
+  </p>
+
+  <hr>
+
+  <h2>Le problème</h2>
+  <p>
+    Le stationnement payant en ville n'est pas un service public, c'est une <strong>machine
+    à générer du revenu municipal</strong>. À Paris, 75% de hausse des FPS en un an depuis l'arrivée
+    des voitures LAPI. Aux Pays-Bas, le régulateur a constaté <strong>500 000 amendes injustifiées
+    par an</strong> émises par ces mêmes systèmes.
+  </p>
+  <p>
+    Tu te gares 4 fois par semaine pour aller chez un client, voir tes parents, faire une
+    course rapide. Une de ces fois tu oublies de recharger l'horodateur. La voiture-radar passe.
+    <strong>35€.</strong> Multiplé par dix par an, ce sont 400€ d'amendes administratives évitables.
+  </p>
+
+  <h2>La solution</h2>
+  <div class="steps">
+    <div class="step">
+      <h3>Détection visuelle</h3>
+      <p>Une caméra (webcam, dashcam, Raspberry Pi) tourne en arrière-plan. Un modèle YOLOv8
+      reconnaît les véhicules de contrôle automatisé à 30 mètres.</p>
+    </div>
+    <div class="step">
+      <h3>Décision intelligente</h3>
+      <p>Géofence Lille + cooldown anti-doublon. On vérifie que ta voiture est bien en zone payante,
+      qu'on n'a pas déjà payé dans les 10 dernières minutes.</p>
+    </div>
+    <div class="step">
+      <h3>Paiement programmatique</h3>
+      <p>15 minutes payées via l'API du provider (PayByPhone, EasyPark, OPnGO). Le minimum légal,
+      jamais plus. Toi tu reçois une notification, tu n'as rien à faire.</p>
+    </div>
+  </div>
+
+  <h2>Pourquoi maintenant</h2>
+  <ul>
+    <li>Les voitures LAPI scannent <strong>1 500 plaques/heure</strong> et arrivent dans toutes les villes FR</li>
+    <li>Les APIs de paiement de stationnement sont matures et stables</li>
+    <li>YOLOv8 tourne en temps réel sur un téléphone, un Raspberry Pi, ou une vieille webcam</li>
+    <li>Personne d'autre n'a fait le boulot proprement en France</li>
+  </ul>
+
+  <h2>Roadmap</h2>
+  <div class="grid">
+    <div class="card">
+      <strong>Boring Parking</strong>
+      <p class="small">Détection scan car + paiement assisté/auto · <em>en build, Lille first</em></p>
+    </div>
+    <div class="card">
+      <strong>Boring Contest</strong>
+      <p class="small">Contestation FPS automatisée (RAPO + TSP) · <em>prévu Q4 2026</em></p>
+    </div>
+    <div class="card">
+      <strong>Boring CNI</strong>
+      <p class="small">Alerte créneaux mairie passeport/CNI · <em>prévu 2027</em></p>
+    </div>
+    <div class="card">
+      <strong>Boring Move</strong>
+      <p class="small">Orchestrateur déménagement multi-organismes · <em>prévu 2027</em></p>
+    </div>
+  </div>
+
+  <h2 id="waitlist">Rejoindre la waitlist</h2>
+  <p>
+    On lance la beta privée à Lille à l'automne 2026. Tu seras prévenu et tu rentreras
+    dans le premier batch. Pas de spam, juste les jalons importants.
+  </p>
+
+  <form action="https://formspree.io/f/your-form-id" method="POST">
+    <input type="email" name="email" placeholder="ton.email@exemple.fr" required>
+    <input type="hidden" name="_subject" value="Boring waitlist signup">
+    <button type="submit" class="cta">Je m'inscris</button>
+  </form>
+  <p class="small" style="margin-top:8px;">
+    Tu peux te désinscrire en répondant "stop" à n'importe quel email. RGPD respecté.
+  </p>
+
+  <hr>
+
+  <h2>FAQ</h2>
+
+  <h3>C'est légal ?</h3>
+  <p>
+    Oui. Boring paie le minimum légal pour ton stationnement — pas zéro. L'outil aide à respecter
+    l'obligation de paiement, simplement de façon optimisée temporellement. Le framing
+    "anti-contrôle / anti-PV" a déjà été interdit en justice (Parkeerwekker NL, 2022) ; on ne fait
+    pas ça. Notre code est public, notre intention est documentée.
+  </p>
+
+  <h3>Vous vendez quoi exactement ?</h3>
+  <p>
+    Le code est open source sous Apache 2.0. Si tu sais flasher un Raspberry Pi, tu peux tout
+    monter toi-même pour ~150€ de hardware. Sinon on vendra un boîtier pré-flashé prêt à brancher,
+    avec installation guidée. Date de dispo : fin 2026.
+  </p>
+
+  <h3>Et mes données personnelles ?</h3>
+  <p>
+    Local-first. La caméra ne sort jamais de chez toi. Aucune image transmise à nos serveurs.
+    Les credentials de paiement restent chiffrés sur ton appareil. RGPD respecté à la lettre.
+  </p>
+
+  <h3>Pourquoi Lille en premier ?</h3>
+  <p>
+    Parce que c'est là qu'on est. Et parce que Lille a déployé des voitures LAPI très actives.
+    Une fois la traction prouvée à Lille, on s'étend à Lyon, Bordeaux, Nantes, Marseille — puis Paris.
+  </p>
+
+</main>
+
+<footer>
+  <p>
+    Boring · <a href="https://github.com/Caezarr/Chiant">GitHub</a> · <a href="mailto:gabriel@meetwonka.com">Contact</a>
+  </p>
+  <p class="small" style="margin-top:8px;">
+    Codename repo : <code>Chiant</code> · marque <code>Boring</code> en cours de dépôt.
+  </p>
+</footer>
+</body>
+</html>

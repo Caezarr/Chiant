@@ -12,6 +12,13 @@ zones:
 prepare:
 	uv run python scripts/prepare_dataset.py
 
+scrape-baseline:
+	uv run python scripts/scrape_baseline.py
+
+landing:
+	@echo "Landing dispo localement → file://$(PWD)/docs/index.html"
+	@open docs/index.html 2>/dev/null || echo "Ouvre docs/index.html dans ton navigateur."
+
 capture:
 	uv run boring capture
 

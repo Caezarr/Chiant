@@ -34,4 +34,7 @@ dev = [
     "ipython>=8.0",
     "ruff>=0.7",
     "pytest>=8.0",
+    "ddgs>=0.9",
+    "imagehash>=4.3",
+    "Pillow>=10.0",
 ]
