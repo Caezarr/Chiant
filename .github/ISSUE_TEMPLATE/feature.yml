@@ -1,0 +1,35 @@
+name: ✨ Feature request
+description: Une idée d'amélioration ou nouvelle capacité
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Le problème
+      description: Quel manque ou frustration cette feature résoudrait ?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: La solution proposée
+      description: Décris ce que tu aimerais voir
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives envisagées
+      description: Workarounds actuels, ou autres approches que tu as considérées
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Périmètre estimé
+      options:
+        - Petite amélioration (qq lignes)
+        - Feature isolée
+        - Refacto / changement d'architecture
+        - Je ne sais pas

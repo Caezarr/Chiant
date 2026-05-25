@@ -11,18 +11,25 @@ from rich.console import Console
 from boring.detect import Detector, StreamTracker, run_live_detection
 from boring.geofence import LilleParkingZones
 from boring.notify import notify
+from boring.payment import get_provider_class
 from boring.payment.assisted import AssistedPayByPhone
-from boring.payment.base import PaymentProvider
-from boring.payment.paybyphone import PayByPhoneClient
+from boring.payment.base import ParkingSession, PaymentProvider
 
 
 def make_payment_provider() -> PaymentProvider:
-    """Construit le provider de paiement selon PAYMENT_MODE (.env)."""
+    """Construit le provider de paiement selon les variables d'env.
+
+    Logique :
+    - Si PAYMENT_MODE=assisted (défaut) → AssistedPayByPhone (iMessage).
+    - Si PAYMENT_MODE=auto → utilise PAYMENT_PROVIDER (défaut: paybyphone)
+      pour choisir le client API (paybyphone, easypark, flowbird, opngo).
+    """
     mode = os.getenv("PAYMENT_MODE", "assisted").lower()
     if mode == "assisted":
         return AssistedPayByPhone(recipient_phone=os.getenv("ASSISTED_IMESSAGE_RECIPIENT") or None)
-    # mode 'auto' : client API direct (stub jusqu'à Phase 5)
-    return PayByPhoneClient(dry_run=True)
+    provider_name = os.getenv("PAYMENT_PROVIDER", "paybyphone").lower()
+    provider_cls = get_provider_class(provider_name)
+    return provider_cls(dry_run=True)
 
 
 load_dotenv()
@@ -85,21 +92,47 @@ def run_pipeline(
     console.print("[bold green]Pipeline Boring lancé.[/bold green] Ctrl+C pour stopper.")
 
     for detections in run_live_detection(detector=detector, fps=fps, tracker=tracker):
-        if not in_paid_zone:
-            continue
-        if not cooldown.allow():
-            console.print("[dim]Détection ignorée (cooldown actif).[/dim]")
-            continue
-
         console.print(f"[red bold]⚡ TRIGGER[/red bold] — {len(detections)} véhicule(s)")
-        try:
-            zone_id = payment.get_zone_id(current_lat or 50.6292, current_lon or 3.0573)
-            session = payment.start_session(plate, zone_id, duration)
-            cooldown.record()
-            notify(
-                "Boring — stationnement payé",
-                f"{duration} min sur plaque {plate}. Session {session.session_id}.",
-            )
-        except Exception as e:
-            console.print(f"[red]Échec paiement : {e}[/red]")
-            notify("Boring — échec paiement", str(e), sound=True)
+        process_trigger(
+            payment=payment,
+            cooldown=cooldown,
+            in_paid_zone=in_paid_zone,
+            plate=plate,
+            duration_minutes=duration,
+            lat=current_lat or 50.6292,
+            lon=current_lon or 3.0573,
+        )
+
+
+def process_trigger(
+    *,
+    payment: PaymentProvider,
+    cooldown: PaymentCooldown,
+    in_paid_zone: bool,
+    plate: str,
+    duration_minutes: int,
+    lat: float,
+    lon: float,
+    on_notify=notify,
+) -> ParkingSession | None:
+    """Traite un événement trigger : check guards → paiement → notif.
+
+    Retourne la session créée, ou None si bloquée (hors zone, cooldown, échec).
+    Le hook `on_notify` est injecté pour faciliter les tests.
+    """
+    if not in_paid_zone:
+        return None
+    if not cooldown.allow():
+        return None
+    try:
+        zone_id = payment.get_zone_id(lat, lon)
+        session = payment.start_session(plate, zone_id, duration_minutes)
+        cooldown.record()
+        on_notify(
+            "Boring — stationnement payé",
+            f"{duration_minutes} min sur plaque {plate}. Session {session.session_id}.",
+        )
+        return session
+    except Exception as e:
+        on_notify("Boring — échec paiement", str(e), sound=True)
+        return None

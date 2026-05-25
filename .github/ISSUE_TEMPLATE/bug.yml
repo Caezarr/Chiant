@@ -1,0 +1,63 @@
+name: 🐛 Bug report
+description: Quelque chose qui devrait marcher mais qui ne marche pas
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de prendre le temps de remplir ce template. Plus c'est précis, plus vite c'est fix.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Qu'est-ce qui s'est passé ?
+      description: Décris le bug. Que faisais-tu, qu'attendais-tu, qu'as-tu obtenu ?
+      placeholder: |
+        Quand je lance `boring detect --source webcam`, …
+        J'attendais …
+        À la place j'ai eu …
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Comment reproduire
+      description: Étapes minimales pour reproduire (1, 2, 3…)
+      placeholder: |
+        1. Clone le repo
+        2. uv sync --dev
+        3. uv run boring detect
+        4. …
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit SHA
+      description: |
+        `uv run boring version` + `git rev-parse --short HEAD`
+      placeholder: "Boring v0.1.0 @ 5c6f61f"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux
+        - Raspberry Pi
+        - Autre
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traceback
+      description: Si erreur Python, colle le traceback complet
+      render: shell

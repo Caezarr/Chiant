@@ -19,12 +19,18 @@ from rich.console import Console
 
 console = Console()
 
-# URLs candidates, par ordre de préférence
+# URLs candidates testées par ordre.
+# État au 25 mai 2026 :
+#   - Ancien Opendatasoft (opendata.lillemetropole.fr) : redirige vers dataMEL Angular SPA (HTML)
+#   - data.gouv.fr proxy : suit la redirection vers le même dead-end
+#   - GeoServer WFS MEL : pas de couche stationnement_payant exposée publiquement
+# Donc actuellement aucune source live. Le fallback bbox /data/lille_parking_zones.geojson
+# couvre le centre-ville et débloque le MVP. À ré-essayer quand la migration MEL se stabilise.
 CANDIDATE_URLS = [
-    # Ancien Opendatasoft (HS depuis migration)
+    # 1. data.gouv.fr proxy stable (ID resource fb7749af… pour zone-stationnement-payant)
+    "https://www.data.gouv.fr/api/1/datasets/r/fb7749af-56e4-4009-a1ea-5038cd7d768b",
+    # 2. Ancien Opendatasoft direct (peut revenir si MEL réactive le miroir)
     "https://opendata.lillemetropole.fr/api/explore/v2.1/catalog/datasets/zone-stationnement-payant/exports/geojson",
-    # data.gouv.fr (proxy potentiel)
-    "https://www.data.gouv.fr/fr/datasets/r/zone-stationnement-payant.geojson",
 ]
 
 OUTPUT = Path("data/lille_parking_zones.geojson")

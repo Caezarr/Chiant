@@ -1,97 +1,124 @@
-# Boring
+# Boring · `Chiant`
 
-> Assistant de paiement intelligent du stationnement urbain.
-> Détection visuelle des véhicules de contrôle → paiement programmatique du minimum légal.
+> **Boring** — assistant de paiement optimisé du stationnement urbain.
+> Premier produit d'une suite anti-friction administrative française.
+>
+> *Le repo est public sous le codename `Chiant` jusqu'au dépôt INPI de la marque.*
 
-Premier produit de **Boring** — anti-friction administrative française.
+[![CI](https://github.com/Caezarr/Chiant/actions/workflows/ci.yml/badge.svg)](https://github.com/Caezarr/Chiant/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Status: pre-alpha](https://img.shields.io/badge/Status-pre--alpha-orange)](#statut)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](pyproject.toml)
 
-## Statut
+## Pitch
 
-Pre-alpha. MVP en construction. Aucune utilisation réelle recommandée pour l'instant — l'intégration paiement est stubée en `dry_run=True`.
+Tu te gares en ville, tu oublies de payer ton stationnement, tu te ramasses un FPS de 35€. Multiplé par dix par an = ~400€ d'amendes administratives évitables. Et selon le régulateur néerlandais, **500 000 FPS / an sont injustifiés** (capteurs LAPI mal calibrés, scan d'une plaque déjà payée, etc.).
 
-👉 **Si tu maintiens ce repo et veux savoir quoi faire ensuite, lis [`HUMAN-TODO.md`](HUMAN-TODO.md).**
+Boring détecte visuellement les véhicules de contrôle automatisé qui s'approchent, et soit te rappelle d'urgence de payer ta session (mode `assisted`), soit la déclenche directement via l'API du provider (mode `auto`). Tu paies le minimum légal (~30 cts pour 15 min), tu ne paies jamais un FPS injustifié.
+
+👉 **Si tu maintiens ce repo, lis [`HUMAN-TODO.md`](HUMAN-TODO.md)** pour savoir quoi faire concrètement.
 
 ## Quick start (Mac, Apple Silicon)
 
 ```bash
-make dev                # installe deps + outils dev (mitmproxy, ruff)
-make zones              # télécharge les zones payantes Lille (data.gouv.fr)
-make capture            # ouvre la webcam pour tester
-make detect             # détection live (baseline COCO 'car' avant fine-tune)
-make run                # pipeline end-to-end (paiement stubé pour l'instant)
+git clone https://github.com/Caezarr/Chiant.git
+cd Chiant
+cp .env.example .env          # → renseigne ASSISTED_IMESSAGE_RECIPIENT au minimum
+make dev                      # uv sync + outils dev
+make test                     # 33+ tests doivent passer
+make zones                    # télécharge / met à jour les zones Lille
+uv run boring pay-now --plate AB-123-CD --duration 15    # smoke test paiement
 ```
 
-Copie `.env.example` vers `.env` et renseigne tes vraies valeurs avant `make run`.
+## Statut
 
-## Architecture
+**Pre-alpha**. MVP en construction. Pas pour usage réel pour l'instant.
 
+### Ce qui marche ✅
+
+- Pipeline détection live YOLOv8 + tracker anti-faux-positif (baseline COCO `car`)
+- Geofence Lille fonctionnelle (fallback bounding box centre-ville)
+- Mode paiement `assisted` via iMessage (rappel intelligent → tu valides en 1 tap)
+- Multi-provider scaffolding : PayByPhone (réel), EasyPark / Flowbird / OPnGO (stubs)
+- CLI complète : `boring capture / detect / run / pay-now`
+- Tests pytest, CI GitHub Actions, pre-commit hooks
+
+### Ce qui manque ⏳
+
+- Modèle custom `control_vehicle` (besoin captation terrain — cf. HUMAN-TODO #1-3)
+- Reverse PayByPhone validé (besoin HAR — cf. HUMAN-TODO #4)
+- Clients EasyPark / Flowbird / OPnGO implémentés
+- Vraies zones Lille (API MEL en migration côté serveur)
+
+## Architecture (en 1 paragraphe)
+
+`boring.cli` parse les commandes → `boring.glue` orchestre → `boring.detect` (YOLO) émet des triggers → `boring.geofence` (Shapely) filtre par zone → `boring.glue.process_trigger` appelle `boring.payment.<provider>` → `boring.notify` envoie une notif macOS. Tout est testable indépendamment.
+
+Détail dans [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Modes de paiement
+
+| Mode       | Risque légal | Latence | Friction user      | Dispo  |
+|------------|--------------|---------|--------------------|--------|
+| `assisted` | Nul          | ~4 s    | 1 tap iPhone       | ✅     |
+| `auto`     | Zone grise   | < 1 s   | Aucune             | ⏳ HAR |
+
+Toggle via `PAYMENT_MODE=assisted|auto` dans `.env`.
+
+## Multi-provider
+
+Le `PROVIDER_REGISTRY` permet de basculer le client API au runtime :
+
+```bash
+PAYMENT_PROVIDER=paybyphone   # défaut (impl. la plus avancée)
+PAYMENT_PROVIDER=easypark     # stub
+PAYMENT_PROVIDER=flowbird     # stub
+PAYMENT_PROVIDER=opngo        # stub
 ```
-[ Webcam ] → [ YOLOv8 detect ] → [ StreamTracker ]
-                                       ↓ (N frames consécutives)
-                                  [ Geofence Lille ]
-                                       ↓ (en zone payante ?)
-                                  [ Cooldown ]
-                                       ↓ (pas payé dans les 10 min ?)
-                                  [ PayByPhone API ]
-                                       ↓
-                                  [ Notif macOS ]
-```
 
-### Modules
+Tous implémentent `PaymentProvider` (interface dans `src/boring/payment/base.py`).
+Pour ajouter un provider, voir [ARCHITECTURE.md § Points d'extension](ARCHITECTURE.md#points-dextension).
 
-| Module                       | Rôle                                                              |
-|------------------------------|-------------------------------------------------------------------|
-| `boring.capture`             | Flux webcam OpenCV, capture interactive / auto                    |
-| `boring.detect`              | Inférence YOLOv8 + tracker anti-faux-positif                      |
-| `boring.geofence`            | Point-in-polygon Lille (GeoJSON data.gouv.fr)                     |
-| `boring.payment.base`        | Interface abstraite `PaymentProvider`                             |
-| `boring.payment.paybyphone`  | Client PayByPhone — **STUB**, reverse à venir Phase 5             |
-| `boring.notify`              | Notifications macOS (osascript)                                   |
-| `boring.glue`                | Orchestration end-to-end + cooldown                               |
-| `boring.cli`                 | CLI `boring …`                                                    |
+## Roadmap
 
-## Roadmap MVP
+- [x] **v0.1** — MVP scaffolding (vision + payment abstraction + assisted iMessage)
+- [ ] **v0.2** — Modèle custom `control_vehicle` fine-tuné sur dataset Lille
+- [ ] **v0.3** — Client PayByPhone validé via HAR, mode `auto` actif
+- [ ] **v0.4** — Multi-provider live (EasyPark + OPnGO)
+- [ ] **v0.5** — Boîtier hardware Raspberry Pi 5 documenté
+- [ ] **v1.0** — Documentation utilisateur complète, dépôt INPI Boring sécurisé
 
-- [x] **Phase 1** — Setup repo + capture webcam Mac
-- [ ] **Phase 2** — Captation terrain Lille (500 images annotées via Roboflow)
-- [ ] **Phase 3** — Fine-tune YOLOv8n sur classe `scan_car`
-- [ ] **Phase 4** — Tracker anti-FP en condition réelle
-- [ ] **Phase 5** — Reverse API PayByPhone via mitmproxy
-- [ ] **Phase 6** — Démo end-to-end live
+## Compatibilité
 
-## Captation terrain (Phase 2)
+- macOS Apple Silicon (M1+) — cible principale dev
+- Linux x86 — fonctionne, sauf notifs macOS (fallback console)
+- Raspberry Pi 5 — cible de déploiement (v0.5)
 
-1. Filme avec ton iPhone (4K, 30fps) depuis un café ou ta voiture stationnée
-2. Spots Lille : **Gambetta**, **Vauban-Esquermes**, **Vieux-Lille rue Royale**, **Pierre Legrand (Fives)**
-3. Horaires de patrouille typiques : mar-jeu 9h-12h
-4. Mets les `.mov` dans `datasets/raw/`
-5. `make prepare` → échantillonne 1 frame/seconde dans `datasets/extracted/`
-6. Upload sur [Roboflow](https://roboflow.com), annote 1 classe `scan_car`, exporte en YOLOv8
+## Différenciation vs prior art
 
-## Différenciation (vs prior art FR)
+Haloban Lab (Paris) a démontré en mai 2026 un système équivalent (Pi + 2 webcams + YOLO baseline). Edge de Boring :
 
-Haloban Lab a montré en mai 2026 un système équivalent (Pi + 2 webcams + YOLO COCO baseline + paiement 15 min). Edge concurrentiel de Boring :
+1. Modèle **custom `control_vehicle`** (vs YOLO COCO générique → ils trigger sur toute voiture qui passe)
+2. **Lille first** (eux Paris-only)
+3. **Boîtier hardware fini** vendu pré-flashé (eux : DIY)
+4. **Framing légalement défendable** : "outil de paiement optimisé", pas "ANTI PV"
+5. **Multi-provider** : PayByPhone + EasyPark + OPnGO + Flowbird (vs PayByPhone-only)
 
-1. **Modèle custom `scan_car`** (eux utilisent COCO `car` générique → ils paient à chaque voiture qui passe)
-2. **Lille first** (eux : Paris)
-3. **Boîtier hardware vendu pré-flashé** (eux : DIY only)
-4. **Framing juridique défendable** : "outil de paiement optimisé", pas "ANTI PV" / "anti Hidalgo"
+## Contribuer
 
-## Reverse PayByPhone (Phase 5)
+- Issues : utilise les templates dans `.github/ISSUE_TEMPLATE/`
+- PRs : checklist dans `.github/pull_request_template.md`
+- Setup dev : `make dev && pre-commit install`
+- Tests : `make test` (33+ tests, doit passer avant commit)
 
-Pipeline :
-1. `uv run mitmproxy` sur ton Mac (port 8080)
-2. iPhone : Réglages Wi-Fi → proxy manuel → ton IP locale + 8080
-3. Va sur `mitm.it` depuis Safari iPhone → installe le certificat CA
-4. Ouvre l'app PayByPhone, login, lance une session 15 min
-5. Capture les requêtes dans mitmproxy → mappe endpoints, headers, payloads
+## Sécurité
 
-Référence partielle : [itsff/PayByPhone-api-docs](https://github.com/itsff/PayByPhone-api-docs).
+Vulnérabilités : voir [SECURITY.md](SECURITY.md). En court : `gabriel@meetwonka.com` avec préfixe `[SECURITY]`.
 
 ## Licence
 
-Apache 2.0 prévu pour le code. Dataset en CC-BY (annotations terrain). À sécuriser avant publication publique.
+[Apache 2.0](LICENSE). Le code est libre. La marque commerciale "Boring" est réservée à Caezarr / Gabriel.
 
 ## Avertissement juridique
 
-Précédent : [Parkeerwekker (NL)](https://blog.iusmentis.com/2022/06/02/oh-ja-dat-parkeerwekker-bestond-dus-nog-maar-in-hoger-beroep-niet-meer/) interdit en appel 2022. Le framing public **doit être** "outil de paiement optimisé du stationnement", jamais "anti-contrôle". Le minimum payé doit toujours être > 0.
+L'objectif explicite de Boring est de **faciliter le paiement du stationnement**, pas de l'éviter. Le minimum payé est toujours > 0. Précédent à ne pas reproduire : [Parkeerwekker (NL)](https://blog.iusmentis.com/2022/06/02/oh-ja-dat-parkeerwekker-bestond-dus-nog-maar-in-hoger-beroep-niet-meer/) interdit en appel 2022 pour framing "anti-contrôle". Boring ne fait pas ça.
