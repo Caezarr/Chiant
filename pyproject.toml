@@ -33,4 +33,5 @@ dev = [
     "mitmproxy>=11.0",
     "ipython>=8.0",
     "ruff>=0.7",
+    "pytest>=8.0",
 ]

@@ -16,10 +16,7 @@ def notify(title: str, message: str, sound: bool = True) -> None:
     if sys.platform != "darwin":
         console.print(f"[yellow]NOTIF[/yellow] {title} — {message}")
         return
-    script = (
-        f"display notification {shlex.quote(message)} "
-        f"with title {shlex.quote(title)}"
-    )
+    script = f"display notification {shlex.quote(message)} with title {shlex.quote(title)}"
     if sound:
         script += ' sound name "Ping"'
     subprocess.run(["osascript", "-e", script], check=False)

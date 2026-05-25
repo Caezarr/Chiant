@@ -97,9 +97,7 @@ def _annotate(frame, detections: list[Detection], triggered: bool) -> None:
             2,
         )
     if triggered:
-        cv2.putText(
-            frame, "TRIGGER", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3
-        )
+        cv2.putText(frame, "TRIGGER", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
 
 
 def run_live_detection(

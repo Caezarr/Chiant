@@ -1,4 +1,4 @@
-.PHONY: install dev zones capture detect run prepare format lint clean
+.PHONY: install dev zones capture detect run prepare train mitmproxy test format lint clean
 
 install:
 	uv sync
@@ -20,6 +20,15 @@ detect:
 
 run:
 	uv run boring run
+
+train:
+	uv run python scripts/train_custom.py --data datasets/control_vehicle_v1/data.yaml
+
+mitmproxy:
+	uv run mitmproxy -s scripts/paybyphone_capture.py
+
+test:
+	uv run pytest tests/ -v
 
 format:
 	uv run ruff format src scripts

@@ -32,7 +32,9 @@ OUTPUT = Path("data/lille_parking_zones.geojson")
 
 def looks_like_geojson(content: bytes) -> bool:
     head = content[:200].lstrip()
-    return head.startswith(b"{") and (b'"FeatureCollection"' in content[:2000] or b'"Feature"' in content[:2000])
+    return head.startswith(b"{") and (
+        b'"FeatureCollection"' in content[:2000] or b'"Feature"' in content[:2000]
+    )
 
 
 def try_download(url: str) -> bytes | None:

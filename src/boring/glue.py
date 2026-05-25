@@ -61,8 +61,7 @@ def run_pipeline(
             zones = LilleParkingZones()
             in_paid_zone = zones.is_in_paid_zone(current_lat, current_lon)
             console.print(
-                f"Position ({current_lat:.4f}, {current_lon:.4f}) "
-                f"en zone payante : {in_paid_zone}"
+                f"Position ({current_lat:.4f}, {current_lon:.4f}) en zone payante : {in_paid_zone}"
             )
         except FileNotFoundError as e:
             console.print(f"[yellow]{e}[/yellow] Geofence désactivée.")

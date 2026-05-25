@@ -9,6 +9,8 @@ Premier produit de **Boring** — anti-friction administrative française.
 
 Pre-alpha. MVP en construction. Aucune utilisation réelle recommandée pour l'instant — l'intégration paiement est stubée en `dry_run=True`.
 
+👉 **Si tu maintiens ce repo et veux savoir quoi faire ensuite, lis [`HUMAN-TODO.md`](HUMAN-TODO.md).**
+
 ## Quick start (Mac, Apple Silicon)
 
 ```bash
