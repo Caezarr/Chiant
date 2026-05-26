@@ -6,7 +6,12 @@
 <meta name="description" content="Boring — assistant de paiement optimisé du stationnement urbain. Détection visuelle + paiement programmatique du minimum légal. Lille first.">
 <meta name="theme-color" content="#0a0a0a">
 <title>Boring — anti-friction admin française</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🅿️</text></svg>">
+<link rel="icon" type="image/png" href="assets/favicon-large.png">
+<link rel="apple-touch-icon" href="assets/favicon-large.png">
+<meta property="og:title" content="Boring — anti-friction admin française">
+<meta property="og:description" content="Détection visuelle des véhicules de contrôle + paiement programmatique du minimum légal. Plus jamais un FPS oublié.">
+<meta property="og:image" content="assets/banner-tagline.png">
+<meta property="og:type" content="website">
 <style>
   :root {
     --bg: #0a0a0a;
@@ -131,18 +136,35 @@
     font-family: inherit;
   }
   input[type=email]:focus { outline: none; border-color: var(--accent); }
+  img { max-width: 100%; height: auto; display: block; }
+  .logo {
+    max-width: 220px;
+    margin: 0 0 32px;
+  }
+  .hero-img, .product-img, .illu-img {
+    border-radius: 8px;
+    margin: 32px 0;
+  }
+  .hero-img { border: 1px solid var(--border); }
+  .mockup {
+    max-width: 320px;
+    margin: 16px auto;
+    display: block;
+  }
   @media (max-width: 600px) {
     h1 { font-size: 40px; }
     h2 { font-size: 28px; }
     p.lead { font-size: 18px; }
     .wrap { padding: 48px 20px; }
+    .logo { max-width: 180px; }
   }
 </style>
 </head>
 <body>
 <main class="wrap">
 
-  <div class="kicker">Boring · anti-friction admin française</div>
+  <img src="assets/logo.png" alt="Boring" class="logo" width="220" height="220">
+  <div class="kicker">anti-friction admin française</div>
   <h1>Tu te gares.<br>On paye.<br>Tu oublies.</h1>
 
   <p class="lead">
@@ -158,6 +180,8 @@
   <p class="small" style="margin-top:48px;">
     Lille first · <span class="num">v0.1</span> en construction · OSS sous Apache 2.0
   </p>
+
+  <img src="assets/hero-car-lille.png" alt="Voiture garée dans une rue pavée de Lille au coucher du soleil, près d'un horodateur" class="hero-img" loading="lazy" width="1456" height="816">
 
   <hr>
 
@@ -175,6 +199,9 @@
   </p>
 
   <h2>La solution</h2>
+
+  <img src="assets/illu-scan-car.png" alt="Illustration d'un véhicule de contrôle automatisé détecté en approche d'une voiture garée, avec un signal de détection" class="illu-img" loading="lazy" width="1216" height="688">
+
   <div class="steps">
     <div class="step">
       <h3>Détection visuelle</h3>
@@ -216,6 +243,7 @@
     <div class="card" style="border-color: var(--accent);">
       <div class="kicker" style="margin-bottom:8px;">Boring Parking Box · Premium</div>
       <h3 style="margin-top:0;">Pour ton temps libre</h3>
+      <img src="assets/product-box.png" alt="Boîtier Boring Parking Box, aluminium brossé noir avec accent orange" class="product-img" loading="lazy" width="1024" height="768" style="margin-bottom:16px;">
       <ul>
         <li>Boîtier hardware <strong>pré-flashé livré chez toi</strong></li>
         <li>Branche dans l'allume-cigare, fini</li>
@@ -229,6 +257,8 @@
       <p class="small">1 seul FPS évité = remboursé 2 fois.</p>
     </div>
   </div>
+
+  <img src="assets/mockup-iphone.png" alt="Mockup de l'app Boring sur iPhone, mode sombre, affichant l'historique des paiements de stationnement" class="mockup" loading="lazy" width="320" height="640">
 
   <div class="card" style="background: linear-gradient(135deg, rgba(255,77,0,0.08), rgba(255,77,0,0.02)); border-color: var(--accent); margin-top: 24px;">
     <div class="kicker" style="margin-bottom:8px;">🛡 La garantie</div>

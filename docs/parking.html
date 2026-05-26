@@ -6,7 +6,11 @@
 <meta name="description" content="Boring Parking Box — boîtier autonome qui détecte les véhicules de contrôle et paie automatiquement ton stationnement. 299€ + 9€/mois. Garantie zéro FPS.">
 <meta name="theme-color" content="#0a0a0a">
 <title>Boring Parking — le boîtier qui paie ton stationnement</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🅿️</text></svg>">
+<link rel="icon" type="image/png" href="assets/favicon-large.png">
+<link rel="apple-touch-icon" href="assets/favicon-large.png">
+<meta property="og:title" content="Boring Parking Box — le boîtier qui paie ton stationnement">
+<meta property="og:description" content="299€ + 9€/mois. Garantie zéro FPS. Première run Lille 2026.">
+<meta property="og:image" content="assets/product-box.png">
 <style>
   :root { --bg:#0a0a0a; --fg:#f5f5f0; --muted:#8a8a85; --accent:#ff4d00; --border:#1a1a1a; --card:#111110; --max-width:760px; }
   * { box-sizing: border-box; margin:0; padding:0; }
@@ -37,7 +41,11 @@
   nav a { color: var(--muted); border:none; margin:0 12px; }
   footer { padding:32px 24px 64px; text-align:center; color: var(--muted); font-size:14px; border-top:1px solid var(--border); margin-top:64px; }
   footer a { color: var(--muted); border:none; text-decoration:underline; }
-  @media (max-width: 600px) { h1 { font-size:36px; } h2 { font-size:24px; } .wrap { padding:48px 20px; } }
+  img { max-width: 100%; height: auto; display: block; }
+  .logo { max-width: 180px; margin: 0 0 24px; }
+  .hero-img, .product-img, .illu-img { border-radius: 8px; margin: 32px 0; }
+  .hero-img { border: 1px solid var(--border); }
+  @media (max-width: 600px) { h1 { font-size:36px; } h2 { font-size:24px; } .wrap { padding:48px 20px; } .logo { max-width:140px; } }
 </style>
 </head>
 <body>
@@ -49,6 +57,7 @@
 </nav>
 
 <main class="wrap">
+  <img src="assets/logo.png" alt="Boring" class="logo" width="180" height="180">
   <div class="kicker">Boring Parking Box</div>
   <h1>Le boîtier qui paie ton stationnement.</h1>
 
@@ -63,6 +72,8 @@
     <a class="cta ghost" href="https://github.com/Caezarr/Chiant" style="margin-left:8px;">Version DIY</a>
   </p>
 
+  <img src="assets/product-box.png" alt="Boring Parking Box — boîtier aluminium brossé noir avec accent orange" class="hero-img" loading="lazy" width="1024" height="768">
+
   <hr>
 
   <h2>Comment ça marche, vraiment</h2>
@@ -75,6 +86,8 @@
     voiture en dessous. <strong>Précision visée : 95% recall, 99% precision</strong> sur le
     dataset Lille v1.
   </p>
+
+  <img src="assets/illu-scan-car.png" alt="Schéma : un véhicule de contrôle LAPI détecté en approche d'une voiture garée" class="illu-img" loading="lazy" width="1216" height="688">
   <p class="small">
     Le tracker anti-faux-positif exige 3 détections consécutives en moins de 2 secondes
     avant de déclencher un paiement. Une voiture isolée qui ressemble vaguement à un scan
@@ -100,6 +113,8 @@
     Tu reçois une notification push à chaque paiement. Tu peux toujours désactiver via l'app
     en 1 tap si tu sors de la voiture.
   </p>
+
+  <img src="assets/product-installed.png" alt="Boring Parking Box installé sur le tableau de bord d'une Renault Zoé, branché en USB-C" class="product-img" loading="lazy" width="1456" height="816">
 
   <h2>Ce qu'il y a dans la boîte</h2>
 
