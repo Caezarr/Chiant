@@ -1,69 +1,166 @@
-# Boring · `Chiant`
+<p align="center">
+  <img src="docs/assets/banner-tagline.png" alt="Boring t'aide à gagner contre l'admin française." width="800">
+</p>
 
-> **Boring** — assistant de paiement optimisé du stationnement urbain.
-> Premier produit d'une suite anti-friction administrative française.
->
-> *Le repo est public sous le codename `Chiant` jusqu'au dépôt INPI de la marque.*
+<p align="center">
+  <img src="docs/assets/logo.png" alt="Boring" width="180">
+</p>
 
-[![CI](https://github.com/Caezarr/Chiant/actions/workflows/ci.yml/badge.svg)](https://github.com/Caezarr/Chiant/actions/workflows/ci.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Status: pre-alpha](https://img.shields.io/badge/Status-pre--alpha-orange)](#statut)
-[![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](pyproject.toml)
+<h1 align="center">Boring · <code>Chiant</code></h1>
 
-## Pitch
+<p align="center">
+  <strong>Plateforme d'assistance, d'aide et de défense administrative pour particuliers français.</strong><br>
+  Premier produit : un boîtier qui détecte les véhicules de contrôle et paie ton stationnement.
+</p>
 
-Tu te gares en ville, tu oublies de payer ton stationnement, tu te ramasses un FPS de 35€. Multiplé par dix par an = ~400€ d'amendes administratives évitables. Et selon le régulateur néerlandais, **500 000 FPS / an sont injustifiés** (capteurs LAPI mal calibrés, scan d'une plaque déjà payée, etc.).
+<p align="center">
+  <em>Le repo est public sous le codename <code>Chiant</code> jusqu'au dépôt INPI de la marque Boring.</em>
+</p>
 
-Boring détecte visuellement les véhicules de contrôle automatisé qui s'approchent, et soit te rappelle d'urgence de payer ta session (mode `assisted`), soit la déclenche directement via l'API du provider (mode `auto`). Tu paies le minimum légal (~30 cts pour 15 min), tu ne paies jamais un FPS injustifié.
+<p align="center">
+  <a href="https://github.com/Caezarr/Chiant/actions/workflows/ci.yml"><img src="https://github.com/Caezarr/Chiant/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
+  <img src="https://img.shields.io/badge/Status-pre--alpha-orange" alt="Status">
+  <img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python">
+  <img src="https://img.shields.io/badge/Tests-42%2F42-brightgreen" alt="Tests">
+</p>
 
-👉 **Si tu maintiens ce repo, lis [`HUMAN-TODO.md`](HUMAN-TODO.md)** pour savoir quoi faire concrètement.
+---
 
-## Quick start (Mac, Apple Silicon)
+## Le problème
+
+<p align="center">
+  <img src="docs/assets/hero-car-lille.png" alt="Voiture garée dans une rue pavée de Lille à l'heure dorée, près d'un horodateur" width="800">
+</p>
+
+Tu te gares 4 fois par semaine pour aller chez un client, voir tes parents, faire une course rapide. Une de ces fois tu oublies de recharger l'horodateur. La voiture-radar passe. **35€.** Multiplé par dix par an, ce sont 400€ d'amendes administratives évitables.
+
+Selon le régulateur néerlandais, **500 000 amendes injustifiées par an** sont émises par ces systèmes LAPI. Et à Paris, 75% de hausse des FPS en un an depuis l'arrivée des voitures-radars.
+
+> *Tu te gares. On paye. Tu oublies.*
+
+---
+
+## La solution
+
+<p align="center">
+  <img src="docs/assets/illu-scan-car.png" alt="Schéma : véhicule de contrôle LAPI détecté en approche d'une voiture garée" width="700">
+</p>
+
+1. **Détection visuelle** — Une caméra discrète tourne en arrière-plan. Un modèle YOLOv8 reconnaît les véhicules de contrôle automatisé à 30 mètres.
+2. **Décision intelligente** — Géofence + cooldown. On vérifie que ta voiture est en zone payante et qu'on n'a pas déjà payé dans les 10 dernières minutes.
+3. **Paiement programmatique** — 15 minutes payées via l'API du provider (PayByPhone, EasyPark, OPnGO). **Le minimum légal, jamais plus.**
+
+Tout est piloté par `boring.glue.process_trigger()` ([source](src/boring/glue.py)). Détails techniques dans [ARCHITECTURE.md](ARCHITECTURE.md).
+
+---
+
+## Boring Parking Box
+
+<p align="center">
+  <img src="docs/assets/product-box.png" alt="Boring Parking Box — boîtier aluminium brossé noir avec accent orange" width="600">
+</p>
+
+Boîtier hardware pré-flashé, livré chez toi. Tu branches dans l'allume-cigare, l'app marche, c'est fini. Multi-véhicules, multi-villes (Lille first), modèle scan_car mis à jour OTA.
+
+<table>
+  <tr>
+    <td><strong>Boring Parking Box</strong><br>Hardware + app + 1 mois Care</td>
+    <td align="right"><strong>299€</strong> one-shot</td>
+  </tr>
+  <tr>
+    <td><strong>Boring Care</strong><br>Mises à jour, multi-véhicules, support, garantie</td>
+    <td align="right"><strong>9€</strong>/mois</td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/assets/product-installed.png" alt="Boring Parking Box installé sur le tableau de bord d'une Renault Zoé, branché en USB-C" width="700">
+</p>
+
+### 🛡 Garantie Zéro FPS
+
+> **Tu reçois un FPS pendant que Boring tourne ? On te le rembourse.**
+
+Pas de petits caractères. Si l'app est active et que ta voiture est garée en zone payante, et que tu prends quand même un FPS — on rembourse l'amende. Jusqu'à 4 FPS remboursés par an, conditions [CGU complètes](docs/parking.html#garantie).
+
+Et **30 jours satisfait ou remboursé** sur le hardware. Pas de questions pièges.
+
+<p align="center">
+  <img src="docs/assets/mockup-iphone.png" alt="App Boring sur iPhone, dark mode, historique des paiements de stationnement à Lille" width="280">
+</p>
+
+---
+
+## Quick start (dev)
 
 ```bash
 git clone https://github.com/Caezarr/Chiant.git
 cd Chiant
 cp .env.example .env          # → renseigne ASSISTED_IMESSAGE_RECIPIENT au minimum
 make dev                      # uv sync + outils dev
-make test                     # 33+ tests doivent passer
+make test                     # 42 tests doivent passer
 make zones                    # télécharge / met à jour les zones Lille
-uv run boring pay-now --plate AB-123-CD --duration 15    # smoke test paiement
+uv run boring pay-now --plate AB-123-CD --duration 15    # smoke test
+uv run boring contest-fps --subject "FPS-X" --reason "Test"  # smoke test contestation
 ```
+
+Si tu veux contribuer ou build ton propre boîtier : lis [HUMAN-TODO.md](HUMAN-TODO.md) pour les étapes humaines (captation Lille, annotation, training, reverse PayByPhone via HAR).
+
+---
 
 ## Statut
 
-**Pre-alpha**. MVP en construction. Pas pour usage réel pour l'instant.
+**Pre-alpha**. Pas pour usage réel pour l'instant.
 
 ### Ce qui marche ✅
-
 - Pipeline détection live YOLOv8 + tracker anti-faux-positif (baseline COCO `car`)
 - Geofence Lille fonctionnelle (fallback bounding box centre-ville)
 - Mode paiement `assisted` via iMessage (rappel intelligent → tu valides en 1 tap)
 - Multi-provider scaffolding : PayByPhone (réel), EasyPark / Flowbird / OPnGO (stubs)
-- CLI complète : `boring capture / detect / run / pay-now`
-- Tests pytest, CI GitHub Actions, pre-commit hooks
+- Vertical 2 — **`boring.contest`** : génération RAPO automatique + escalade CCSP
+- CLI complète : `capture / detect / run / pay-now / contest-fps`
+- Tests pytest (42/42), CI GitHub Actions, pre-commit hooks
 
 ### Ce qui manque ⏳
-
 - Modèle custom `control_vehicle` (besoin captation terrain — cf. HUMAN-TODO #1-3)
 - Reverse PayByPhone validé (besoin HAR — cf. HUMAN-TODO #4)
 - Clients EasyPark / Flowbird / OPnGO implémentés
 - Vraies zones Lille (API MEL en migration côté serveur)
+- LRAR digitale réelle pour Boring Contest (AR24 ou Maileva)
+
+---
 
 ## Architecture (en 1 paragraphe)
 
-`boring.cli` parse les commandes → `boring.glue` orchestre → `boring.detect` (YOLO) émet des triggers → `boring.geofence` (Shapely) filtre par zone → `boring.glue.process_trigger` appelle `boring.payment.<provider>` → `boring.notify` envoie une notif macOS. Tout est testable indépendamment.
+`boring.cli` parse les commandes → `boring.glue` orchestre → `boring.detect` (YOLO) émet des triggers → `boring.geofence` (Shapely) filtre par zone → `boring.glue.process_trigger` appelle `boring.payment.<provider>` → `boring.notify` envoie une notif macOS. Tout est testable indépendamment, le tout dans 33 modules.
 
-Détail dans [ARCHITECTURE.md](ARCHITECTURE.md).
+Pour les détails : [ARCHITECTURE.md](ARCHITECTURE.md).
+
+```
+[ Webcam ] → [ YOLOv8 detect ] → [ StreamTracker ]
+                                       ↓ (3 frames consécutives)
+                                  [ Geofence ]
+                                       ↓ (en zone payante ?)
+                                  [ Cooldown ]
+                                       ↓ (pas payé dans les 10 min ?)
+                                  [ PayByPhone / EasyPark / OPnGO ]
+                                       ↓
+                                  [ Notif macOS ]
+```
+
+---
 
 ## Modes de paiement
 
-| Mode       | Risque légal | Latence | Friction user      | Dispo  |
-|------------|--------------|---------|--------------------|--------|
-| `assisted` | Nul          | ~4 s    | 1 tap iPhone       | ✅     |
-| `auto`     | Zone grise   | < 1 s   | Aucune             | ⏳ HAR |
+| Mode | Risque légal | Latence | Friction user | Dispo |
+|---|---|---|---|---|
+| `assisted` | Nul | ~4 s | 1 tap iPhone | ✅ |
+| `auto` | Zone grise | < 1 s | Aucune | ⏳ HAR PayByPhone |
 
-Toggle via `PAYMENT_MODE=assisted|auto` dans `.env`.
+Toggle via `PAYMENT_MODE=assisted\|auto` dans `.env`.
+
+---
 
 ## Multi-provider
 
@@ -76,49 +173,90 @@ PAYMENT_PROVIDER=flowbird     # stub
 PAYMENT_PROVIDER=opngo        # stub
 ```
 
-Tous implémentent `PaymentProvider` (interface dans `src/boring/payment/base.py`).
-Pour ajouter un provider, voir [ARCHITECTURE.md § Points d'extension](ARCHITECTURE.md#points-dextension).
+Tous implémentent `PaymentProvider` (interface dans [`src/boring/payment/base.py`](src/boring/payment/base.py)). Le même pattern s'applique au vertical Contest : `CONTEST_REGISTRY` mappe les providers (`rapo`, à venir `ccsp`, `caf`, `france_travail`).
 
-## Roadmap
+---
 
-- [x] **v0.1** — MVP scaffolding (vision + payment abstraction + assisted iMessage)
-- [ ] **v0.2** — Modèle custom `control_vehicle` fine-tuné sur dataset Lille
-- [ ] **v0.3** — Client PayByPhone validé via HAR, mode `auto` actif
-- [ ] **v0.4** — Multi-provider live (EasyPark + OPnGO)
-- [ ] **v0.5** — Boîtier hardware Raspberry Pi 5 documenté
-- [ ] **v1.0** — Documentation utilisateur complète, dépôt INPI Boring sécurisé
+## Roadmap multi-vertical
 
-## Compatibilité
+<p align="center">
+  <img src="docs/assets/illu-admin-letter.png" alt="Une enveloppe administrative ouverte avec une alerte orange" width="500">
+</p>
 
-- macOS Apple Silicon (M1+) — cible principale dev
-- Linux x86 — fonctionne, sauf notifs macOS (fallback console)
-- Raspberry Pi 5 — cible de déploiement (v0.5)
+Boring n'est pas qu'un produit parking. C'est une plateforme d'assistance/défense administrative. **Parking est le cheval de Troie viral**, les autres verticaux sont la fin.
+
+| Vertical | Cible | Modèle | Statut |
+|---|---|---|---|
+| **Parking** (v0.1) | Eviter les FPS | Boîtier 299€ + Care 9€/mois + garantie | 🚧 En build |
+| **Contest FPS** (v0.3) | Contestation RAPO/CCSP auto | 19€/contestation ou 30% no-win-no-fee | 🚧 Module scaffolded |
+| **Indemnités** (v0.5) | Récup G30 SNCF + CE261 + abos zombie | 25% no-win-no-fee | 📋 Planifié |
+| **CAF** (v0.7) | Contester indus + refus aides | 29€ + 15% du gain | 📋 Planifié |
+| **Conso** (v0.8) | Litige vice caché / garantie / SAV | 19€ LRAR ou 20% récup | 📋 Planifié |
+| **Locataire** (v0.9) | Caution non rendue + loyer abusif | 29€ ou 15% récup | 📋 Planifié |
+
+Logique d'enchaînement : Parking → Contest (cross-sell same user) → Indemnités (effet viral récup cash) → CAF (légitimité défense citoyenne) → Conso → Locataire.
+
+---
+
+## Modèle dual : OSS + Premium
+
+**Pour chaque vertical Boring, deux versions :**
+
+| | OSS (gratuit) | Premium (clé en main) |
+|---|---|---|
+| Tu reçois | Code + templates + guides | Service exécuté pour toi + garantie |
+| Travail | 1-2 weekends, ~150€ hardware (Parking) | 0 friction, paiement direct |
+| Pour qui | Bricoleurs, devs, curieux | Tout le monde d'autre |
+| Garantie | Tu te débrouilles | **Risk-reversal absolu** (cf. Parking) |
+
+L'OSS sert deux objectifs : acquisition virale (preuve de sérieux) + défense légale (intention documentée).
+Le Premium capture la valeur avec la garantie qui démolit l'objection conversion.
+
+---
 
 ## Différenciation vs prior art
 
-Haloban Lab (Paris) a démontré en mai 2026 un système équivalent (Pi + 2 webcams + YOLO baseline). Edge de Boring :
+[Haloban Lab](https://www.tiktok.com/@halobanprod) (Paris, Wesley + Victor) a démontré en mai 2026 un système équivalent (Pi + 2 webcams + YOLO baseline). Edge de Boring :
 
-1. Modèle **custom `control_vehicle`** (vs YOLO COCO générique → ils trigger sur toute voiture qui passe)
-2. **Lille first** (eux Paris-only)
-3. **Boîtier hardware fini** vendu pré-flashé (eux : DIY)
+1. **Modèle custom `control_vehicle`** (eux : YOLO COCO `car` générique → trigger sur toute voiture)
+2. **Lille first** (eux : Paris-only)
+3. **Boîtier hardware vendu pré-flashé** avec garantie zéro FPS (eux : DIY)
 4. **Framing légalement défendable** : "outil de paiement optimisé", pas "ANTI PV"
-5. **Multi-provider** : PayByPhone + EasyPark + OPnGO + Flowbird (vs PayByPhone-only)
+5. **Multi-provider + multi-vertical** : PayByPhone + EasyPark + OPnGO + Flowbird, + 5 autres verticaux planifiés
+
+---
 
 ## Contribuer
 
-- Issues : utilise les templates dans `.github/ISSUE_TEMPLATE/`
-- PRs : checklist dans `.github/pull_request_template.md`
-- Setup dev : `make dev && pre-commit install`
-- Tests : `make test` (33+ tests, doit passer avant commit)
+- **Issues** : templates dans [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/)
+- **PRs** : checklist dans [`.github/pull_request_template.md`](.github/pull_request_template.md)
+- **Setup dev** : `make dev && pre-commit install`
+- **Tests** : `make test` — doit passer (42/42 actuellement) avant tout commit
+
+---
 
 ## Sécurité
 
 Vulnérabilités : voir [SECURITY.md](SECURITY.md). En court : `gabriel@meetwonka.com` avec préfixe `[SECURITY]`.
 
+---
+
 ## Licence
 
-[Apache 2.0](LICENSE). Le code est libre. La marque commerciale "Boring" est réservée à Caezarr / Gabriel.
+Code sous [Apache 2.0](LICENSE). La marque commerciale **Boring** est réservée à Caezarr / Gabriel ; en attendant le dépôt INPI, le repo public est sous le codename `Chiant`.
+
+---
 
 ## Avertissement juridique
 
-L'objectif explicite de Boring est de **faciliter le paiement du stationnement**, pas de l'éviter. Le minimum payé est toujours > 0. Précédent à ne pas reproduire : [Parkeerwekker (NL)](https://blog.iusmentis.com/2022/06/02/oh-ja-dat-parkeerwekker-bestond-dus-nog-maar-in-hoger-beroep-niet-meer/) interdit en appel 2022 pour framing "anti-contrôle". Boring ne fait pas ça.
+L'objectif explicite de Boring est de **faciliter le paiement du stationnement**, pas de l'éviter. Le minimum payé est toujours > 0.
+
+Précédent à ne pas reproduire : [Parkeerwekker (NL)](https://blog.iusmentis.com/2022/06/02/oh-ja-dat-parkeerwekker-bestond-dus-nog-maar-in-hoger-beroep-niet-meer/) interdit en appel 2022 pour framing "anti-contrôle". Boring ne fait pas ça.
+
+---
+
+<p align="center">
+  <em>Marre des emmerdes admin françaises ? Nous aussi.</em><br>
+  <strong>Rejoins la waitlist Boring Parking Box →</strong>
+  <a href="https://caezarr.github.io/Chiant/#waitlist">caezarr.github.io/Chiant</a>
+</p>
