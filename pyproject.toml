@@ -30,7 +30,7 @@ target-version = "py312"
 
 [dependency-groups]
 dev = [
-    "mitmproxy>=11.0",
+    "mitmproxy>=12.2.3",
     "ipython>=8.0",
     "ruff>=0.7",
     "pytest>=8.0",
