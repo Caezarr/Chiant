@@ -20,6 +20,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+import anthropic
 from rich.console import Console
 
 from boring.contest.base import (
@@ -69,9 +70,9 @@ class RAPOContestClient(ContestProvider):
     name = "rapo"
     kind = ContestKind.FPS_RAPO
 
-    def __init__(self, dry_run: bool = True) -> None:
+    def __init__(self, dry_run: bool = True, use_ai: bool = True) -> None:
         self.dry_run = dry_run
-        # En vrai, on aurait ici : LLM client, LRAR client, base jurisprudence
+        self.use_ai = use_ai
         self._cases: dict[str, ContestCase] = {}
 
     def prepare_case(
@@ -90,18 +91,21 @@ class RAPOContestClient(ContestProvider):
             else "  - (aucune pièce jointe)"
         )
 
-        letter = RAPO_LETTER_TEMPLATE.format(
-            recipient_name="Direction du stationnement",
-            recipient_address="[À renseigner — adresse de la collectivité]",
-            city="[Ville]",
-            today=datetime.now().strftime("%d %B %Y"),
-            subject=subject,
-            amount=f"{amount_eur:.2f}",
-            notification_date_placeholder="[date de notification]",
-            reason=reason.strip(),
-            evidence_list=evidence_list,
-            user_signature_placeholder="[Nom Prénom + signature]",
-        )
+        if self.use_ai and not self.dry_run:
+            letter = self._generate_with_claude(subject, reason, amount_eur)
+        else:
+            letter = RAPO_LETTER_TEMPLATE.format(
+                recipient_name="Direction du stationnement",
+                recipient_address="[À renseigner — adresse de la collectivité]",
+                city="[Ville]",
+                today=datetime.now().strftime("%d %B %Y"),
+                subject=subject,
+                amount=f"{amount_eur:.2f}",
+                notification_date_placeholder="[date de notification]",
+                reason=reason.strip(),
+                evidence_list=evidence_list,
+                user_signature_placeholder="[Nom Prénom + signature]",
+            )
 
         case = ContestCase(
             case_id=case_id,
@@ -120,6 +124,33 @@ class RAPOContestClient(ContestProvider):
             f"{len(letter.splitlines())} lignes · {amount_eur:.2f}€ contestés"
         )
         return case
+
+    def _generate_with_claude(self, subject: str, reason: str, amount_eur: float) -> str:
+        client = anthropic.Anthropic()
+        today = datetime.now().strftime("%d %B %Y")
+        prompt = f"""Tu es un expert juridique spécialisé en droit du stationnement français.
+Génère un courrier RAPO (Recours Administratif Préalable Obligatoire) complet, formel et percutant.
+
+Référence FPS : {subject}
+Montant contesté : {amount_eur:.2f}€
+Motif fourni par l'usager : {reason}
+Date du jour : {today}
+
+Le courrier doit :
+- Citer les articles L.2333-87 et R.2333-120-1 du CGCT
+- Mentionner le droit de saisir la CCSP en cas de refus dans 1 mois
+- Être adressé à "Monsieur/Madame le Directeur du stationnement"
+- Laisser des placeholders [NOM PRÉNOM], [ADRESSE], [DATE DE NOTIFICATION], [SIGNATURE] pour que l'utilisateur complète
+- Être en français formel, ~400 mots
+- Être persuasif et bien structuré
+
+Retourne uniquement le texte du courrier, sans explication."""
+        message = client.messages.create(
+            model="claude-opus-4-8",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return message.content[0].text
 
     def submit(self, case: ContestCase) -> SubmissionReceipt:
         if case.status != ContestStatus.DRAFTED:

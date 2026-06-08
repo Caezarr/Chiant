@@ -77,7 +77,8 @@ class PayByPhoneClient(PaymentProvider):
         self.auth_url = auth_url
         self._token: _AuthToken | None = None
         self._account_id: str | None = None
-        self._client = httpx.Client(timeout=timeout, headers=COMMON_HEADERS)
+        transport = httpx.HTTPTransport(retries=3)
+        self._client = httpx.Client(timeout=timeout, headers=COMMON_HEADERS, transport=transport)
 
     # ---------- Auth ----------
 
@@ -110,6 +111,10 @@ class PayByPhoneClient(PaymentProvider):
         self._authorize_client()
         self._fetch_account_id()
 
+    def _ensure_token(self) -> None:
+        if self._token is None or self._token.expires_at < datetime.now() + timedelta(seconds=60):
+            raise PayByPhoneAuthError("token expiré — appelez login() pour vous réauthentifier")
+
     def _authorize_client(self) -> None:
         if self._token is None:
             return
@@ -129,6 +134,7 @@ class PayByPhoneClient(PaymentProvider):
     def get_zone_id(self, lat: float, lon: float) -> str:
         if self.dry_run:
             return "LILLE-STUB-ZONE"
+        self._ensure_token()
         r = self._client.get(f"{self.base_url}/parking/locations", params={"lat": lat, "lng": lon})
         r.raise_for_status()
         locations = r.json()
@@ -157,6 +163,7 @@ class PayByPhoneClient(PaymentProvider):
                 amount_cents=30,
             )
 
+        self._ensure_token()
         if not self._account_id:
             raise PayByPhoneAPIError("non authentifié — appeler login() d'abord")
 
@@ -192,6 +199,7 @@ class PayByPhoneClient(PaymentProvider):
     def get_active_session(self, vehicle_plate: str) -> ParkingSession | None:
         if self.dry_run:
             return None
+        self._ensure_token()
         if not self._account_id:
             return None
         r = self._client.get(
@@ -214,3 +222,13 @@ class PayByPhoneClient(PaymentProvider):
                     amount_cents=int(s.get("totalCost", {}).get("amount", 0) * 100),
                 )
         return None
+
+    def stop_session(self, session_id: str) -> None:
+        if self.dry_run:
+            console.print(f"[yellow][DRY-RUN] stop_session {session_id}[/yellow]")
+            return
+        self._ensure_token()
+        r = self._client.delete(
+            f"{self.base_url}/parking/accounts/{self._account_id}/sessions/{session_id}"
+        )
+        r.raise_for_status()

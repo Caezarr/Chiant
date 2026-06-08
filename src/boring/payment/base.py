@@ -39,3 +39,6 @@ class PaymentProvider(ABC):
 
     @abstractmethod
     def get_active_session(self, vehicle_plate: str) -> ParkingSession | None: ...
+
+    def stop_session(self, session_id: str) -> None:
+        raise NotImplementedError

@@ -73,3 +73,6 @@ class OPnGOClient(PaymentProvider):
 
     def get_active_session(self, vehicle_plate: str) -> ParkingSession | None:
         return None
+
+    def stop_session(self, session_id: str) -> None:
+        raise NotImplementedError("stop_session non implémenté pour ce provider")

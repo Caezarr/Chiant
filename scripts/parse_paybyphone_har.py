@@ -18,9 +18,11 @@ Le script masque automatiquement les credentials/tokens dans la sortie.
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import re
 import sys
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -88,6 +90,104 @@ def _scrub_json(obj: Any) -> Any:
     return obj
 
 
+def _parse_form_body(text: str) -> dict[str, str]:
+    """Parse une chaîne form-urlencoded en dict."""
+    try:
+        return dict(urllib.parse.parse_qsl(text, keep_blank_values=True))
+    except Exception:
+        return {}
+
+
+def _parse_body_raw(text: str | None) -> dict:
+    """Parse le body brut (JSON ou form-urlencoded) sans masquage."""
+    if not text:
+        return {}
+    try:
+        return json.loads(text)
+    except (ValueError, TypeError):
+        pass
+    return _parse_form_body(text)
+
+
+def extract_config_hints(records: list[dict]) -> dict:
+    """Analyse les records HAR et extrait les hints de configuration.
+
+    Retourne un dict avec les clés suivantes (valeur None si non trouvé) :
+    - base_url, auth_url, client_id, account_id, rate_option_id, payment_method_id
+    """
+    hints: dict[str, str | None] = {
+        "base_url": None,
+        "auth_url": None,
+        "client_id": None,
+        "account_id": None,
+        "rate_option_id": None,
+        "payment_method_id": None,
+    }
+
+    # base_url : domaine commun (scheme + host) de la 1re requête PayByPhone
+    for rec in records:
+        url = rec.get("url", "")
+        if url:
+            parsed = urllib.parse.urlparse(url)
+            hints["base_url"] = f"{parsed.scheme}://{parsed.netloc}"
+            break
+
+    # Patterns pour account_id dans les URLs de session
+    account_session_re = re.compile(
+        r"/parking/accounts/([^/]+)/sessions", re.I
+    )
+
+    for rec in records:
+        url = rec.get("url", "")
+        method = (rec.get("method") or "").upper()
+        body_text = rec.get("request_body")
+
+        # body brut — on le re-parse sans masquage depuis rec car request_body est déjà scrubbed;
+        # on l'utilise quand même (client_id n'est pas maskable, rate/payment ids ne le sont pas non plus)
+        body = _parse_body_raw(body_text)
+
+        # auth_url + client_id : POST avec grant_type=password
+        if method == "POST" and (
+            body.get("grant_type") == "password"
+            or "grant_type=password" in (body_text or "")
+        ):
+            if hints["auth_url"] is None:
+                hints["auth_url"] = url
+            if hints["client_id"] is None:
+                hints["client_id"] = body.get("client_id") or _parse_form_body(
+                    body_text or ""
+                ).get("client_id")
+
+        # account_id depuis URL sessions
+        if hints["account_id"] is None:
+            m = account_session_re.search(url)
+            if m:
+                hints["account_id"] = m.group(1)
+
+        # rate_option_id + payment_method_id depuis POST de démarrage de session
+        if method == "POST" and account_session_re.search(url):
+            if hints["rate_option_id"] is None:
+                hints["rate_option_id"] = body.get("rateOptionId") or body.get(
+                    "rate_option_id"
+                )
+            if hints["payment_method_id"] is None:
+                hints["payment_method_id"] = body.get("paymentMethodId") or body.get(
+                    "payment_method_id"
+                )
+
+    return hints
+
+
+def _summarize_hints(hints: dict) -> None:
+    """Affiche dans la console ce qui a été extrait et ce qui manque."""
+    console.print("\n[bold]Config hints extraits :[/bold]")
+    for key, value in hints.items():
+        if value is not None:
+            console.print(f"  [green]{key}[/green] : {value}")
+        else:
+            console.print(f"  [yellow]{key} : non trouvé[/yellow]")
+
+
 def parse_har(har_path: Path) -> list[dict]:
     har = json.loads(har_path.read_text())
     entries = har.get("log", {}).get("entries", [])
@@ -124,6 +224,24 @@ def summarize(records: list[dict]) -> None:
     console.print(table)
 
 
+def _patch_env(hints: dict, env_path: Path) -> None:
+    """Ajoute les variables d'environnement au fichier .env."""
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lines = [f"\n# Auto-patch depuis HAR — {timestamp}\n"]
+    mapping = {
+        "PAYBYPHONE_API_BASE": hints.get("base_url"),
+        "PAYBYPHONE_AUTH_URL": hints.get("auth_url"),
+        "PAYBYPHONE_CLIENT_ID": hints.get("client_id"),
+    }
+    for var, val in mapping.items():
+        if val is not None:
+            lines.append(f"{var}={val}\n")
+
+    with env_path.open("a") as f:
+        f.writelines(lines)
+    console.print(f"\n[green]✓[/green] .env patché : {env_path}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("har", type=Path, help="Chemin vers le fichier .har")
@@ -132,6 +250,12 @@ def main() -> int:
         type=Path,
         default=Path("scripts/paybyphone_endpoints.json"),
         help="Sortie JSON.",
+    )
+    parser.add_argument(
+        "--patch-env",
+        action="store_true",
+        default=False,
+        help="Ajoute les variables extraites au fichier .env du projet.",
     )
     args = parser.parse_args()
     if not args.har.exists():
@@ -144,10 +268,22 @@ def main() -> int:
             "Vérifie que tu as bien fait le flow login + session sur m.paybyphone.fr.[/yellow]"
         )
         return 1
+
+    hints = extract_config_hints(records)
+    output = {"config_hints": hints, "requests": records}
+
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(records, indent=2, ensure_ascii=False))
+    args.out.write_text(json.dumps(output, indent=2, ensure_ascii=False))
+
     summarize(records)
+    _summarize_hints(hints)
+
     console.print(f"\n[green]✓[/green] {len(records)} requêtes → {args.out}")
+
+    if args.patch_env:
+        env_path = Path(".env")
+        _patch_env(hints, env_path)
+
     console.print(
         "\n[bold]Envoie ce fichier (credentials déjà masqués) pour finaliser le client.[/bold]"
     )

@@ -15,6 +15,15 @@ et le projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 - SECURITY.md (politique disclosure)
 - ARCHITECTURE.md (à venir)
 - Tests multi-provider (8 nouveaux)
+- `boring.payment.base` : méthode `stop_session(session_id)` sur l'interface `PaymentProvider` (non-abstract, lève `NotImplementedError` par défaut)
+- `boring.payment.paybyphone` : `_ensure_token()` — auto-vérification d'expiry 60s avant chaque appel réseau
+- `boring.payment.paybyphone` : `stop_session()` — DELETE sur l'endpoint sessions
+- `boring.payment.paybyphone` : retry réseau automatique via `httpx.HTTPTransport(retries=3)`
+- `boring.payment.easypark/flowbird/opngo` : `stop_session()` avec `NotImplementedError` propre
+- `boring.contest.rapo` : génération de courrier RAPO via Claude API (`claude-opus-4-8`) en mode `use_ai=True, dry_run=False`
+- CLI `contest-fps` : options `--ai/--no-ai`, `--live`, `--evidence` (pièces justificatives)
+- Dépendance `anthropic>=0.40` ajoutée
+- Dataset `datasets/baseline/` : 57 images LAPI scrapées via DuckDuckGo (scraper baseline)
 
 ### Changed
 - `make_payment_provider()` route entre `assisted` (iMessage) et tous les

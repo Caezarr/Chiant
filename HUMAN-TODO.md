@@ -5,6 +5,21 @@
 
 ---
 
+## 🤖 Fait automatiquement (session 08/06/2026)
+- [x] Token auto-refresh + retry réseau sur PayByPhoneClient
+- [x] `stop_session()` sur toute l'interface de paiement
+- [x] Courrier RAPO généré par Claude API (`boring contest-fps --live`)
+- [x] CLI `--evidence`, `--ai`, `--live` sur `contest-fps`
+- [x] `boring status` — vérifie la session active
+- [x] `boring scrape` — lance le scraper baseline depuis la CLI
+- [x] `boring setup-paybyphone` — configure `.env` depuis l'export HAR
+- [x] HAR parser amélioré : extrait `config_hints` (base_url, auth_url, client_id, rate_option_id)
+- [x] 57 images LAPI scrapées → `datasets/baseline/` (prêt pour Roboflow)
+- [x] 5 PRs Dependabot mergées (pillow, typer, rich, imagehash, ddgs)
+- [x] `datasets/` + `runs/` ajoutés au `.gitignore`
+
+---
+
 ## ✅ Déjà fait
 
 - [x] Repo initialisé, code MVP scaffolding poussé sur GitHub

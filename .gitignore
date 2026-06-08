@@ -17,3 +17,14 @@ datasets/extracted/
 *.m4v
 yolov8n.pt
 yolo11n.pt
+
+# Datasets et modèles (gros fichiers binaires)
+datasets/baseline/
+datasets/*/train/
+datasets/*/valid/
+datasets/*/test/
+models/best.pt
+
+# HAR et endpoints (peuvent contenir des credentials)
+scripts/*.har
+scripts/paybyphone_endpoints.json

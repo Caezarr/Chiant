@@ -36,6 +36,9 @@ def main() -> int:
     parser.add_argument("--imgsz", type=int, default=DEFAULT_IMGSZ)
     parser.add_argument("--device", default="mps", help="mps (Apple) / cuda / cpu")
     parser.add_argument("--name", default="custom_v1", help="Nom du run.")
+    parser.add_argument(
+        "--resume", action="store_true", default=False, help="Reprendre un training interrompu."
+    )
     args = parser.parse_args()
 
     data_yaml = Path(args.data)
@@ -59,6 +62,7 @@ def main() -> int:
         name=args.name,
         patience=15,  # early stopping si pas d'amélioration
         save_period=10,
+        resume=args.resume,
     )
 
     # Copie le best.pt dans models/ pour utilisation directe
@@ -72,6 +76,10 @@ def main() -> int:
             "\n[bold]Pour l'utiliser :[/bold]\n"
             f"  uv run boring detect --model {dst} --target control_vehicle\n"
         )
+        console.print("[dim]Validation rapide...[/dim]")
+        metrics = model.val()
+        console.print(f"  mAP50 : {metrics.box.map50:.3f}")
+        console.print(f"  mAP50-95 : {metrics.box.map:.3f}")
     else:
         console.print(f"[yellow]⚠ best.pt non trouvé à {src_best}[/yellow]")
 
