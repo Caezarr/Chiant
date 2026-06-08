@@ -36,5 +36,5 @@ dev = [
     "pytest>=8.0",
     "ddgs>=0.9",
     "imagehash>=4.3",
-    "Pillow>=10.0",
+    "Pillow>=12.2.0",
 ]
