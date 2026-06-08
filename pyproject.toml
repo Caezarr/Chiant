@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Boring — assistant de paiement intelligent du stationnement urbain"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "ultralytics>=8.3.0",
+    "ultralytics>=8.4.61",
     "opencv-python>=4.13.0.92",
     "shapely>=2.0",
     "typer>=0.26.5",
