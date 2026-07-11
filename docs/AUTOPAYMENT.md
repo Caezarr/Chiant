@@ -24,6 +24,7 @@ PAYBYPHONE_AUTH_URL=...
 PAYBYPHONE_CLIENT_ID=...
 PAYBYPHONE_RATE_OPTION_ID=...
 PAYBYPHONE_PAYMENT_METHOD_ID=...
+PAYBYPHONE_LOCATION_ID=...     # optionnel si lookup GPS ambigu
 ```
 
 ## Procedure PayByPhone
@@ -43,7 +44,7 @@ uv run boring autopay-smoke --yes --output reports/autopay-smoke.json
    - `PAYBYPHONE_PAYMENT_METHOD_ID`
    - format exact `locationId`
    - flow critique `auth`, `location_lookup`, `session_start`, `active_session_check`, `session_stop`
-4. Tester avec `PAYMENT_DRY_RUN=false` sur une zone reelle et une duree minimale via `autopay-smoke`.
+4. Tester avec `PAYMENT_DRY_RUN=false` sur une zone reelle et une duree minimale via `autopay-smoke`. Si la resolution GPS PayByPhone retourne plusieurs zones, configurer `PAYBYPHONE_LOCATION_ID` au lieu de laisser le client choisir.
 5. Verifier via `uv run boring status --plate ...` si `--no-stop-after` a ete utilise.
 6. Garder `reports/autopay-smoke.json` pour `box-ready`.
 
@@ -63,6 +64,7 @@ La commande ecrit `reports/autopay-readiness.json` et verifie localement :
 - plaque configuree, duree, cooldown et plafonds financiers coherents
 - credentials PayByPhone presents
 - hints HAR presents (`API_BASE`, `AUTH_URL`, `CLIENT_ID`, `RATE_OPTION_ID`, `PAYMENT_METHOD_ID`)
+- `PAYBYPHONE_LOCATION_ID` optionnel pour forcer une zone connue si la resolution GPS est ambigue
 - position/geofence disponible
 - `scripts/paybyphone_endpoints.json` present avec `config_hints`
 - flow HAR critique complet : auth, resolution zone, start session, session active, stop session
@@ -96,7 +98,7 @@ Le paiement reel ne doit jamais partir si :
 - plafond session depasse
 - plafond journalier deja atteint ou depasse apres session
 - batterie critique (`payment_skipped_battery_critical`)
-- provider retourne une zone ambigue
+- provider retourne une zone ambigue sans `PAYBYPHONE_LOCATION_ID`
 
 Avant beta, `process_trigger` doit verifier `get_active_session()` avant `start_session()`.
 Avant paiement reel, `autopay-ready` doit passer, puis `autopay-smoke` doit produire `reports/autopay-smoke.json`.

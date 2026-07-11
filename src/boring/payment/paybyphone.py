@@ -135,13 +135,19 @@ class PayByPhoneClient(PaymentProvider):
         if self.dry_run:
             return "LILLE-STUB-ZONE"
         self._ensure_token()
+        if location_id := os.getenv("PAYBYPHONE_LOCATION_ID"):
+            return location_id
         r = self._client.get(f"{self.base_url}/parking/locations", params={"lat": lat, "lng": lon})
         r.raise_for_status()
-        locations = r.json()
-        if not locations:
+        location_ids = _extract_location_ids(r.json())
+        if not location_ids:
             raise PayByPhoneAPIError(f"aucune zone trouvée à ({lat},{lon})")
-        # On prend la zone la plus proche — adapté après HAR
-        return locations[0].get("locationId") or locations[0].get("id")
+        if len(location_ids) > 1:
+            raise PayByPhoneAPIError(
+                "zone PayByPhone ambigue: "
+                f"{', '.join(location_ids)}; configurez PAYBYPHONE_LOCATION_ID"
+            )
+        return location_ids[0]
 
     # ---------- Sessions ----------
 
@@ -235,3 +241,20 @@ class PayByPhoneClient(PaymentProvider):
             f"{self.base_url}/parking/accounts/{self._account_id}/sessions/{session_id}"
         )
         r.raise_for_status()
+
+
+def _extract_location_ids(payload) -> list[str]:
+    if isinstance(payload, dict):
+        locations = payload.get("locations") or payload.get("data") or [payload]
+    elif isinstance(payload, list):
+        locations = payload
+    else:
+        return []
+    ids = {
+        str(location_id).strip()
+        for item in locations
+        if isinstance(item, dict)
+        for location_id in (item.get("locationId"), item.get("id"), item.get("location_id"))
+        if location_id
+    }
+    return sorted(ids)
