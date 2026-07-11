@@ -21,6 +21,7 @@ class AutopaySmokeReport:
     amount_cents: int | None
     active_session_verified: bool
     stopped: bool
+    stop_verified: bool
     tested_at: str
     error: str | None = None
 
@@ -65,10 +66,17 @@ def run_autopay_smoke(
         active_after = provider.get_active_session(plate)
         active_verified = active_after is not None and active_after.session_id == session.session_id
         stopped = False
+        stop_verified = False
         if stop_after:
             provider.stop_session(session.session_id)
             stopped = True
-        passed = session.amount_cents > 0 and active_verified and (stopped if stop_after else True)
+            active_after_stop = provider.get_active_session(plate)
+            stop_verified = active_after_stop is None
+        passed = (
+            session.amount_cents > 0
+            and active_verified
+            and (stopped and stop_verified if stop_after else True)
+        )
         return _report(
             provider=provider,
             dry_run=dry_run,
@@ -79,6 +87,7 @@ def run_autopay_smoke(
             amount_cents=session.amount_cents,
             active_session_verified=active_verified,
             stopped=stopped,
+            stop_verified=stop_verified,
             passed=passed,
         )
     except Exception as exc:
@@ -107,6 +116,7 @@ def _report(
     amount_cents: int | None = None,
     active_session_verified: bool = False,
     stopped: bool = False,
+    stop_verified: bool = False,
     passed: bool = False,
     error: str | None = None,
 ) -> AutopaySmokeReport:
@@ -120,6 +130,7 @@ def _report(
         amount_cents=amount_cents,
         active_session_verified=active_session_verified,
         stopped=stopped,
+        stop_verified=stop_verified,
         tested_at=tested_at,
         error=error,
     )

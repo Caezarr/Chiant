@@ -9,9 +9,16 @@ from boring.payment.base import ParkingSession, PaymentProvider
 class FakeProvider(PaymentProvider):
     name = "fake-pay"
 
-    def __init__(self, *, dry_run: bool = False, active_before: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        dry_run: bool = False,
+        active_before: bool = False,
+        stop_clears_session: bool = True,
+    ) -> None:
         self.dry_run = dry_run
         self.active_before = active_before
+        self.stop_clears_session = stop_clears_session
         self.session: ParkingSession | None = None
         self.stopped_session_id: str | None = None
 
@@ -53,6 +60,8 @@ class FakeProvider(PaymentProvider):
 
     def stop_session(self, session_id: str) -> None:
         self.stopped_session_id = session_id
+        if self.stop_clears_session:
+            self.session = None
 
 
 def test_autopay_smoke_starts_verifies_and_stops_real_session():
@@ -73,6 +82,24 @@ def test_autopay_smoke_starts_verifies_and_stops_real_session():
     assert report.amount_cents == 120
     assert report.active_session_verified is True
     assert report.stopped is True
+    assert report.stop_verified is True
+    assert provider.stopped_session_id == "session-1"
+
+
+def test_autopay_smoke_fails_when_stop_does_not_clear_active_session():
+    provider = FakeProvider(stop_clears_session=False)
+
+    report = run_autopay_smoke(
+        provider=provider,
+        plate="AB-123-CD",
+        lat=50.6371,
+        lon=3.0633,
+        duration_minutes=15,
+    )
+
+    assert report.passed is False
+    assert report.stopped is True
+    assert report.stop_verified is False
     assert provider.stopped_session_id == "session-1"
 
 

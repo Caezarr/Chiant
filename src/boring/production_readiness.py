@@ -296,17 +296,19 @@ def _check_autopay_smoke_report(
     dry_run = bool(payload.get("dry_run"))
     active_verified = bool(payload.get("active_session_verified"))
     stopped = bool(payload.get("stopped"))
+    stop_verified = bool(payload.get("stop_verified"))
     amount_cents = payload.get("amount_cents")
     amount_ok = isinstance(amount_cents, int) and amount_cents > 0
     provider = str(payload.get("provider") or "unknown")
     error = payload.get("error")
-    ok = passed and not dry_run and active_verified and stopped and amount_ok
+    ok = passed and not dry_run and active_verified and stopped and stop_verified and amount_ok
     return ProductionCheck(
         "autopay_smoke",
         ok,
         (
             f"passed={passed}, dry_run={dry_run}, active={active_verified}, "
-            f"stopped={stopped}, amount={amount_cents}, provider={provider}, "
+            f"stopped={stopped}, stop_verified={stop_verified}, "
+            f"amount={amount_cents}, provider={provider}, "
             f"error={error or '-'}"
         ),
     )
