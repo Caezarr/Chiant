@@ -93,6 +93,7 @@ def _check_preset(payload: dict) -> HardwareCheck:
     battery_wh = _float(power.get("battery_capacity_wh")) or 0
     vehicle_charge_watts = _float(power.get("vehicle_charge_watts")) or 0
     detection_fps = _float(runtime.get("detection_fps")) or 0
+    min_benchmark_fps = _float(runtime.get("min_benchmark_fps")) or 0
 
     failures = []
     if model != preset.board_model:
@@ -109,6 +110,8 @@ def _check_preset(payload: dict) -> HardwareCheck:
         )
     if detection_fps < preset.recommended_detection_fps:
         failures.append(f"detection_fps={detection_fps:g}/{preset.recommended_detection_fps:g}")
+    if min_benchmark_fps < preset.min_benchmark_fps:
+        failures.append(f"min_benchmark_fps={min_benchmark_fps:g}/{preset.min_benchmark_fps:g}")
 
     return HardwareCheck(
         "hardware_preset",

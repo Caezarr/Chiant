@@ -82,7 +82,10 @@ def audit_production_readiness(
         _summary_check("hardware", hardware.passed, _failed_names(hardware.checks)),
         _check_hardware_env_consistency(values, hardware_profile_path),
         _check_vision_eval_report(vision_eval_report_path),
-        _check_benchmark_report(benchmark_report_path),
+        _check_benchmark_report(
+            benchmark_report_path,
+            required_min_fps=_hardware_required_benchmark_fps(hardware_profile_path),
+        ),
         _check_power_budget(values),
         _check_network_recovery(values, require_network_recovery=require_network_recovery),
         _check_notification_webhook(
@@ -314,7 +317,18 @@ def _check_autopay_smoke_report(
     )
 
 
-def _check_benchmark_report(path: Path) -> ProductionCheck:
+def _hardware_required_benchmark_fps(path: Path) -> float | None:
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    runtime = payload.get("runtime") or {}
+    return _json_float(runtime.get("min_benchmark_fps"))
+
+
+def _check_benchmark_report(
+    path: Path, *, required_min_fps: float | None = None
+) -> ProductionCheck:
     if not path.exists():
         return ProductionCheck("vision_benchmark", False, f"missing {path}")
     try:
@@ -326,13 +340,17 @@ def _check_benchmark_report(path: Path) -> ProductionCheck:
     frames_processed = int(payload.get("frames_processed") or 0)
     measured_fps = float(payload.get("measured_fps") or 0)
     min_fps = float(payload.get("min_fps") or 0)
+    required_fps = required_min_fps if required_min_fps is not None else min_fps
     device = str(payload.get("device") or "unknown")
-    ok = passed and frames_processed > 0 and measured_fps >= min_fps
+    ok = (
+        passed and frames_processed > 0 and min_fps >= required_fps and measured_fps >= required_fps
+    )
     return ProductionCheck(
         "vision_benchmark",
         ok,
         (
             f"passed={passed}, fps={measured_fps:.2f}/{min_fps:.2f}, "
+            f"required={required_fps:.2f}, "
             f"frames={frames_processed}, device={device}"
         ),
     )

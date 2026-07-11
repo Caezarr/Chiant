@@ -286,6 +286,29 @@ def test_production_readiness_fails_when_benchmark_fails(tmp_path: Path):
     assert any(check.name == "vision_benchmark" and not check.ok for check in report.checks)
 
 
+def test_production_readiness_requires_benchmark_threshold_from_hardware_preset(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path, benchmark_fps=2.5, benchmark_min_fps=1.0)
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    benchmark = [check for check in report.checks if check.name == "vision_benchmark"][0]
+    assert "required=2.00" in benchmark.detail
+
+
 def test_production_readiness_fails_without_notification_webhook(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     env = _ready_env()
@@ -500,7 +523,7 @@ def _write_ready_artifacts(
     charging_seen: bool = True,
     benchmark_passed: bool = True,
     benchmark_fps: float = 2.0,
-    benchmark_min_fps: float = 1.0,
+    benchmark_min_fps: float = 2.0,
     notification_passed: bool = True,
     autopay_smoke_passed: bool = True,
     hardware_battery_wh: float = 100,
@@ -594,7 +617,7 @@ def _write_ready_artifacts(
                     "vehicle_charge_watts": hardware_charge_watts,
                 },
                 "network": {"mode": "hotspot"},
-                "runtime": {"detection_fps": 2.0},
+                "runtime": {"detection_fps": 2.0, "min_benchmark_fps": 2.0},
             }
         )
     )

@@ -111,7 +111,7 @@ Pour preparer un Pi 4/5 avec runtime edge :
 ```bash
 uv run boring vision-ready --require-edge-export
 uv run boring vision-eval --dataset datasets/control_vehicle_v1 --model models/best.pt --split valid --frame-interval 1 --output reports/vision-eval.json
-uv run boring vision-benchmark --model models/best.pt --device cpu --frames 120 --min-fps 1.0
+uv run boring vision-benchmark --model models/best.pt --device cpu --frames 120 --min-fps 2.0
 ```
 
 Dans ce mode, le check exige aussi `models/best.onnx` ou `models/best.tflite`. `vision-eval` lit le split YOLO, lance le modele, calcule recall, precision, faux positifs par heure, nombre de frames evaluees et images invalides, puis ecrit `reports/vision-eval.json`. `vision-benchmark` mesure ensuite le FPS reel d'inference sur le hardware cible et ecrit `reports/vision-benchmark.json`. Sur Pi 4, viser au moins 1 FPS; sur Pi 5, viser 2 FPS ou plus avant beta terrain.

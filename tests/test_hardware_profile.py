@@ -41,11 +41,22 @@ def test_hardware_profile_fails_when_preset_requirements_are_not_met(tmp_path: P
     assert "battery=80Wh/100Wh" in preset.detail
 
 
+def test_hardware_profile_fails_when_benchmark_target_is_below_preset(tmp_path: Path):
+    profile = _write_profile(tmp_path, min_benchmark_fps=1.0)
+
+    report = audit_hardware_profile(profile)
+
+    assert report.passed is False
+    preset = [check for check in report.checks if check.name == "hardware_preset"][0]
+    assert "min_benchmark_fps=1/2" in preset.detail
+
+
 def _write_profile(
     tmp_path: Path,
     *,
     battery_capacity_wh: float = 100,
     vehicle_charge_watts: float = 30,
+    min_benchmark_fps: float = 2.0,
 ) -> Path:
     profile = tmp_path / "hardware-profile.json"
     profile.write_text(
@@ -61,7 +72,7 @@ def _write_profile(
                     "vehicle_charge_watts": vehicle_charge_watts,
                 },
                 "network": {"mode": "hotspot"},
-                "runtime": {"detection_fps": 2.0},
+                "runtime": {"detection_fps": 2.0, "min_benchmark_fps": min_benchmark_fps},
             }
         )
     )
