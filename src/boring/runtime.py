@@ -38,6 +38,7 @@ class RuntimeState:
     low_battery_alert_sent: bool = False
     critical_battery_alert_sent: bool = False
     battery_saver_active: bool = False
+    battery_critical_active: bool = False
     last_power_check: float = 0.0
     last_thermal_check: float = 0.0
     thermal_warning_alert_sent: bool = False
@@ -352,6 +353,10 @@ def _check_power(
         return status
     had_alert = state.low_battery_alert_sent or state.critical_battery_alert_sent
     saver_active = status.percent <= config.battery_low_percent and not status.charging
+    critical_active = (
+        status.percent <= config.battery_critical_percent and status.charging is not True
+    )
+    state.battery_critical_active = critical_active
     if saver_active != state.battery_saver_active:
         state.battery_saver_active = saver_active
         if event_log is not None:
@@ -394,6 +399,7 @@ def _check_power(
             notify("Boring Box — batterie revenue", f"{status.percent}% restants", sound=False)
         state.low_battery_alert_sent = False
         state.critical_battery_alert_sent = False
+        state.battery_critical_active = False
         if state.battery_saver_active:
             state.battery_saver_active = False
             if event_log is not None:
@@ -583,6 +589,19 @@ def _handle_trigger(
     zones: LilleParkingZones | None,
     detection_count: int,
 ):
+    if state.battery_critical_active:
+        event_log.write(
+            "payment_skipped_battery_critical",
+            plate=config.vehicle_plate,
+            detection_count=detection_count,
+        )
+        notify(
+            "Boring Box — paiement bloque",
+            "Batterie critique: recharge le boitier avant autopaiement.",
+            sound=True,
+        )
+        return None
+
     if state.network_online is False:
         event_log.write(
             "payment_skipped_offline",

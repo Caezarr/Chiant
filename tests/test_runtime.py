@@ -123,6 +123,32 @@ def test_handle_trigger_skips_payment_without_position(tmp_path, monkeypatch):
     assert "payment_skipped_no_position" in (tmp_path / "events.jsonl").read_text()
 
 
+def test_handle_trigger_skips_payment_when_battery_is_critical(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_notify(title: str, message: str, sound: bool = True) -> None:
+        calls.append((title, message, sound))
+
+    monkeypatch.setattr("boring.runtime.notify", fake_notify)
+    event_log = EventLog(tmp_path / "events.jsonl")
+    result = _handle_trigger(
+        payment=object(),
+        cooldown=object(),
+        state_store=BoxStateStore(tmp_path / "state.json"),
+        event_log=event_log,
+        state=RuntimeState(battery_critical_active=True, network_online=True),
+        config=BoxConfig(vehicle_plate="AB-123-CD"),
+        position_provider=StaticPositionProvider(50.6371, 3.0633),
+        zones=None,
+        detection_count=1,
+    )
+
+    assert result is None
+    assert calls[0][0] == "Boring Box — paiement bloque"
+    assert "Batterie critique" in calls[0][1]
+    assert "payment_skipped_battery_critical" in (tmp_path / "events.jsonl").read_text()
+
+
 def test_check_network_notifies_offline_then_recovered(tmp_path: Path, monkeypatch):
     calls = []
 
@@ -281,6 +307,7 @@ def test_check_power_rearms_alerts_after_recovery_threshold(tmp_path: Path, monk
     event_log = EventLog(tmp_path / "events.jsonl")
 
     _check_power(0, power, state, config, event_log)
+    assert state.battery_critical_active is False
     _check_power(2, power, state, config, event_log)
     assert state.low_battery_alert_sent is True
     _check_power(4, power, state, config, event_log)
@@ -294,6 +321,32 @@ def test_check_power_rearms_alerts_after_recovery_threshold(tmp_path: Path, monk
     ]
     events = (tmp_path / "events.jsonl").read_text()
     assert events.count("battery_low") == 2
+    assert "battery_recovered" in events
+
+
+def test_check_power_tracks_critical_battery_until_recovery(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr("boring.runtime.notify", lambda *_, **__: None)
+    config = BoxConfig(
+        battery_critical_percent=10,
+        battery_recovered_percent=35,
+        power_check_seconds=1,
+    )
+    state = RuntimeState(last_power_check=-10)
+    power = _FakePower(
+        [
+            BatteryStatus(8, False, "bat"),
+            BatteryStatus(40, False, "bat"),
+        ]
+    )
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    _check_power(0, power, state, config, event_log)
+    assert state.battery_critical_active is True
+    _check_power(2, power, state, config, event_log)
+
+    assert state.battery_critical_active is False
+    events = (tmp_path / "events.jsonl").read_text()
+    assert "battery_critical" in events
     assert "battery_recovered" in events
 
 

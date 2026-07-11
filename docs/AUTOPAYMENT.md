@@ -95,7 +95,7 @@ Le paiement reel ne doit jamais partir si :
 - cooldown actif
 - plafond session depasse
 - plafond journalier deja atteint ou depasse apres session
-- batterie critique
+- batterie critique (`payment_skipped_battery_critical`)
 - provider retourne une zone ambigue
 
 Avant beta, `process_trigger` doit verifier `get_active_session()` avant `start_session()`.
