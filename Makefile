@@ -1,4 +1,4 @@
-.PHONY: install dev zones capture detect run box-run box-doctor box-burn-in box-notify-test box-ready prepare scrape-baseline scrape-negatives import-openimages train vision-ready vision-eval vision-benchmark autopay-ready autopay-smoke mitmproxy test format lint clean
+.PHONY: install dev zones capture detect run box-run box-doctor box-burn-in box-notify-test box-ready box-evidence-pack prepare scrape-baseline scrape-negatives import-openimages train vision-ready vision-eval vision-benchmark autopay-ready autopay-smoke mitmproxy test format lint clean
 
 install:
 	uv sync
@@ -48,6 +48,9 @@ box-notify-test:
 
 box-ready:
 	uv run boring box-ready
+
+box-evidence-pack:
+	uv run boring box-evidence-pack
 
 contest:
 	@echo "Exemple : uv run boring contest-fps --subject FPS-DEMO --reason 'J''avais payé via PayByPhone.'"

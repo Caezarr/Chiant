@@ -24,6 +24,7 @@ uv run boring box-burn-in --minutes 120 --interval 60 --output burn-in/pi-first-
 uv run boring autopay-smoke --yes --output reports/autopay-smoke.json
 uv run boring box-notify-test --output reports/notification-test.json
 uv run boring box-ready --hardware-profile deploy/pi/hardware-profile.json --vision-eval-report reports/vision-eval.json --autopay-smoke-report reports/autopay-smoke.json --notification-report reports/notification-test.json --burn-in-report burn-in/pi-first-run/report.json --min-burn-in-hours 2
+uv run boring box-evidence-pack --output reports/evidence-pack.json
 
 sudo systemctl enable boring-box
 sudo systemctl start boring-box
@@ -46,4 +47,5 @@ uv run boring box-burn-in --minutes 120 --interval 60 --output burn-in/pi-daylig
 `NETWORK_RECOVERY_COMMAND` doit correspondre au reseau reel du boitier. L'exemple `sh /opt/boring/deploy/pi/network-recover.example.sh` relance la connectivite via `nmcli`; remplace-le par un script dedie si tu utilises un modem 4G ou un routeur Wi-Fi dedie.
 `box-burn-in` ecrit `report.json` et `samples.jsonl`. Avant beta terrain, garder un rapport avec `passed=true`, `camera_failures=0`, `network_failures=0`, `charging_seen=true`, `discharging_seen=true`, pas de batterie critique et pas de temperature critique.
 `box-ready` est le gate final : pour une vraie promesse 10h, relancer avec `--min-burn-in-hours 10` sur un burn-in voiture complet et un `reports/autopay-smoke.json` issu d'un paiement reel minimal.
+`box-evidence-pack` regroupe les rapports terrain dans `reports/evidence-pack.json`; sauf profil hardware, chaque preuve doit exposer `passed=true`.
 L'unit systemd utilise `Type=notify` et `WatchdogSec=120`: si la boucle interne ne ping plus systemd, le service est redemarre automatiquement.

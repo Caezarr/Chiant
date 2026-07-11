@@ -23,6 +23,12 @@ from boring.capture import capture_auto, capture_interactive, iter_frames
 from boring.config import BoxConfig
 from boring.contest.rapo import RAPOContestClient
 from boring.detect import Detector, run_live_detection
+from boring.evidence_pack import (
+    build_evidence_pack,
+    default_evidence_paths,
+    evidence_item_ok,
+    write_pack,
+)
 from boring.glue import make_payment_provider, run_pipeline
 from boring.notification_readiness import run_notification_test
 from boring.notification_readiness import write_report as write_notification_report
@@ -275,6 +281,24 @@ def box_ready(
     table.add_row("passed", "yes" if report.passed else "no", str(output))
     console.print(table)
     raise typer.Exit(0 if report.passed else 1)
+
+
+@app.command("box-evidence-pack")
+def box_evidence_pack(
+    output: Path = typer.Option(Path("reports/evidence-pack.json"), help="Pack JSON."),
+) -> None:
+    """Regroupe les rapports terrain de la box dans un pack auditable."""
+    pack = build_evidence_pack(default_evidence_paths())
+    write_pack(pack, output)
+    table = Table(title="Boring Box — evidence pack")
+    table.add_column("Evidence", style="bold")
+    table.add_column("Status")
+    table.add_column("Detail")
+    for item in pack.items:
+        table.add_row(item.name, "OK" if evidence_item_ok(item) else "FAIL", item.detail)
+    table.add_row("passed", "yes" if pack.passed else "no", str(output))
+    console.print(table)
+    raise typer.Exit(0 if pack.passed else 1)
 
 
 @app.command("contest-fps")
