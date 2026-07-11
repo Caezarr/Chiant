@@ -411,6 +411,32 @@ def test_production_readiness_fails_when_notification_test_fails(tmp_path: Path)
     assert any(check.name == "notification_test" and not check.ok for check in report.checks)
 
 
+def test_production_readiness_requires_notification_test_for_configured_webhook(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["notification"].read_text())
+    payload["webhook_host"] = "old-notify.example.test"
+    artifacts["notification"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "notification_test"][0]
+    assert "expected_host=notify.example.test" in check.detail
+
+
 def test_production_readiness_fails_when_autopay_smoke_fails(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path, autopay_smoke_passed=False)
 

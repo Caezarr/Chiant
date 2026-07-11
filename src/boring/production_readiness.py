@@ -7,6 +7,7 @@ import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Mapping
+from urllib.parse import urlparse
 
 from boring.autopay_readiness import audit_autopay_readiness
 from boring.hardware_profile import audit_hardware_profile
@@ -94,6 +95,7 @@ def audit_production_readiness(
         ),
         _check_notification_report(
             notification_report_path,
+            expected_webhook_host=_notification_webhook_host(values),
             require_notification_test=require_notification_test,
         ),
         _check_disk_space(values, storage_path),
@@ -247,9 +249,17 @@ def _check_notification_webhook(
     )
 
 
+def _notification_webhook_host(env: Mapping[str, str]) -> str | None:
+    webhook = (env.get("BORING_NOTIFY_WEBHOOK_URL") or env.get("NTFY_WEBHOOK_URL") or "").strip()
+    if not webhook:
+        return None
+    return urlparse(webhook).netloc or None
+
+
 def _check_notification_report(
     path: Path,
     *,
+    expected_webhook_host: str | None = None,
     require_notification_test: bool,
 ) -> ProductionCheck:
     if not require_notification_test:
@@ -269,11 +279,15 @@ def _check_notification_report(
     status_code = payload.get("status_code")
     host = str(payload.get("webhook_host") or "unknown")
     error = payload.get("error")
-    ok = passed and isinstance(status_code, int) and 200 <= status_code < 300
+    host_ok = expected_webhook_host is None or host == expected_webhook_host
+    ok = passed and isinstance(status_code, int) and 200 <= status_code < 300 and host_ok
     return ProductionCheck(
         "notification_test",
         ok,
-        f"passed={passed}, status={status_code}, host={host}, error={error or '-'}",
+        (
+            f"passed={passed}, status={status_code}, host={host}, "
+            f"expected_host={expected_webhook_host or '-'}, error={error or '-'}"
+        ),
     )
 
 
