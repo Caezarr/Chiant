@@ -26,6 +26,7 @@ def test_box_config_from_env(monkeypatch):
     monkeypatch.setenv("POSITION_MODE", "gpsd")
     monkeypatch.setenv("GPSD_HOST", "gps.local")
     monkeypatch.setenv("GPSD_PORT", "2948")
+    monkeypatch.setenv("BATTERY_RECOVERED_PERCENT", "40")
     monkeypatch.setenv("BATTERY_CAPACITY_WH", "100")
     monkeypatch.setenv("ESTIMATED_DRAW_WATTS", "8")
     monkeypatch.setenv("POWER_RESERVE_PERCENT", "20")
@@ -58,6 +59,7 @@ def test_box_config_from_env(monkeypatch):
     assert config.position_mode == "gpsd"
     assert config.gpsd_host == "gps.local"
     assert config.gpsd_port == 2948
+    assert config.battery_recovered_percent == 40
     assert config.battery_capacity_wh == 100
     assert config.estimated_draw_watts == 8
     assert config.power_reserve_percent == 20

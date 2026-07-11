@@ -350,6 +350,7 @@ def _check_power(
     status = power.read()
     if status is None or status.percent is None:
         return status
+    had_alert = state.low_battery_alert_sent or state.critical_battery_alert_sent
     saver_active = status.percent <= config.battery_low_percent and not status.charging
     if saver_active != state.battery_saver_active:
         state.battery_saver_active = saver_active
@@ -360,18 +361,37 @@ def _check_power(
                 active=saver_active,
                 percent=status.percent,
             )
-    if status.percent <= config.battery_critical_percent and not state.critical_battery_alert_sent:
+    should_alert = status.charging is not True
+    if (
+        should_alert
+        and status.percent <= config.battery_critical_percent
+        and not state.critical_battery_alert_sent
+    ):
         if event_log is not None:
             event_log.write("battery_critical", percent=status.percent, source=status.source)
         notify("Boring Box — batterie critique", f"{status.percent}% restants", sound=True)
         state.critical_battery_alert_sent = True
         state.low_battery_alert_sent = True
-    elif status.percent <= config.battery_low_percent and not state.low_battery_alert_sent:
+    elif (
+        should_alert
+        and status.percent <= config.battery_low_percent
+        and not state.low_battery_alert_sent
+    ):
         if event_log is not None:
             event_log.write("battery_low", percent=status.percent, source=status.source)
         notify("Boring Box — batterie faible", f"{status.percent}% restants", sound=True)
         state.low_battery_alert_sent = True
-    if status.charging:
+    recovered = status.charging or status.percent >= config.battery_recovered_percent
+    if recovered:
+        if had_alert:
+            if event_log is not None:
+                event_log.write(
+                    "battery_recovered",
+                    percent=status.percent,
+                    source=status.source,
+                    charging=status.charging,
+                )
+            notify("Boring Box — batterie revenue", f"{status.percent}% restants", sound=False)
         state.low_battery_alert_sent = False
         state.critical_battery_alert_sent = False
         if state.battery_saver_active:

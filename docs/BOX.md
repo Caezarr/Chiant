@@ -147,11 +147,11 @@ L'unit fournie utilise `Type=notify` et `WatchdogSec=120`. Le runtime envoie `RE
 
 ## Batterie et notifications
 
-Le runtime lit `/sys/class/power_supply/*/capacity`. Beaucoup de UPS HAT exposent la batterie ici. Si la batterie descend sous `BATTERY_LOW_PERCENT`, une notification est envoyee. Sous `BATTERY_CRITICAL_PERCENT`, une notification critique est envoyee.
+Le runtime lit `/sys/class/power_supply/*/capacity`. Beaucoup de UPS HAT exposent la batterie ici. Si la batterie descend sous `BATTERY_LOW_PERCENT` sans etre en charge, une notification est envoyee. Sous `BATTERY_CRITICAL_PERCENT`, une notification critique est envoyee. Les alertes sont rearmees quand la batterie charge ou repasse au-dessus de `BATTERY_RECOVERED_PERCENT`, et l'evenement `battery_recovered` est journalise.
 Il lit aussi `/sys/class/thermal/thermal_zone*/temp` et alerte au-dessus de `THERMAL_WARNING_C`, puis `THERMAL_CRITICAL_C`. C'est important pour une box dans un habitacle au soleil : avant la beta terrain, verifier avec `journalctl -u boring-box -f` que le Pi ne throttle pas pendant une detection longue.
 Le runtime surveille aussi le reseau avec `NETWORK_PROBE_TARGET`. Si la box perd le reseau, elle notifie l'utilisateur car l'autopaiement risque d'echouer. Si `NETWORK_RECOVERY_COMMAND` est configure, il tente aussi une recuperation au plus une fois par `NETWORK_RECOVERY_COOLDOWN_SECONDS`, par exemple `sh /opt/boring/deploy/pi/network-recover.example.sh` sur Raspberry Pi OS ou un script maison qui redemarre le modem 4G. Chaque tentative est journalisee avec `network_recovery_attempted`.
 
-Quand la batterie passe sous `BATTERY_LOW_PERCENT` sans etre en charge, ou quand la temperature depasse `THERMAL_WARNING_C`, la box passe en mode economie et utilise `LOW_POWER_DETECTION_FPS`. Le retour en charge ou le retour sous le seuil thermique restaure `DETECTION_FPS`. Les transitions sont journalisees avec `power_saver_changed`.
+Quand la batterie passe sous `BATTERY_LOW_PERCENT` sans etre en charge, ou quand la temperature depasse `THERMAL_WARNING_C`, la box passe en mode economie et utilise `LOW_POWER_DETECTION_FPS`. Le retour en charge, le retour au-dessus de `BATTERY_LOW_PERCENT`, ou le retour sous le seuil thermique restaure `DETECTION_FPS`. Les transitions sont journalisees avec `power_saver_changed`.
 
 Pour le prototype, utiliser un webhook simple : ntfy, Pushover, Discord webhook, Slack webhook, ou un endpoint maison. Le payload envoye est :
 

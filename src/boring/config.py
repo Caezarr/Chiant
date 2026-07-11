@@ -54,6 +54,7 @@ class BoxConfig:
     payment_dry_run: bool = True
     battery_low_percent: int = 25
     battery_critical_percent: int = 10
+    battery_recovered_percent: int = 35
     battery_capacity_wh: float | None = None
     estimated_draw_watts: float = 8.0
     required_runtime_hours: float = 10.0
@@ -110,6 +111,7 @@ class BoxConfig:
             payment_dry_run=env_bool("PAYMENT_DRY_RUN", True),
             battery_low_percent=int(os.getenv("BATTERY_LOW_PERCENT", "25")),
             battery_critical_percent=int(os.getenv("BATTERY_CRITICAL_PERCENT", "10")),
+            battery_recovered_percent=int(os.getenv("BATTERY_RECOVERED_PERCENT", "35")),
             battery_capacity_wh=env_float("BATTERY_CAPACITY_WH"),
             estimated_draw_watts=float(os.getenv("ESTIMATED_DRAW_WATTS", "8.0")),
             required_runtime_hours=float(os.getenv("REQUIRED_RUNTIME_HOURS", "10.0")),

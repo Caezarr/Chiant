@@ -257,6 +257,61 @@ def test_check_power_enables_low_power_mode_on_low_battery(tmp_path: Path, monke
     assert events.count("power_saver_changed") == 2
 
 
+def test_check_power_rearms_alerts_after_recovery_threshold(tmp_path: Path, monkeypatch):
+    calls = []
+
+    def fake_notify(title: str, message: str, sound: bool = True) -> None:
+        calls.append((title, message, sound))
+
+    monkeypatch.setattr("boring.runtime.notify", fake_notify)
+    config = BoxConfig(
+        battery_low_percent=25,
+        battery_recovered_percent=35,
+        power_check_seconds=1,
+    )
+    state = RuntimeState(last_power_check=-10)
+    power = _FakePower(
+        [
+            BatteryStatus(20, False, "bat"),
+            BatteryStatus(30, False, "bat"),
+            BatteryStatus(36, False, "bat"),
+            BatteryStatus(24, False, "bat"),
+        ]
+    )
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    _check_power(0, power, state, config, event_log)
+    _check_power(2, power, state, config, event_log)
+    assert state.low_battery_alert_sent is True
+    _check_power(4, power, state, config, event_log)
+    assert state.low_battery_alert_sent is False
+    _check_power(6, power, state, config, event_log)
+
+    assert [call[0] for call in calls] == [
+        "Boring Box — batterie faible",
+        "Boring Box — batterie revenue",
+        "Boring Box — batterie faible",
+    ]
+    events = (tmp_path / "events.jsonl").read_text()
+    assert events.count("battery_low") == 2
+    assert "battery_recovered" in events
+
+
+def test_check_power_does_not_alert_low_battery_while_charging(tmp_path: Path, monkeypatch):
+    calls = []
+    monkeypatch.setattr("boring.runtime.notify", lambda *args, **kwargs: calls.append(args))
+    config = BoxConfig(battery_low_percent=25, power_check_seconds=1)
+    state = RuntimeState(last_power_check=-10)
+    power = _FakePower([BatteryStatus(20, True, "bat")])
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    _check_power(0, power, state, config, event_log)
+
+    assert calls == []
+    assert state.low_battery_alert_sent is False
+    assert not (tmp_path / "events.jsonl").exists()
+
+
 def test_check_thermal_notifies_warning_then_recovered(tmp_path: Path, monkeypatch):
     calls = []
 
