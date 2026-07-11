@@ -6,6 +6,8 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from boring.hardware_presets import load_hardware_presets
+
 SUPPORTED_PI_MODELS = {"raspberry-pi-4", "raspberry-pi-5"}
 SUPPORTED_CAMERA_TYPES = {"usb-uvc", "camera-module-3", "camera-module-3-wide"}
 
@@ -47,6 +49,7 @@ def audit_hardware_profile(path: Path) -> HardwareProfileReport:
         )
     checks = [
         _check_pi(payload),
+        _check_preset(payload),
         _check_camera(payload),
         _check_storage(payload),
         _check_power(payload),
@@ -65,6 +68,52 @@ def _check_pi(payload: dict) -> HardwareCheck:
         "pi_board",
         ok,
         f"model={model or 'missing'}, ram={ram_gb or 0:g}GB/{min_ram}GB",
+    )
+
+
+def _check_preset(payload: dict) -> HardwareCheck:
+    preset_id = str(payload.get("preset_id") or "")
+    if not preset_id:
+        return HardwareCheck("hardware_preset", False, "missing preset_id")
+    try:
+        catalog = load_hardware_presets()
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        return HardwareCheck("hardware_preset", False, f"invalid preset catalog: {exc}")
+    preset = catalog.by_id(preset_id)
+    if preset is None:
+        return HardwareCheck("hardware_preset", False, f"unknown preset_id={preset_id}")
+
+    board = payload.get("board") or {}
+    storage = payload.get("storage") or {}
+    power = payload.get("power") or {}
+    runtime = payload.get("runtime") or {}
+    model = str(board.get("model") or "")
+    ram_gb = _float(board.get("ram_gb")) or 0
+    storage_gb = _float(storage.get("capacity_gb")) or 0
+    battery_wh = _float(power.get("battery_capacity_wh")) or 0
+    vehicle_charge_watts = _float(power.get("vehicle_charge_watts")) or 0
+    detection_fps = _float(runtime.get("detection_fps")) or 0
+
+    failures = []
+    if model != preset.board_model:
+        failures.append(f"model={model or 'missing'}/{preset.board_model}")
+    if ram_gb < preset.min_ram_gb:
+        failures.append(f"ram={ram_gb:g}GB/{preset.min_ram_gb:g}GB")
+    if storage_gb < preset.min_storage_gb:
+        failures.append(f"storage={storage_gb:g}GB/{preset.min_storage_gb:g}GB")
+    if battery_wh < preset.min_battery_wh:
+        failures.append(f"battery={battery_wh:g}Wh/{preset.min_battery_wh:g}Wh")
+    if vehicle_charge_watts < preset.min_vehicle_charge_watts:
+        failures.append(
+            f"vehicle_charge={vehicle_charge_watts:g}W/{preset.min_vehicle_charge_watts:g}W"
+        )
+    if detection_fps < preset.recommended_detection_fps:
+        failures.append(f"detection_fps={detection_fps:g}/{preset.recommended_detection_fps:g}")
+
+    return HardwareCheck(
+        "hardware_preset",
+        not failures,
+        f"preset={preset_id}" if not failures else f"preset={preset_id}, " + ", ".join(failures),
     )
 
 

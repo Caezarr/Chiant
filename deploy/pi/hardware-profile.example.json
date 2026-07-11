@@ -1,5 +1,6 @@
 {
   "profile_id": "pi5-prototype-001",
+  "preset_id": "pi5-production",
   "board": {
     "model": "raspberry-pi-5",
     "ram_gb": 8
@@ -22,6 +23,11 @@
   },
   "network": {
     "mode": "hotspot"
+  },
+  "runtime": {
+    "detection_fps": 2.0,
+    "low_power_detection_fps": 0.5,
+    "min_benchmark_fps": 2.0
   },
   "notes": "Copy to deploy/pi/hardware-profile.json and adapt to the actual box before running box-ready."
 }

@@ -23,6 +23,13 @@ Objectif : un boitier anti-FPS headless. Il demarre seul, detecte les vehicules 
 
 Pi 4 est suffisant pour une demo. Pi 5 est le minimum confortable pour tourner 10h avec detection continue, logs, reseau et marge thermique.
 
+Les variantes supportees sont versionnees dans `data/hardware_presets.json` :
+
+- `pi4-low-cost` : demo Pi 4 4 Go, batterie 80 Wh minimum, recharge voiture 20 W minimum, benchmark cible 1 FPS.
+- `pi5-production` : beta terrain Pi 5 8 Go, batterie 100 Wh minimum, recharge voiture 30 W minimum, benchmark cible 2 FPS.
+
+Le fichier `deploy/pi/hardware-profile.json` doit declarer `preset_id`; `box-ready` echoue si le profil reel ne respecte pas le preset choisi.
+
 ## Runtime
 
 Commande principale :

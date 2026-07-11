@@ -584,6 +584,7 @@ def _write_ready_artifacts(
     hardware.write_text(
         json.dumps(
             {
+                "preset_id": "pi5-production",
                 "board": {"model": "raspberry-pi-5", "ram_gb": 8},
                 "camera": {"type": "usb-uvc", "device": "/dev/video0"},
                 "storage": {"capacity_gb": 64, "endurance": True},
@@ -593,6 +594,7 @@ def _write_ready_artifacts(
                     "vehicle_charge_watts": hardware_charge_watts,
                 },
                 "network": {"mode": "hotspot"},
+                "runtime": {"detection_fps": 2.0},
             }
         )
     )
