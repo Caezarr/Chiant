@@ -22,7 +22,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/Status-pre--alpha-orange" alt="Status">
   <img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Tests-167%2F167-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-169%2F169-brightgreen" alt="Tests">
 </p>
 
 ---
@@ -99,11 +99,12 @@ git clone https://github.com/Caezarr/Chiant.git
 cd Chiant
 cp .env.example .env          # → renseigne ASSISTED_IMESSAGE_RECIPIENT au minimum
 make dev                      # uv sync + outils dev
-make test                     # 167 tests doivent passer
+make test                     # 169 tests doivent passer
 make zones                    # télécharge / met à jour les zones Lille
 make scrape-baseline          # images web candidates control_vehicle
 make scrape-negatives         # hard negatives gratuits
 make import-openimages        # hard negatives Open Images depuis CSV locaux
+make vision-sources           # catalogue sources gratuites candidates
 make vision-ready             # audit dataset/modele + revue licence
 uv run boring vision-ready --allow-unreviewed-sources  # rehearsal dataset candidat
 uv run boring vision-eval --dataset datasets/control_vehicle_v1 --model models/best.pt --split valid --frame-interval 1
@@ -138,7 +139,7 @@ Architecture boîtier : [docs/BOX.md](docs/BOX.md). Déploiement Pi : [deploy/pi
 - Vertical 2 — **`boring.contest`** : génération RAPO automatique + escalade CCSP
 - CLI complète : `capture / detect / run / pay-now / contest-fps`
 - Runtime headless boîtier : `box-run / box-doctor`, config Pi 4 / Pi 5 documentée
-- Tests pytest (167/167), CI GitHub Actions, pre-commit hooks
+- Tests pytest (169/169), CI GitHub Actions, pre-commit hooks
 
 ### Ce qui manque ⏳
 - Modèle custom `control_vehicle` (besoin captation terrain — cf. HUMAN-TODO #1-3)

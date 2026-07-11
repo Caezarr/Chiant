@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-11",
+  "sources": [
+    {
+      "id": "open-images-v7",
+      "name": "Open Images V7",
+      "url": "https://storage.googleapis.com/openimages/web/index.html",
+      "usage": ["negatives"],
+      "free": true,
+      "license_status": "open-images",
+      "train_policy": "allowed-with-license-review",
+      "action": "Import Car, Van, Truck and Bus annotations as hard negatives."
+    },
+    {
+      "id": "mapillary",
+      "name": "Mapillary street-level imagery",
+      "url": "https://www.mapillary.com/",
+      "usage": ["positives", "negatives"],
+      "free": true,
+      "license_status": "cc-by-sa-review-required",
+      "train_policy": "candidate-review-required",
+      "action": "Search European parking enforcement and municipal vehicles; keep attribution and review terms before training."
+    },
+    {
+      "id": "roboflow-universe",
+      "name": "Roboflow Universe",
+      "url": "https://universe.roboflow.com/",
+      "usage": ["positives", "negatives"],
+      "free": true,
+      "license_status": "dataset-specific",
+      "train_policy": "allowed-if-dataset-license-allows",
+      "action": "Search parking enforcement, ANPR, scan car and police car datasets; import only clearly licensed projects."
+    },
+    {
+      "id": "bdd100k",
+      "name": "BDD100K",
+      "url": "https://bdd-data.berkeley.edu/",
+      "usage": ["negatives"],
+      "free": true,
+      "license_status": "research-dataset-review-required",
+      "train_policy": "candidate-review-required",
+      "action": "Use driving/weather/night scenes for robustness negatives after checking commercial terms."
+    },
+    {
+      "id": "official-municipal-photos",
+      "name": "Official municipal and operator photos",
+      "url": "https://www.data.gouv.fr/",
+      "usage": ["positives"],
+      "free": true,
+      "license_status": "page-specific-open-license-or-permission",
+      "train_policy": "candidate-review-required",
+      "action": "Search open-license pages from cities, parking operators and public tenders; request permission when unclear."
+    },
+    {
+      "id": "web-search-candidates",
+      "name": "DuckDuckGo image candidates",
+      "url": "local:scripts/scrape_baseline.py",
+      "usage": ["positives", "negatives"],
+      "free": true,
+      "license_status": "unknown-review-before-training",
+      "train_policy": "candidate-review-required",
+      "action": "Use only as a triage queue; every image must be manually reviewed before it can pass vision-ready."
+    },
+    {
+      "id": "social-video-frames",
+      "name": "YouTube and TikTok frames",
+      "url": "manual-search",
+      "usage": ["positives"],
+      "free": true,
+      "license_status": "copyright-risk",
+      "train_policy": "validation-only-do-not-train",
+      "action": "Use only for private visual research or validation notes; do not add to commercial training manifests."
+    }
+  ]
+}

@@ -80,6 +80,48 @@ def test_audit_vision_readiness_fails_with_unreviewed_sources(tmp_path: Path):
     assert rehearsal.passed is True
 
 
+def test_audit_vision_readiness_fails_without_enough_free_sources(tmp_path: Path):
+    manifest = _write_manifest(tmp_path, positives=2, negatives=3)
+    dataset = _write_dataset(tmp_path, train=2, valid=1, names="names: ['control_vehicle']")
+    catalog = tmp_path / "sources.json"
+    catalog.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "sources": [
+                    {
+                        "id": "video-only",
+                        "name": "video-only",
+                        "url": "manual",
+                        "usage": ["positives"],
+                        "free": True,
+                        "license_status": "copyright-risk",
+                        "train_policy": "validation-only-do-not-train",
+                        "action": "do not train",
+                    }
+                ],
+            }
+        )
+    )
+    model = tmp_path / "models" / "best.pt"
+    model.parent.mkdir()
+    model.write_bytes(b"model")
+
+    report = audit_vision_readiness(
+        dataset_path=dataset,
+        model_path=model,
+        baseline_manifest=manifest,
+        source_catalog=catalog,
+        min_positive_candidates=2,
+        min_negative_candidates=3,
+        min_train_images=2,
+        min_valid_images=1,
+    )
+
+    assert report.passed is False
+    assert any(check.name == "source_catalog" and not check.ok for check in report.checks)
+
+
 def test_audit_vision_readiness_can_require_edge_export(tmp_path: Path):
     manifest = _write_manifest(tmp_path, positives=1, negatives=1)
     dataset = _write_dataset(tmp_path, train=1, valid=1, names="names:\n  0: control_vehicle")

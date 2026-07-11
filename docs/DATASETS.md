@@ -4,6 +4,12 @@ Objectif : obtenir rapidement un modele `control_vehicle` sans dependre uniqueme
 
 ## Sources gratuites utiles
 
+Le catalogue versionne `data/vision_free_sources.json` garde les sources candidates lisibles par la CLI et par `vision-ready`. Pour l'afficher :
+
+```bash
+uv run boring vision-sources
+```
+
 | Source | Usage | Licence / risque | Action |
 |---|---|---|---|
 | Open Images V7 | Negatifs et vehicules generiques | Images avec annotations a grande echelle, verifier licence image par image | Telecharger classes `Car`, `Van`, `Truck`, `Bus` pour hard negatives |
@@ -88,6 +94,7 @@ uv run boring vision-ready
 
 La commande verifie :
 
+- `data/vision_free_sources.json` : au moins deux sources positives candidates et deux sources negatives candidates gratuites, sans compter les sources reservees a la validation interne.
 - `datasets/baseline/manifest.jsonl` : volume minimal de positifs probables et hard negatives gratuits.
 - revue licence : toutes les lignes du manifest doivent etre approuvees avant un gate prod.
 - `datasets/control_vehicle_v1/data.yaml` : export YOLOv8 present, classe `control_vehicle`, images train/valid suffisantes.

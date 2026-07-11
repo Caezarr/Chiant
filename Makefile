@@ -1,4 +1,4 @@
-.PHONY: install dev zones capture detect run box-run box-doctor box-burn-in box-notify-test box-ready box-evidence-pack prepare scrape-baseline scrape-negatives import-openimages train vision-ready vision-eval vision-benchmark autopay-ready autopay-smoke mitmproxy test format lint clean
+.PHONY: install dev zones capture detect run box-run box-doctor box-burn-in box-notify-test box-ready box-evidence-pack prepare scrape-baseline scrape-negatives import-openimages train vision-sources vision-ready vision-eval vision-benchmark autopay-ready autopay-smoke mitmproxy test format lint clean
 
 install:
 	uv sync
@@ -58,6 +58,9 @@ contest:
 
 train:
 	uv run python scripts/train_custom.py --data datasets/control_vehicle_v1/data.yaml
+
+vision-sources:
+	uv run boring vision-sources
 
 vision-ready:
 	uv run boring vision-ready

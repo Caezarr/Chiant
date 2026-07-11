@@ -39,6 +39,7 @@ from boring.vision_eval import evaluate_yolo_dataset
 from boring.vision_eval import write_report as write_vision_eval_report
 from boring.vision_readiness import audit_vision_readiness
 from boring.vision_readiness import write_report as write_vision_readiness_report
+from boring.vision_sources import load_source_catalog
 
 app = typer.Typer(help="Boring — paiement intelligent du stationnement.")
 console = Console()
@@ -408,6 +409,10 @@ def vision_ready(
         Path("datasets/baseline/manifest.jsonl"),
         help="Manifest des images web gratuites scrapees.",
     ),
+    source_catalog: Path = typer.Option(
+        Path("data/vision_free_sources.json"),
+        help="Catalogue JSON des sources gratuites candidates.",
+    ),
     output: Path = typer.Option(Path("reports/vision-readiness.json"), help="Rapport JSON."),
     require_edge_export: bool = typer.Option(
         False,
@@ -423,6 +428,7 @@ def vision_ready(
         dataset_path=dataset,
         model_path=model,
         baseline_manifest=baseline_manifest,
+        source_catalog=source_catalog,
         require_edge_export=require_edge_export,
         require_license_review=not allow_unreviewed_sources,
     )
@@ -436,6 +442,30 @@ def vision_ready(
     table.add_row("passed", "yes" if report.passed else "no", str(output))
     console.print(table)
     raise typer.Exit(0 if report.passed else 1)
+
+
+@app.command("vision-sources")
+def vision_sources(
+    source_catalog: Path = typer.Option(
+        Path("data/vision_free_sources.json"),
+        help="Catalogue JSON des sources gratuites candidates.",
+    ),
+) -> None:
+    """Affiche les sources gratuites candidates pour le dataset vision."""
+    catalog = load_source_catalog(source_catalog)
+    table = Table(title="Computer vision free sources")
+    table.add_column("Source", style="bold")
+    table.add_column("Usage")
+    table.add_column("Policy")
+    table.add_column("Action")
+    for source in catalog.sources:
+        table.add_row(
+            source.name,
+            ",".join(source.usage),
+            source.train_policy,
+            source.action,
+        )
+    console.print(table)
 
 
 @app.command("vision-benchmark")

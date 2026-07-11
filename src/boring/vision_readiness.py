@@ -6,6 +6,8 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from boring.vision_sources import load_source_catalog
+
 APPROVED_LICENSE_STATUSES = {
     "approved",
     "owned",
@@ -46,8 +48,11 @@ def audit_vision_readiness(
     dataset_path: Path = Path("datasets/control_vehicle_v1"),
     model_path: Path = Path("models/best.pt"),
     baseline_manifest: Path = Path("datasets/baseline/manifest.jsonl"),
+    source_catalog: Path = Path("data/vision_free_sources.json"),
     min_positive_candidates: int = 100,
     min_negative_candidates: int = 500,
+    min_positive_sources: int = 2,
+    min_negative_sources: int = 2,
     min_train_images: int = 300,
     min_valid_images: int = 50,
     required_class: str = "control_vehicle",
@@ -55,6 +60,11 @@ def audit_vision_readiness(
     require_license_review: bool = True,
 ) -> VisionReadinessReport:
     checks = [
+        _check_source_catalog(
+            source_catalog,
+            min_positive_sources=min_positive_sources,
+            min_negative_sources=min_negative_sources,
+        ),
         _check_baseline_manifest(
             baseline_manifest,
             min_positive_candidates=min_positive_candidates,
@@ -119,6 +129,32 @@ def _check_baseline_manifest(
         (
             f"positives={positives}/{min_positive_candidates}, "
             f"negatives={negatives}/{min_negative_candidates}, bad_lines={bad_lines}"
+        ),
+    )
+
+
+def _check_source_catalog(
+    path: Path,
+    *,
+    min_positive_sources: int,
+    min_negative_sources: int,
+) -> VisionCheck:
+    if not path.exists():
+        return VisionCheck("source_catalog", False, f"missing {path}")
+    try:
+        catalog = load_source_catalog(path)
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        return VisionCheck("source_catalog", False, f"invalid {path}: {exc}")
+    positives = catalog.count_trainable("positives")
+    negatives = catalog.count_trainable("negatives")
+    ok = positives >= min_positive_sources and negatives >= min_negative_sources
+    return VisionCheck(
+        "source_catalog",
+        ok,
+        (
+            f"sources={len(catalog.sources)}, "
+            f"positive_trainable={positives}/{min_positive_sources}, "
+            f"negative_trainable={negatives}/{min_negative_sources}"
         ),
     )
 
