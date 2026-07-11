@@ -133,9 +133,7 @@ def extract_config_hints(records: list[dict]) -> dict:
             break
 
     # Patterns pour account_id dans les URLs de session
-    account_session_re = re.compile(
-        r"/parking/accounts/([^/]+)/sessions", re.I
-    )
+    account_session_re = re.compile(r"/parking/accounts/([^/]+)/sessions", re.I)
 
     for rec in records:
         url = rec.get("url", "")
@@ -148,15 +146,14 @@ def extract_config_hints(records: list[dict]) -> dict:
 
         # auth_url + client_id : POST avec grant_type=password
         if method == "POST" and (
-            body.get("grant_type") == "password"
-            or "grant_type=password" in (body_text or "")
+            body.get("grant_type") == "password" or "grant_type=password" in (body_text or "")
         ):
             if hints["auth_url"] is None:
                 hints["auth_url"] = url
             if hints["client_id"] is None:
-                hints["client_id"] = body.get("client_id") or _parse_form_body(
-                    body_text or ""
-                ).get("client_id")
+                hints["client_id"] = body.get("client_id") or _parse_form_body(body_text or "").get(
+                    "client_id"
+                )
 
         # account_id depuis URL sessions
         if hints["account_id"] is None:
@@ -167,15 +164,59 @@ def extract_config_hints(records: list[dict]) -> dict:
         # rate_option_id + payment_method_id depuis POST de démarrage de session
         if method == "POST" and account_session_re.search(url):
             if hints["rate_option_id"] is None:
-                hints["rate_option_id"] = body.get("rateOptionId") or body.get(
-                    "rate_option_id"
-                )
+                hints["rate_option_id"] = body.get("rateOptionId") or body.get("rate_option_id")
             if hints["payment_method_id"] is None:
                 hints["payment_method_id"] = body.get("paymentMethodId") or body.get(
                     "payment_method_id"
                 )
 
     return hints
+
+
+def extract_flow_summary(records: list[dict]) -> dict:
+    """Detecte si le HAR couvre les etapes critiques du paiement."""
+    summary = {
+        "auth": False,
+        "account_lookup": False,
+        "location_lookup": False,
+        "session_start": False,
+        "active_session_check": False,
+        "session_stop": False,
+        "successful_statuses": 0,
+        "failed_statuses": 0,
+    }
+    account_sessions_re = re.compile(r"/parking/accounts/[^/]+/sessions/?$", re.I)
+    current_session_re = re.compile(r"/parking/accounts/[^/]+/sessions/(current|active)", re.I)
+    session_stop_re = re.compile(r"/parking/accounts/[^/]+/sessions/[^/?]+", re.I)
+    for rec in records:
+        method = (rec.get("method") or "").upper()
+        url = rec.get("url") or ""
+        status = rec.get("response_status")
+        body_text = rec.get("request_body")
+        body = _parse_body_raw(body_text)
+        path = urllib.parse.urlparse(url).path
+        if isinstance(status, int) and 200 <= status < 400:
+            summary["successful_statuses"] += 1
+        elif isinstance(status, int) and status >= 400:
+            summary["failed_statuses"] += 1
+        if method == "POST" and (
+            body.get("grant_type") == "password" or "grant_type=password" in (body_text or "")
+        ):
+            summary["auth"] = True
+        if method == "GET" and path.rstrip("/").endswith("/parking/accounts"):
+            summary["account_lookup"] = True
+        if method == "GET" and "/parking/locations" in path:
+            summary["location_lookup"] = True
+        if method == "POST" and account_sessions_re.search(path):
+            summary["session_start"] = True
+        if method == "GET" and (
+            current_session_re.search(path) or account_sessions_re.search(path)
+        ):
+            summary["active_session_check"] = True
+        if method in {"DELETE", "PATCH", "PUT", "POST"} and session_stop_re.search(path):
+            if not account_sessions_re.search(path):
+                summary["session_stop"] = True
+    return summary
 
 
 def _summarize_hints(hints: dict) -> None:
@@ -232,6 +273,8 @@ def _patch_env(hints: dict, env_path: Path) -> None:
         "PAYBYPHONE_API_BASE": hints.get("base_url"),
         "PAYBYPHONE_AUTH_URL": hints.get("auth_url"),
         "PAYBYPHONE_CLIENT_ID": hints.get("client_id"),
+        "PAYBYPHONE_RATE_OPTION_ID": hints.get("rate_option_id"),
+        "PAYBYPHONE_PAYMENT_METHOD_ID": hints.get("payment_method_id"),
     }
     for var, val in mapping.items():
         if val is not None:
@@ -270,13 +313,18 @@ def main() -> int:
         return 1
 
     hints = extract_config_hints(records)
-    output = {"config_hints": hints, "requests": records}
+    flow_summary = extract_flow_summary(records)
+    output = {"config_hints": hints, "flow_summary": flow_summary, "requests": records}
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(output, indent=2, ensure_ascii=False))
 
     summarize(records)
     _summarize_hints(hints)
+    console.print("\n[bold]Flow critique detecte :[/bold]")
+    for key, value in flow_summary.items():
+        color = "green" if value else "yellow"
+        console.print(f"  [{color}]{key}[/{color}] : {value}")
 
     console.print(f"\n[green]✓[/green] {len(records)} requêtes → {args.out}")
 

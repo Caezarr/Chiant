@@ -173,8 +173,11 @@ class PayByPhoneClient(PaymentProvider):
             "licensePlate": vehicle_plate,
             "duration": {"timeUnit": "Minutes", "quantity": duration_minutes},
             "startTime": start_time.isoformat(timespec="seconds"),
-            # rateOptionId + paymentMethod à compléter via HAR
         }
+        if rate_option_id := os.getenv("PAYBYPHONE_RATE_OPTION_ID"):
+            payload["rateOptionId"] = rate_option_id
+        if payment_method_id := os.getenv("PAYBYPHONE_PAYMENT_METHOD_ID"):
+            payload["paymentMethodId"] = payment_method_id
         try:
             r = self._client.post(
                 f"{self.base_url}/parking/accounts/{self._account_id}/sessions",

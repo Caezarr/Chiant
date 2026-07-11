@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from boring.detect import StreamTracker
+from boring.detect import AdaptiveFrameGate, StreamTracker
 
 
 def test_tracker_requires_consecutive_detections():
@@ -41,3 +41,13 @@ def test_tracker_no_trigger_without_detection():
     t = StreamTracker(required_consecutive=3, window_seconds=10.0)
     for i in range(10):
         assert t.update(False, float(i)) is False
+
+
+def test_adaptive_frame_gate_honors_runtime_fps():
+    gate = AdaptiveFrameGate()
+
+    assert gate.allow(0.0, fps=1.0) is True
+    assert gate.allow(0.5, fps=1.0) is False
+    assert gate.allow(1.0, fps=1.0) is True
+    assert gate.allow(1.21, fps=5.0) is True
+    assert gate.allow(1.25, fps=5.0) is False

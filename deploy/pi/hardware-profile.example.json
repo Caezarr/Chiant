@@ -1,0 +1,27 @@
+{
+  "profile_id": "pi5-prototype-001",
+  "board": {
+    "model": "raspberry-pi-5",
+    "ram_gb": 8
+  },
+  "camera": {
+    "type": "usb-uvc",
+    "device": "/dev/video0",
+    "resolution": "1920x1080"
+  },
+  "storage": {
+    "type": "microSD-endurance",
+    "capacity_gb": 64,
+    "endurance": true
+  },
+  "power": {
+    "ups_power_supply": true,
+    "battery_capacity_wh": 100,
+    "vehicle_charge_watts": 30,
+    "charge_connector": "usb-c-pd"
+  },
+  "network": {
+    "mode": "hotspot"
+  },
+  "notes": "Copy to deploy/pi/hardware-profile.json and adapt to the actual box before running box-ready."
+}
