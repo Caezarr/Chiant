@@ -12,8 +12,8 @@ from rich.console import Console
 console = Console()
 
 
-def notify(title: str, message: str, sound: bool = True) -> None:
-    """Envoie une notif webhook/macOS. Fallback : print console."""
+def notify(title: str, message: str, sound: bool = True) -> bool:
+    """Envoie une notif webhook/macOS. Retourne True si un canal externe a repondu."""
     webhook_url = _webhook_url()
     if webhook_url:
         try:
@@ -23,17 +23,19 @@ def notify(title: str, message: str, sound: bool = True) -> None:
                 timeout=5,
             ).raise_for_status()
             console.print(f"[green]WEBHOOK[/green] {title} — {message}")
-            return
+            return True
         except httpx.HTTPError as e:
             console.print(f"[yellow]Webhook notif échouée[/yellow] {e}")
     if sys.platform != "darwin":
         console.print(f"[yellow]NOTIF[/yellow] {title} — {message}")
-        return
+        return False
     script = f"display notification {shlex.quote(message)} with title {shlex.quote(title)}"
     if sound:
         script += ' sound name "Ping"'
-    subprocess.run(["osascript", "-e", script], check=False)
+    result = subprocess.run(["osascript", "-e", script], check=False)
+    ok = result.returncode == 0
     console.print(f"[green]NOTIF[/green] {title} — {message}")
+    return ok
 
 
 def _webhook_url() -> str | None:

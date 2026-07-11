@@ -350,6 +350,20 @@ def test_check_power_tracks_critical_battery_until_recovery(tmp_path: Path, monk
     assert "battery_recovered" in events
 
 
+def test_check_power_logs_notification_failure_for_low_battery(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr("boring.runtime.notify", lambda *_, **__: False)
+    config = BoxConfig(battery_low_percent=25, power_check_seconds=1)
+    state = RuntimeState(last_power_check=-10)
+    power = _FakePower([BatteryStatus(20, False, "bat")])
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    _check_power(0, power, state, config, event_log)
+
+    events = (tmp_path / "events.jsonl").read_text()
+    assert "battery_low" in events
+    assert "notification_failed" in events
+
+
 def test_check_power_does_not_alert_low_battery_while_charging(tmp_path: Path, monkeypatch):
     calls = []
     monkeypatch.setattr("boring.runtime.notify", lambda *args, **kwargs: calls.append(args))

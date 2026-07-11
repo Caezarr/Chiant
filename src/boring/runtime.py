@@ -374,7 +374,12 @@ def _check_power(
     ):
         if event_log is not None:
             event_log.write("battery_critical", percent=status.percent, source=status.source)
-        notify("Boring Box — batterie critique", f"{status.percent}% restants", sound=True)
+        _notify_power(
+            "Boring Box — batterie critique",
+            f"{status.percent}% restants",
+            status=status,
+            event_log=event_log,
+        )
         state.critical_battery_alert_sent = True
         state.low_battery_alert_sent = True
     elif (
@@ -384,7 +389,12 @@ def _check_power(
     ):
         if event_log is not None:
             event_log.write("battery_low", percent=status.percent, source=status.source)
-        notify("Boring Box — batterie faible", f"{status.percent}% restants", sound=True)
+        _notify_power(
+            "Boring Box — batterie faible",
+            f"{status.percent}% restants",
+            status=status,
+            event_log=event_log,
+        )
         state.low_battery_alert_sent = True
     recovered = status.charging or status.percent >= config.battery_recovered_percent
     if recovered:
@@ -396,7 +406,13 @@ def _check_power(
                     source=status.source,
                     charging=status.charging,
                 )
-            notify("Boring Box — batterie revenue", f"{status.percent}% restants", sound=False)
+            _notify_power(
+                "Boring Box — batterie revenue",
+                f"{status.percent}% restants",
+                status=status,
+                event_log=event_log,
+                sound=False,
+            )
         state.low_battery_alert_sent = False
         state.critical_battery_alert_sent = False
         state.battery_critical_active = False
@@ -410,6 +426,24 @@ def _check_power(
                     percent=status.percent,
                 )
     return status
+
+
+def _notify_power(
+    title: str,
+    message: str,
+    *,
+    status: BatteryStatus,
+    event_log: EventLog | None,
+    sound: bool = True,
+) -> None:
+    sent = notify(title, message, sound=sound)
+    if sent is False and event_log is not None:
+        event_log.write(
+            "notification_failed",
+            title=title,
+            percent=status.percent,
+            source=status.source,
+        )
 
 
 def _check_thermal(

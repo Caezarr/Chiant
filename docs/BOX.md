@@ -173,7 +173,7 @@ BORING_NOTIFY_WEBHOOK_URL=https://... uv run boring box-doctor
 BORING_NOTIFY_WEBHOOK_URL=https://... uv run boring box-notify-test --output reports/notification-test.json
 ```
 
-`box-doctor` echoue si aucun webhook n'est configure, car une box 10h sans canal batterie faible n'est pas installable. `box-notify-test` echoue si le endpoint ne retourne pas 2xx; verifier ensuite la reception sur le telephone avant de lancer le burn-in long.
+`box-doctor` echoue si aucun webhook n'est configure, car une box 10h sans canal batterie faible n'est pas installable. `box-notify-test` echoue si le endpoint ne retourne pas 2xx; verifier ensuite la reception sur le telephone avant de lancer le burn-in long. Pendant le runtime, si une alerte batterie faible/critique ne part sur aucun canal externe, l'evenement `notification_failed` est journalise dans `BOX_EVENT_LOG_PATH`.
 
 ## Autonomie 10h
 
