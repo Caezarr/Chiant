@@ -146,8 +146,8 @@ Format attendu par le gate final :
   "model_path": "models/best.pt",
   "dataset_id": "field-pi5-daylight-v1",
   "recall": 0.93,
-  "precision": 0.98,
-  "false_positive_per_hour": 0.5,
+  "precision": 0.989,
+  "false_positive_per_hour": 0.333,
   "evaluated_hours": 3.0,
   "frames_evaluated": 10800,
   "true_positives": 93,
@@ -159,5 +159,7 @@ Format attendu par le gate final :
   "passed": true
 }
 ```
+
+`box-ready` et `box-evidence-pack` recalculent `recall`, `precision` et `false_positive_per_hour` depuis les compteurs bruts; modifier seulement les ratios dans le JSON ne suffit pas a faire passer le gate.
 
 Si la precision n'est pas atteinte, rester en mode `assisted` ou demander confirmation user avant paiement.

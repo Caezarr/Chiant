@@ -952,7 +952,21 @@ def _check_vision_eval_report(
     evaluated_hours = _json_float(payload.get("evaluated_hours")) or 0.0
     frames_evaluated = int(payload.get("frames_evaluated") or 0)
     true_positives = int(payload.get("true_positives") or 0)
+    false_positives = int(payload.get("false_positives") or 0)
+    false_negatives = int(payload.get("false_negatives") or 0)
     invalid_images = int(payload.get("invalid_images") or 0)
+    precision = _json_float(payload.get("precision")) or 0.0
+    expected_recall = _ratio(true_positives, true_positives + false_negatives)
+    expected_precision = _ratio(true_positives, true_positives + false_positives)
+    expected_fp_per_hour = false_positives / evaluated_hours if evaluated_hours > 0 else None
+    metrics_consistent = (
+        expected_recall is not None
+        and abs(recall - expected_recall) <= 0.001
+        and expected_precision is not None
+        and abs(precision - expected_precision) <= 0.001
+        and expected_fp_per_hour is not None
+        and abs(false_positive_per_hour - expected_fp_per_hour) <= 0.001
+    )
     report_model = str(payload.get("model_path") or "")
     model_ok = expected_model_path is None or _same_path(report_model, expected_model_path)
     report_dataset = str(payload.get("dataset_path") or "")
@@ -968,6 +982,7 @@ def _check_vision_eval_report(
         and frames_evaluated > 0
         and true_positives > 0
         and invalid_images == 0
+        and metrics_consistent
         and model_ok
         and dataset_ok
     )
@@ -978,7 +993,9 @@ def _check_vision_eval_report(
             f"passed={passed}, recall={recall:.3f}/{min_recall:.3f}, "
             f"fp_per_hour={false_positive_per_hour:.2f}/{max_false_positive_per_hour:.2f}, "
             f"hours={evaluated_hours:.1f}, frames={frames_evaluated}, "
-            f"true_positives={true_positives}, invalid={invalid_images}, "
+            f"true_positives={true_positives}, false_positives={false_positives}, "
+            f"false_negatives={false_negatives}, invalid={invalid_images}, "
+            f"metrics_consistent={metrics_consistent}, "
             f"model={report_model or '-'}/{expected_model_path or '-'}, "
             f"dataset={report_dataset or '-'}/{expected_dataset_path or '-'}"
         ),
@@ -1425,6 +1442,12 @@ def _json_int(value) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _ratio(numerator: int, denominator: int) -> float | None:
+    if denominator <= 0:
+        return None
+    return numerator / denominator
 
 
 def _duration_seconds(value: str) -> float | None:
