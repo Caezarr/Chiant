@@ -604,6 +604,45 @@ def test_evidence_pack_requires_complete_vision_benchmark(tmp_path: Path):
     assert "detections=12" in item.detail
     assert "device=ok" in item.detail
 
+    alignment = [item for item in pack.items if item.name == "hardware_benchmark_alignment"][0]
+    assert alignment.passed is True
+    assert "measured_fps=2.00/2.00" in alignment.detail
+    assert "benchmark_min_fps=2.00/2.00" in alignment.detail
+
+
+def test_evidence_pack_rejects_benchmark_below_hardware_profile_target(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_benchmark"].read_text())
+    payload["min_fps"] = 1.0
+    payload["measured_fps"] = 1.5
+    paths["vision_benchmark"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    alignment = [item for item in pack.items if item.name == "hardware_benchmark_alignment"][0]
+    assert pack.passed is False
+    assert alignment.passed is False
+    assert "measured_fps=1.50/2.00" in alignment.detail
+    assert "benchmark_min_fps=1.00/2.00" in alignment.detail
+
+
+def test_evidence_pack_rejects_benchmark_minimum_below_hardware_profile_target(
+    tmp_path: Path,
+):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_benchmark"].read_text())
+    payload["min_fps"] = 1.0
+    payload["measured_fps"] = 2.0
+    paths["vision_benchmark"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    alignment = [item for item in pack.items if item.name == "hardware_benchmark_alignment"][0]
+    assert pack.passed is False
+    assert alignment.passed is False
+    assert "measured_fps=2.00/2.00" in alignment.detail
+    assert "benchmark_min_fps=1.00/2.00" in alignment.detail
+
 
 def test_evidence_pack_rejects_slow_vision_benchmark(tmp_path: Path):
     paths = _write_evidence(tmp_path)

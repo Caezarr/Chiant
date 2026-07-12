@@ -104,6 +104,13 @@ def build_evidence_pack(
     ]
     if "burn_in" in paths and "runtime_events" in paths:
         items.append(_read_runtime_alignment(paths["burn_in"], paths["runtime_events"]))
+    if "hardware_profile" in paths and "vision_benchmark" in paths:
+        items.append(
+            _read_hardware_benchmark_alignment(
+                paths["hardware_profile"],
+                paths["vision_benchmark"],
+            )
+        )
     if max_report_age_hours is not None:
         items.append(
             _read_report_freshness(
@@ -392,6 +399,89 @@ def _read_runtime_alignment(
             f"{max_heartbeat_gap_seconds:.0f}s, "
             f"blocking={','.join(blocking) if blocking else '-'}, "
             f"invalid_lines={invalid_lines}"
+        ),
+    )
+
+
+def _read_hardware_benchmark_alignment(
+    hardware_profile_path: Path,
+    benchmark_path: Path,
+) -> EvidenceItem:
+    path = f"{hardware_profile_path} + {benchmark_path}"
+    if not hardware_profile_path.exists() or not benchmark_path.exists():
+        missing = [
+            str(missing_path)
+            for missing_path in (hardware_profile_path, benchmark_path)
+            if not missing_path.exists()
+        ]
+        return EvidenceItem(
+            "hardware_benchmark_alignment",
+            path,
+            False,
+            False,
+            None,
+            None,
+            None,
+            _format("hardware_benchmark_alignment"),
+            f"missing {', '.join(missing)}",
+        )
+
+    try:
+        hardware = json.loads(hardware_profile_path.read_text())
+        benchmark = json.loads(benchmark_path.read_text())
+    except json.JSONDecodeError as exc:
+        return EvidenceItem(
+            "hardware_benchmark_alignment",
+            path,
+            True,
+            False,
+            None,
+            None,
+            None,
+            _format("hardware_benchmark_alignment"),
+            f"invalid json {exc}",
+        )
+    if not isinstance(hardware, dict) or not isinstance(benchmark, dict):
+        return EvidenceItem(
+            "hardware_benchmark_alignment",
+            path,
+            True,
+            True,
+            False,
+            None,
+            None,
+            _format("hardware_benchmark_alignment"),
+            "json is not an object",
+        )
+
+    runtime = hardware.get("runtime") if isinstance(hardware.get("runtime"), dict) else {}
+    required_fps = _number(runtime.get("min_benchmark_fps"))
+    measured_fps = _number(benchmark.get("measured_fps"))
+    benchmark_min_fps = _number(benchmark.get("min_fps"))
+    benchmark_passed = benchmark.get("passed") is True
+    passed = (
+        benchmark_passed
+        and required_fps is not None
+        and required_fps > 0
+        and measured_fps is not None
+        and benchmark_min_fps is not None
+        and benchmark_min_fps >= required_fps
+        and measured_fps >= required_fps
+    )
+    raw = hardware_profile_path.read_bytes() + benchmark_path.read_bytes()
+    return EvidenceItem(
+        "hardware_benchmark_alignment",
+        path,
+        True,
+        True,
+        passed,
+        len(raw),
+        hashlib.sha256(raw).hexdigest(),
+        _format("hardware_benchmark_alignment"),
+        (
+            f"benchmark_passed={benchmark_passed}, "
+            f"measured_fps={_fmt(measured_fps)}/{_fmt(required_fps)}, "
+            f"benchmark_min_fps={_fmt(benchmark_min_fps)}/{_fmt(required_fps)}"
         ),
     )
 
