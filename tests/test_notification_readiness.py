@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 
 from boring.notification_readiness import run_notification_test, write_report
@@ -24,17 +25,21 @@ def test_notification_test_passes_on_2xx(tmp_path):
 
     assert report.passed is True
     assert report.webhook_host == "notify.example.test"
+    assert report.webhook_hash == _hash("https://notify.example.test/boring")
     assert calls[0][1]["title"] == "Boring Box - test notification"
 
     output = tmp_path / "reports" / "notification-test.json"
     write_report(report, output)
-    assert json.loads(output.read_text())["passed"] is True
+    payload = json.loads(output.read_text())
+    assert payload["passed"] is True
+    assert payload["webhook_hash"] == _hash("https://notify.example.test/boring")
 
 
 def test_notification_test_fails_without_webhook():
     report = run_notification_test(webhook_url=None)
 
     assert report.passed is False
+    assert report.webhook_hash == ""
     assert report.error == "missing webhook url"
 
 
@@ -47,3 +52,7 @@ def test_notification_test_fails_on_non_2xx():
     assert report.passed is False
     assert report.status_code == 500
     assert report.error == "HTTP 500"
+
+
+def _hash(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()

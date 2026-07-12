@@ -984,6 +984,7 @@ def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
     passed = payload.get("passed") is True if isinstance(payload, dict) else False
     status_code = payload.get("status_code") if isinstance(payload, dict) else None
     webhook_host = str(payload.get("webhook_host") or "") if isinstance(payload, dict) else ""
+    webhook_hash = str(payload.get("webhook_hash") or "") if isinstance(payload, dict) else ""
     title = str(payload.get("title") or "") if isinstance(payload, dict) else ""
     message = str(payload.get("message") or "") if isinstance(payload, dict) else ""
     status_ok = isinstance(status_code, int) and 200 <= status_code < 300
@@ -992,6 +993,7 @@ def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
         passed
         and status_ok
         and bool(webhook_host)
+        and bool(webhook_hash)
         and bool(title)
         and bool(message)
         and battery_message_ok
@@ -1008,6 +1010,7 @@ def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
         detail=(
             f"passed={passed}, status={status_code}, "
             f"host={'ok' if webhook_host else 'missing'}, "
+            f"hash={'ok' if webhook_hash else 'missing'}, "
             f"title={'ok' if title else 'missing'}, "
             f"message={'ok' if message else 'missing'}, battery_message={battery_message_ok}"
         ),

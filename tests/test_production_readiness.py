@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -1647,6 +1648,36 @@ def test_production_readiness_requires_notification_test_for_configured_webhook(
     assert "expected_host=notify.example.test" in check.detail
 
 
+def test_production_readiness_requires_notification_test_for_exact_webhook(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    env = _ready_env()
+    env["BORING_NOTIFY_WEBHOOK_URL"] = "https://notify.example.test/boring-v2"
+
+    report = audit_production_readiness(
+        env=env,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "notification_test"][0]
+    assert "hash=mismatch" in check.detail
+
+
 def test_production_readiness_requires_low_battery_notification_message(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     payload = json.loads(artifacts["notification"].read_text())
@@ -2805,6 +2836,7 @@ def _write_ready_artifacts(
             {
                 "passed": notification_passed,
                 "webhook_host": "notify.example.test",
+                "webhook_hash": _hash("https://notify.example.test/boring"),
                 "status_code": 204 if notification_passed else 500,
                 "title": "Boring Box - test notification",
                 "message": "Canal notification pret pour batterie faible.",
@@ -2944,3 +2976,7 @@ def _write_ready_artifacts(
         "network": network,
         "power": power,
     }
+
+
+def _hash(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()

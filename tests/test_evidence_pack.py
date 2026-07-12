@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -555,6 +556,7 @@ def test_evidence_pack_requires_complete_notification_test(tmp_path: Path):
     assert item.passed is True
     assert "status=204" in item.detail
     assert "host=ok" in item.detail
+    assert "hash=ok" in item.detail
 
 
 def test_evidence_pack_rejects_notification_test_non_2xx(tmp_path: Path):
@@ -585,6 +587,20 @@ def test_evidence_pack_rejects_notification_test_without_host(tmp_path: Path):
     assert pack.passed is False
     assert item.passed is False
     assert "host=missing" in item.detail
+
+
+def test_evidence_pack_rejects_notification_test_without_hash(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["notification_test"].read_text())
+    payload["webhook_hash"] = ""
+    paths["notification_test"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "notification_test"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "hash=missing" in item.detail
 
 
 def test_evidence_pack_rejects_notification_test_without_low_battery_message(tmp_path: Path):
@@ -874,6 +890,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
             {
                 "passed": True,
                 "webhook_host": "notify.example.test",
+                "webhook_hash": _hash("https://notify.example.test/boring"),
                 "status_code": 204,
                 "title": "Boring Box - test notification",
                 "message": "Canal notification pret pour batterie faible.",
@@ -931,6 +948,10 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
         )
     )
     return paths
+
+
+def _hash(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _box_ready_payload() -> dict:
