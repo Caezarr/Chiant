@@ -411,6 +411,8 @@ def _burn_in_report_failures(payload: dict) -> list[str]:
         failures.append("charging_seen")
     if payload.get("discharging_seen") is not True:
         failures.append("discharging_seen")
+    if payload.get("battery_low_seen") is True:
+        failures.append("battery_low")
     if payload.get("battery_critical_seen") is True:
         failures.append("battery_critical")
     if payload.get("thermal_critical_seen") is True:
