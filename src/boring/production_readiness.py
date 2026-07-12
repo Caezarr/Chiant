@@ -1019,13 +1019,19 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
     expected_sample_count = int(report.get("sample_count") or 0)
     expected_camera_failures = int(report.get("camera_failures") or 0)
     expected_network_failures = int(report.get("network_failures") or 0)
+    expected_start_battery = _json_float(report.get("start_battery_percent"))
+    expected_end_battery = _json_float(report.get("end_battery_percent"))
     expected_min_battery = _json_float(report.get("min_battery_percent"))
+    expected_battery_delta = _json_float(report.get("battery_delta_percent"))
+    expected_charging_seen = bool(report.get("charging_seen"))
+    expected_discharging_seen = bool(report.get("discharging_seen"))
     expected_max_temp = _json_float(report.get("max_temp_c"))
     invalid_lines = 0
     scanned = 0
     camera_failures = 0
     network_failures = 0
     battery_values: list[float] = []
+    charging_values: list[bool] = []
     temp_values: list[float] = []
     for line_number, raw_line in enumerate(samples_path.read_text().splitlines(), start=1):
         if not raw_line.strip():
@@ -1046,16 +1052,39 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
         battery = _json_float(sample.get("battery_percent"))
         if battery is not None:
             battery_values.append(battery)
+        charging = sample.get("battery_charging")
+        if isinstance(charging, bool):
+            charging_values.append(charging)
         temp = _json_float(sample.get("temp_c"))
         if temp is not None:
             temp_values.append(temp)
 
+    start_battery = battery_values[0] if battery_values else None
+    end_battery = battery_values[-1] if battery_values else None
     min_battery = min(battery_values) if battery_values else None
+    battery_delta = (
+        end_battery - start_battery
+        if start_battery is not None and end_battery is not None
+        else None
+    )
+    charging_seen = any(value is True for value in charging_values)
+    discharging_seen = any(value is False for value in charging_values)
     max_temp = max(temp_values) if temp_values else None
     sample_count_ok = scanned == expected_sample_count
     camera_ok = camera_failures == expected_camera_failures == 0
     network_ok = network_failures == expected_network_failures == 0
-    battery_ok = min_battery is not None and min_battery == expected_min_battery
+    battery_ok = (
+        start_battery is not None
+        and start_battery == expected_start_battery
+        and end_battery is not None
+        and end_battery == expected_end_battery
+        and min_battery is not None
+        and min_battery == expected_min_battery
+        and battery_delta is not None
+        and battery_delta == expected_battery_delta
+        and charging_seen == expected_charging_seen
+        and discharging_seen == expected_discharging_seen
+    )
     temp_ok = max_temp is not None and max_temp == expected_max_temp
     ok = (
         invalid_lines == 0
@@ -1073,7 +1102,12 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
             f"scanned={scanned}/{expected_sample_count}, "
             f"camera_failures={camera_failures}/{expected_camera_failures}, "
             f"network_failures={network_failures}/{expected_network_failures}, "
+            f"start_battery={_format_percent(start_battery)}/{_format_percent(expected_start_battery)}, "
+            f"end_battery={_format_percent(end_battery)}/{_format_percent(expected_end_battery)}, "
             f"min_battery={_format_percent(min_battery)}/{_format_percent(expected_min_battery)}, "
+            f"battery_delta={_format_delta(battery_delta)}/{_format_delta(expected_battery_delta)}, "
+            f"charging_seen={charging_seen}/{expected_charging_seen}, "
+            f"discharging_seen={discharging_seen}/{expected_discharging_seen}, "
             f"max_temp={_format_temp(max_temp)}/{_format_temp(expected_max_temp)}, "
             f"invalid_lines={invalid_lines}"
         ),
@@ -1373,6 +1407,12 @@ def _format_percent(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value:.0f}%"
+
+
+def _format_delta(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:+.0f}%"
 
 
 def _format_battery(

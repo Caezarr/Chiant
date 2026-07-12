@@ -334,6 +334,43 @@ def test_production_readiness_fails_when_burn_in_samples_do_not_match_report(
     assert "scanned=1/600" in check.detail
 
 
+def test_production_readiness_recomputes_burn_in_charge_cycle_from_samples(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    sample_lines = []
+    for raw_line in artifacts["burn_in_samples"].read_text().splitlines():
+        payload = json.loads(raw_line)
+        payload["battery_charging"] = False
+        sample_lines.append(json.dumps(payload))
+    artifacts["burn_in_samples"].write_text("\n".join(sample_lines) + "\n")
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "burn_in_samples"][0]
+    assert check.ok is False
+    assert "charging_seen=False/True" in check.detail
+
+
 def test_production_readiness_recomputes_burn_in_thermal_threshold(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     payload = json.loads(artifacts["burn_in"].read_text())
@@ -2336,6 +2373,10 @@ def _write_ready_artifacts(
 
     burn_in = tmp_path / "burn-in" / "report.json"
     burn_in.parent.mkdir()
+    start_battery = 70
+    end_battery = 82 if charging_seen else 62
+    min_battery = 70 if charging_seen and not discharging_seen else 62
+    battery_delta = end_battery - start_battery
     burn_in.write_text(
         json.dumps(
             {
@@ -2350,10 +2391,10 @@ def _write_ready_artifacts(
                 "thermal_critical_seen": False,
                 "charging_seen": charging_seen,
                 "discharging_seen": discharging_seen,
-                "start_battery_percent": 70,
-                "end_battery_percent": 82 if charging_seen else 62,
-                "min_battery_percent": 62 if charging_seen else 62,
-                "battery_delta_percent": 12 if charging_seen else -8,
+                "start_battery_percent": start_battery,
+                "end_battery_percent": end_battery,
+                "min_battery_percent": min_battery,
+                "battery_delta_percent": battery_delta,
                 "max_temp_c": 55.0,
             }
         )
@@ -2361,14 +2402,21 @@ def _write_ready_artifacts(
     burn_in_samples = burn_in.with_name("samples.jsonl")
     sample_count = int(burn_in_hours * 60)
     burn_in_sample_lines = []
-    end_battery = 82 if charging_seen else 62
     for index in range(sample_count):
         if index == 0:
-            battery_percent = 70
+            battery_percent = start_battery
         elif index == sample_count - 1:
             battery_percent = end_battery
         else:
-            battery_percent = 62
+            battery_percent = min_battery
+        if charging_seen and discharging_seen:
+            battery_charging = index >= sample_count // 2
+        elif charging_seen:
+            battery_charging = True
+        elif discharging_seen:
+            battery_charging = False
+        else:
+            battery_charging = None
         burn_in_sample_lines.append(
             json.dumps(
                 {
@@ -2376,7 +2424,7 @@ def _write_ready_artifacts(
                     "camera_ok": True,
                     "camera_error": None,
                     "battery_percent": battery_percent,
-                    "battery_charging": index >= sample_count // 2 if charging_seen else False,
+                    "battery_charging": battery_charging,
                     "battery_source": "bat",
                     "temp_c": 55.0 if index == sample_count - 1 else 44.0,
                     "thermal_source": "thermal",
