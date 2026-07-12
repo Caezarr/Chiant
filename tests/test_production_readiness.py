@@ -946,6 +946,31 @@ def test_production_readiness_can_allow_missing_runtime_event_log_for_rehearsal(
     assert "missing optional" in check.detail
 
 
+def test_production_readiness_rejects_empty_runtime_event_log(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    artifacts["events"].write_text("")
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=artifacts["events"],
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    assert check.ok is False
+    assert "scanned=0" in check.detail
+
+
 def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Path):
     now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now)
@@ -955,6 +980,13 @@ def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Pa
             {
                 "ts": (now - timedelta(hours=11)).isoformat(),
                 "event": "notification_failed",
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "ts": now.isoformat(),
+                "event": "service_started",
             }
         )
         + "\n"
@@ -978,7 +1010,7 @@ def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Pa
     assert report.passed is True
     check = [check for check in report.checks if check.name == "runtime_event_log"][0]
     assert check.ok is True
-    assert "scanned=0" in check.detail
+    assert "scanned=1" in check.detail
 
 
 def test_production_readiness_rejects_blocking_runtime_event(tmp_path: Path):
