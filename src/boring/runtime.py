@@ -202,6 +202,12 @@ def box_doctor(config: BoxConfig | None = None) -> int:
         if not ok:
             errors += 1
 
+    config_failures = config.validation_failures()
+    check(
+        not config_failures,
+        "configuration runtime coherente",
+        ", ".join(config_failures) if config_failures else "ok",
+    )
     check(config.vehicle_plate != "AA-000-AA", "plaque configuree", config.vehicle_plate)
     check(
         config.model_path == "yolov8n.pt" or os.path.exists(config.model_path),

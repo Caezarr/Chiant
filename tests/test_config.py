@@ -75,3 +75,33 @@ def test_box_config_from_env(monkeypatch):
     assert config.lat == 50.6371
     assert config.lon == 3.0633
     assert config.notify_webhook_url == "https://notify.example.test/boring"
+
+
+def test_box_config_reports_runtime_invariants():
+    config = BoxConfig(
+        inference_fps=1.0,
+        low_power_inference_fps=2.0,
+        battery_low_percent=25,
+        battery_critical_percent=30,
+        battery_recovered_percent=20,
+        thermal_warning_c=90,
+        thermal_critical_c=85,
+        max_session_amount_cents=500,
+        max_daily_amount_cents=400,
+        heartbeat_seconds=0,
+    )
+
+    failures = config.validation_failures()
+
+    assert "LOW_POWER_DETECTION_FPS=2.0>1.0" in failures
+    assert "battery_thresholds=30/25" in failures
+    assert "BATTERY_RECOVERED_PERCENT=20<=25" in failures
+    assert "thermal_thresholds=90/85" in failures
+    assert "MAX_DAILY_AMOUNT_CENTS=400<500" in failures
+    assert "BOX_HEARTBEAT_SECONDS=0" in failures
+
+
+def test_box_config_accepts_runtime_invariants():
+    config = BoxConfig()
+
+    assert config.validation_failures() == []

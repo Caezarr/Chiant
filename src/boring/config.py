@@ -75,6 +75,56 @@ class BoxConfig:
     heartbeat_seconds: int = 900
     notify_webhook_url: str | None = None
 
+    def validation_failures(self) -> list[str]:
+        failures: list[str] = []
+        if self.confidence_threshold <= 0 or self.confidence_threshold > 1:
+            failures.append(f"DETECTION_CONFIDENCE_THRESHOLD={self.confidence_threshold}")
+        if self.inference_fps <= 0:
+            failures.append(f"DETECTION_FPS={self.inference_fps}")
+        if self.low_power_inference_fps <= 0:
+            failures.append(f"LOW_POWER_DETECTION_FPS={self.low_power_inference_fps}")
+        elif self.inference_fps > 0 and self.low_power_inference_fps > self.inference_fps:
+            failures.append(
+                f"LOW_POWER_DETECTION_FPS={self.low_power_inference_fps}>{self.inference_fps}"
+            )
+        if self.consecutive_frames <= 0:
+            failures.append(f"DETECTION_CONSECUTIVE_FRAMES={self.consecutive_frames}")
+        if not 0 <= self.battery_critical_percent < self.battery_low_percent:
+            failures.append(
+                f"battery_thresholds={self.battery_critical_percent}/{self.battery_low_percent}"
+            )
+        if self.battery_recovered_percent <= self.battery_low_percent:
+            failures.append(
+                f"BATTERY_RECOVERED_PERCENT={self.battery_recovered_percent}<={self.battery_low_percent}"
+            )
+        if self.thermal_warning_c >= self.thermal_critical_c:
+            failures.append(
+                f"thermal_thresholds={self.thermal_warning_c}/{self.thermal_critical_c}"
+            )
+        if self.default_duration_minutes <= 0:
+            failures.append(f"DEFAULT_DURATION_MINUTES={self.default_duration_minutes}")
+        if self.cooldown_minutes < 0:
+            failures.append(f"COOLDOWN_MINUTES={self.cooldown_minutes}")
+        if self.max_session_amount_cents <= 0:
+            failures.append(f"MAX_SESSION_AMOUNT_CENTS={self.max_session_amount_cents}")
+        if self.max_daily_amount_cents < self.max_session_amount_cents:
+            failures.append(
+                f"MAX_DAILY_AMOUNT_CENTS={self.max_daily_amount_cents}<{self.max_session_amount_cents}"
+            )
+        if self.required_runtime_hours <= 0:
+            failures.append(f"REQUIRED_RUNTIME_HOURS={self.required_runtime_hours}")
+        if self.estimated_draw_watts <= 0:
+            failures.append(f"ESTIMATED_DRAW_WATTS={self.estimated_draw_watts}")
+        if self.power_check_seconds <= 0:
+            failures.append(f"POWER_CHECK_SECONDS={self.power_check_seconds}")
+        if self.thermal_check_seconds <= 0:
+            failures.append(f"THERMAL_CHECK_SECONDS={self.thermal_check_seconds}")
+        if self.network_check_seconds <= 0:
+            failures.append(f"NETWORK_CHECK_SECONDS={self.network_check_seconds}")
+        if self.heartbeat_seconds <= 0:
+            failures.append(f"BOX_HEARTBEAT_SECONDS={self.heartbeat_seconds}")
+        return failures
+
     @classmethod
     def from_env(cls) -> "BoxConfig":
         labels = tuple(
