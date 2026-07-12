@@ -364,6 +364,82 @@ def box_power_check(
     raise typer.Exit(0 if report.passed else 1)
 
 
+@app.command("box-runtime-checks")
+def box_runtime_checks(
+    output_dir: Path = typer.Option(Path("reports"), help="Dossier des rapports runtime."),
+    include_systemd: bool = typer.Option(
+        False,
+        help="Inclure box-systemd-check apres enable/start du service.",
+    ),
+    service: str = typer.Option("boring-box.service", help="Nom du service systemd."),
+    min_width: int = typer.Option(640, help="Largeur minimale camera."),
+    min_height: int = typer.Option(480, help="Hauteur minimale camera."),
+    network_timeout: float = typer.Option(3.0, help="Timeout reseau en secondes."),
+) -> None:
+    """Produit les preuves runtime locales attendues par box-ready."""
+    config = BoxConfig.from_env()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    camera = run_camera_check(
+        device_index=config.camera_device,
+        min_width=min_width,
+        min_height=min_height,
+    )
+    write_camera_report(camera, output_dir / "camera-check.json")
+
+    position_provider = make_position_provider(
+        config.position_mode,
+        config.lat,
+        config.lon,
+        config.gpsd_host,
+        config.gpsd_port,
+    )
+    position = run_position_check(
+        position_provider,
+        mode=config.position_mode,
+        expected_lat=config.lat,
+        expected_lon=config.lon,
+    )
+    write_position_report(position, output_dir / "position-check.json")
+
+    network = run_network_check(
+        target=config.network_probe_target,
+        timeout_seconds=network_timeout,
+        recovery_command=config.network_recovery_command,
+    )
+    write_network_report(network, output_dir / "network-check.json")
+
+    power = run_power_check(
+        battery_capacity_wh=config.battery_capacity_wh,
+        estimated_draw_watts=config.estimated_draw_watts,
+        required_runtime_hours=config.required_runtime_hours,
+        battery_critical_percent=config.battery_critical_percent,
+    )
+    write_power_report(power, output_dir / "power-check.json")
+
+    rows = [
+        ("camera", camera.passed, output_dir / "camera-check.json"),
+        ("position", position.passed, output_dir / "position-check.json"),
+        ("network", network.passed, output_dir / "network-check.json"),
+        ("power", power.passed, output_dir / "power-check.json"),
+    ]
+    if include_systemd:
+        systemd = run_systemd_check(service)
+        write_systemd_report(systemd, output_dir / "systemd-check.json")
+        rows.append(("systemd", systemd.passed, output_dir / "systemd-check.json"))
+
+    table = Table(title="Boring Box — runtime checks")
+    table.add_column("Check", style="bold")
+    table.add_column("Status")
+    table.add_column("Report")
+    for name, passed, path in rows:
+        table.add_row(name, "OK" if passed else "FAIL", str(path))
+    all_passed = all(passed for _, passed, _ in rows)
+    table.add_row("passed", "yes" if all_passed else "no", str(output_dir))
+    console.print(table)
+    raise typer.Exit(0 if all_passed else 1)
+
+
 @app.command("box-ready")
 def box_ready(
     dataset: Path = typer.Option(Path("datasets/control_vehicle_v1"), help="Dataset YOLOv8."),

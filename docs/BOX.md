@@ -68,10 +68,7 @@ uv run boring vision-eval --dataset datasets/control_vehicle_v1 --model models/b
 uv run boring vision-benchmark --model models/best.pt --device cpu --frames 120 --min-fps 2.0
 uv run boring autopay-ready
 uv run boring autopay-smoke --yes --output reports/autopay-smoke.json
-uv run boring box-camera-check --output reports/camera-check.json
-uv run boring box-position-check --output reports/position-check.json
-uv run boring box-network-check --output reports/network-check.json
-uv run boring box-power-check --output reports/power-check.json
+uv run boring box-runtime-checks --output-dir reports
 uv run boring box-notify-test --output reports/notification-test.json
 sudo systemctl enable --now boring-box
 uv run boring box-systemd-check --output reports/systemd-check.json
@@ -84,6 +81,8 @@ uv run boring box-evidence-pack --output reports/evidence-pack.json
 `box-ready` exige aussi un journal runtime `events.jsonl` avec des `heartbeat` couvrant le debut et la fin du burn-in: le premier et le dernier heartbeat utiles doivent etre a moins de `BOX_READY_MAX_HEARTBEAT_GAP_SECONDS` secondes des bornes du burn-in (1800s par defaut). Il refuse les evenements bloquants: crash service, batterie critique, temperature critique, stockage faible, reseau offline, notification ratee, paiement bloque offline/sans position/batterie critique, ou recovery reseau echoue.
 
 `box-evidence-pack` regroupe ensuite les rapports terrain dans `reports/evidence-pack.json` pour audit, partage ou support. Chaque item inclut `size_bytes` et `sha256`; si un rapport est modifie apres generation du pack, son empreinte ne correspond plus.
+
+`box-runtime-checks` regroupe `box-camera-check`, `box-position-check`, `box-network-check` et `box-power-check` dans `reports/`. Apres `sudo systemctl enable --now boring-box`, relance-le avec `--include-systemd` ou lance `box-systemd-check` separement.
 
 Pour une repetition sans paiement reel :
 
