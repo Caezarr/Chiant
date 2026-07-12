@@ -63,6 +63,7 @@ def default_evidence_paths() -> dict[str, Path]:
         "runtime_events": Path("/var/lib/boring/events.jsonl"),
         "vision_eval": Path("reports/vision-eval.json"),
         "vision_benchmark": Path("reports/vision-benchmark.json"),
+        "paybyphone_endpoints": Path("scripts/paybyphone_endpoints.json"),
         "autopay_smoke": Path("reports/autopay-smoke.json"),
         "notification_test": Path("reports/notification-test.json"),
         "burn_in": Path("burn-in/report.json"),
@@ -73,7 +74,7 @@ def default_evidence_paths() -> dict[str, Path]:
 def evidence_item_ok(item: EvidenceItem) -> bool:
     if not item.present or not item.valid_json:
         return False
-    if item.name in {"burn_in_samples", "runtime_events"}:
+    if item.name in {"burn_in_samples", "paybyphone_endpoints", "runtime_events"}:
         return item.passed is True
     if item.name == "hardware_profile":
         return item.passed is not False
@@ -88,6 +89,8 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
     raw = path.read_bytes()
     if name == "burn_in_samples":
         return _read_burn_in_samples(name, path, raw)
+    if name == "paybyphone_endpoints":
+        return _read_paybyphone_endpoints(name, path, raw)
     if name == "runtime_events":
         return _read_runtime_events(name, path, raw)
     try:
@@ -210,6 +213,58 @@ def _read_burn_in_samples(name: str, path: Path, raw: bytes) -> EvidenceItem:
             f"scanned={scanned}, camera_failures={camera_failures}, "
             f"network_failures={network_failures}, battery_samples={battery_samples}, "
             f"temp_samples={temp_samples}, invalid_lines={invalid_lines}"
+        ),
+    )
+
+
+def _read_paybyphone_endpoints(name: str, path: Path, raw: bytes) -> EvidenceItem:
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        return EvidenceItem(
+            name,
+            str(path),
+            True,
+            False,
+            None,
+            len(raw),
+            hashlib.sha256(raw).hexdigest(),
+            _format(name),
+            "invalid json",
+        )
+    hints = payload.get("config_hints") if isinstance(payload, dict) else None
+    flow = payload.get("flow_summary") if isinstance(payload, dict) else None
+    required_hints = [
+        "base_url",
+        "auth_url",
+        "client_id",
+        "rate_option_id",
+        "payment_method_id",
+    ]
+    required_flow = [
+        "auth",
+        "location_lookup",
+        "session_start",
+        "active_session_check",
+        "session_stop",
+    ]
+    missing_hints = [
+        key for key in required_hints if not isinstance(hints, dict) or not hints.get(key)
+    ]
+    missing_flow = [key for key in required_flow if not isinstance(flow, dict) or not flow.get(key)]
+    passed = not missing_hints and not missing_flow
+    return EvidenceItem(
+        name=name,
+        path=str(path),
+        present=True,
+        valid_json=True,
+        passed=passed,
+        size_bytes=len(raw),
+        sha256=hashlib.sha256(raw).hexdigest(),
+        format=_format(name),
+        detail=(
+            f"missing_hints={','.join(missing_hints) if missing_hints else '-'}, "
+            f"missing_flow={','.join(missing_flow) if missing_flow else '-'}"
         ),
     )
 

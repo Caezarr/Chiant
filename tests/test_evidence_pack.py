@@ -196,6 +196,48 @@ def test_evidence_pack_rejects_burn_in_samples_without_power_metrics(tmp_path: P
     assert "temp_samples=0" in item.detail
 
 
+def test_evidence_pack_includes_paybyphone_endpoints(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "paybyphone_endpoints"][0]
+    assert item.format == "json"
+    assert item.passed is True
+    assert "missing_hints=-" in item.detail
+    assert "missing_flow=-" in item.detail
+
+
+def test_evidence_pack_rejects_paybyphone_endpoints_without_stop_flow(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["paybyphone_endpoints"].read_text())
+    payload["flow_summary"]["session_stop"] = False
+    paths["paybyphone_endpoints"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "paybyphone_endpoints"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "missing_flow=session_stop" in item.detail
+
+
+def test_evidence_pack_rejects_paybyphone_endpoints_without_payment_method(
+    tmp_path: Path,
+):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["paybyphone_endpoints"].read_text())
+    payload["config_hints"]["payment_method_id"] = ""
+    paths["paybyphone_endpoints"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "paybyphone_endpoints"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "missing_hints=payment_method_id" in item.detail
+
+
 def test_default_evidence_paths_include_box_ready():
     paths = default_evidence_paths()
 
@@ -207,6 +249,7 @@ def test_default_evidence_paths_include_box_ready():
     assert paths["network_runtime"] == Path("reports/network-check.json")
     assert paths["power_runtime"] == Path("reports/power-check.json")
     assert paths["runtime_events"] == Path("/var/lib/boring/events.jsonl")
+    assert paths["paybyphone_endpoints"] == Path("scripts/paybyphone_endpoints.json")
     assert paths["burn_in_samples"] == Path("burn-in/samples.jsonl")
 
 
@@ -222,6 +265,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
         "runtime_events": tmp_path / "events.jsonl",
         "vision_eval": tmp_path / "reports" / "vision-eval.json",
         "vision_benchmark": tmp_path / "reports" / "vision-benchmark.json",
+        "paybyphone_endpoints": tmp_path / "scripts" / "paybyphone_endpoints.json",
         "autopay_smoke": tmp_path / "reports" / "autopay-smoke.json",
         "notification_test": tmp_path / "reports" / "notification-test.json",
         "burn_in": tmp_path / "burn-in" / "report.json",
@@ -244,6 +288,29 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
             }
         )
         + "\n"
+    )
+    paths["paybyphone_endpoints"].write_text(
+        json.dumps(
+            {
+                "config_hints": {
+                    "base_url": "https://api.example.test",
+                    "auth_url": "https://api.example.test/auth",
+                    "client_id": "client",
+                    "rate_option_id": "rate",
+                    "payment_method_id": "pm",
+                },
+                "flow_summary": {
+                    "auth": True,
+                    "account_lookup": True,
+                    "location_lookup": True,
+                    "session_start": True,
+                    "active_session_check": True,
+                    "session_stop": True,
+                    "successful_statuses": 6,
+                    "failed_statuses": 0,
+                },
+            }
+        )
     )
     paths["hardware_profile"].write_text(json.dumps({"board": {"model": "raspberry-pi-5"}}))
     return paths
