@@ -852,7 +852,15 @@ def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
     title = str(payload.get("title") or "") if isinstance(payload, dict) else ""
     message = str(payload.get("message") or "") if isinstance(payload, dict) else ""
     status_ok = isinstance(status_code, int) and 200 <= status_code < 300
-    complete = passed and status_ok and bool(webhook_host) and bool(title) and bool(message)
+    battery_message_ok = _is_battery_notification_text(f"{title} {message}")
+    complete = (
+        passed
+        and status_ok
+        and bool(webhook_host)
+        and bool(title)
+        and bool(message)
+        and battery_message_ok
+    )
     return EvidenceItem(
         name=name,
         path=str(path),
@@ -865,9 +873,17 @@ def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
         detail=(
             f"passed={passed}, status={status_code}, "
             f"host={'ok' if webhook_host else 'missing'}, "
-            f"title={'ok' if title else 'missing'}, message={'ok' if message else 'missing'}"
+            f"title={'ok' if title else 'missing'}, "
+            f"message={'ok' if message else 'missing'}, battery_message={battery_message_ok}"
         ),
     )
+
+
+def _is_battery_notification_text(value: str) -> bool:
+    normalized = value.lower()
+    has_battery = any(token in normalized for token in ("batterie", "battery"))
+    has_low = any(token in normalized for token in ("faible", "low", "manquer"))
+    return has_battery and has_low
 
 
 def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
