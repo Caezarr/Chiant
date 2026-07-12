@@ -116,6 +116,13 @@ def build_evidence_pack(
         items.append(
             _read_vision_artifact_alignment(paths["vision_eval"], paths["vision_benchmark"])
         )
+    if "autopay_smoke" in paths and "paybyphone_endpoints" in paths:
+        items.append(
+            _read_autopay_provider_alignment(
+                paths["autopay_smoke"],
+                paths["paybyphone_endpoints"],
+            )
+        )
     if max_report_age_hours is not None:
         items.append(
             _read_report_freshness(
@@ -1343,6 +1350,93 @@ def _read_paybyphone_endpoints(name: str, path: Path, raw: bytes) -> EvidenceIte
         detail=(
             f"missing_hints={','.join(missing_hints) if missing_hints else '-'}, "
             f"missing_flow={','.join(missing_flow) if missing_flow else '-'}"
+        ),
+    )
+
+
+def _read_autopay_provider_alignment(
+    autopay_path: Path,
+    endpoints_path: Path,
+) -> EvidenceItem:
+    path = f"{autopay_path} + {endpoints_path}"
+    if not autopay_path.exists() or not endpoints_path.exists():
+        missing = [
+            str(missing_path)
+            for missing_path in (autopay_path, endpoints_path)
+            if not missing_path.exists()
+        ]
+        return EvidenceItem(
+            "autopay_provider_alignment",
+            path,
+            False,
+            False,
+            None,
+            None,
+            None,
+            _format("autopay_provider_alignment"),
+            f"missing {', '.join(missing)}",
+        )
+
+    try:
+        autopay = json.loads(autopay_path.read_text())
+        endpoints = json.loads(endpoints_path.read_text())
+    except json.JSONDecodeError as exc:
+        return EvidenceItem(
+            "autopay_provider_alignment",
+            path,
+            True,
+            False,
+            None,
+            None,
+            None,
+            _format("autopay_provider_alignment"),
+            f"invalid json {exc}",
+        )
+    if not isinstance(autopay, dict) or not isinstance(endpoints, dict):
+        return EvidenceItem(
+            "autopay_provider_alignment",
+            path,
+            True,
+            True,
+            False,
+            None,
+            None,
+            _format("autopay_provider_alignment"),
+            "json is not an object",
+        )
+
+    provider = str(autopay.get("provider") or "").strip().lower()
+    hints = endpoints.get("config_hints") if isinstance(endpoints.get("config_hints"), dict) else {}
+    flow = endpoints.get("flow_summary") if isinstance(endpoints.get("flow_summary"), dict) else {}
+    paybyphone_hints_ok = all(
+        bool(hints.get(key))
+        for key in ("base_url", "auth_url", "client_id", "rate_option_id", "payment_method_id")
+    )
+    paybyphone_flow_ok = all(
+        bool(flow.get(key))
+        for key in (
+            "auth",
+            "location_lookup",
+            "session_start",
+            "active_session_check",
+            "session_stop",
+        )
+    )
+    passed = provider == "paybyphone" and paybyphone_hints_ok and paybyphone_flow_ok
+    raw = autopay_path.read_bytes() + endpoints_path.read_bytes()
+    return EvidenceItem(
+        "autopay_provider_alignment",
+        path,
+        True,
+        True,
+        passed,
+        len(raw),
+        hashlib.sha256(raw).hexdigest(),
+        _format("autopay_provider_alignment"),
+        (
+            f"provider={provider or '-'}/paybyphone, "
+            f"hints={'ok' if paybyphone_hints_ok else 'missing'}, "
+            f"flow={'ok' if paybyphone_flow_ok else 'missing'}"
         ),
     )
 
