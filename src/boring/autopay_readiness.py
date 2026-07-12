@@ -178,6 +178,13 @@ def _check_har_artifact(path: Path) -> AutopayCheck:
         return AutopayCheck("paybyphone_har_artifact", False, f"invalid json {path}")
     hints = payload.get("config_hints")
     flow_summary = payload.get("flow_summary")
+    required_hints = [
+        "base_url",
+        "auth_url",
+        "client_id",
+        "rate_option_id",
+        "payment_method_id",
+    ]
     required_flow = [
         "auth",
         "location_lookup",
@@ -190,14 +197,20 @@ def _check_har_artifact(path: Path) -> AutopayCheck:
         for name in required_flow
         if not isinstance(flow_summary, dict) or not flow_summary.get(name)
     ]
-    ok = isinstance(hints, dict) and any(value for value in hints.values()) and not missing_flow
+    missing_hints = [
+        name for name in required_hints if not isinstance(hints, dict) or not hints.get(name)
+    ]
+    ok = not missing_hints and not missing_flow
     return AutopayCheck(
         "paybyphone_har_artifact",
         ok,
         (
             "config_hints + critical flow present"
             if ok
-            else f"missing config_hints or flow: {', '.join(missing_flow) or 'config_hints'}"
+            else (
+                f"missing_hints={','.join(missing_hints) if missing_hints else '-'}, "
+                f"missing_flow={','.join(missing_flow) if missing_flow else '-'}"
+            )
         ),
     )
 

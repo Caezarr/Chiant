@@ -114,6 +114,16 @@ def test_autopay_readiness_fails_when_har_flow_is_incomplete(tmp_path: Path):
     assert any(check.name == "paybyphone_har_artifact" and not check.ok for check in report.checks)
 
 
+def test_autopay_readiness_fails_when_har_hint_is_missing(tmp_path: Path):
+    endpoints = _write_endpoints(tmp_path, payment_method_id="")
+
+    report = audit_autopay_readiness(env=_ready_env(tmp_path), endpoints_path=endpoints)
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "paybyphone_har_artifact"][0]
+    assert "missing_hints=payment_method_id" in check.detail
+
+
 def test_write_report_includes_passed(tmp_path: Path):
     report = audit_autopay_readiness(
         env=_ready_env(tmp_path), endpoints_path=_write_endpoints(tmp_path)
@@ -152,7 +162,12 @@ def _ready_env(tmp_path: Path) -> dict[str, str]:
     }
 
 
-def _write_endpoints(tmp_path: Path, *, session_stop: bool = True) -> Path:
+def _write_endpoints(
+    tmp_path: Path,
+    *,
+    session_stop: bool = True,
+    payment_method_id: str = "pm",
+) -> Path:
     endpoints = tmp_path / "scripts" / "paybyphone_endpoints.json"
     endpoints.parent.mkdir(parents=True)
     endpoints.write_text(
@@ -163,7 +178,7 @@ def _write_endpoints(tmp_path: Path, *, session_stop: bool = True) -> Path:
                     "auth_url": "https://api.example.test/auth",
                     "client_id": "client",
                     "rate_option_id": "rate",
-                    "payment_method_id": "pm",
+                    "payment_method_id": payment_method_id,
                 },
                 "flow_summary": {
                     "auth": True,
