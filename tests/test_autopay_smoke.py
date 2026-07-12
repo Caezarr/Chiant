@@ -268,6 +268,33 @@ def test_autopay_smoke_refuses_without_stop_after_before_starting_session():
     assert provider.stopped_session_id is None
 
 
+def test_autopay_smoke_refuses_invalid_inputs_before_starting_session():
+    cases = [
+        {"duration_minutes": 0, "error": "duration_minutes must be positive"},
+        {
+            "max_session_amount_cents": 0,
+            "error": "max_session_amount_cents must be positive",
+        },
+        {"lat": 120.0, "error": "lat/lon out of bounds"},
+    ]
+
+    for case in cases:
+        provider = FakeProvider()
+        report = run_autopay_smoke(
+            provider=provider,
+            plate="AB-123-CD",
+            lat=case.get("lat", 50.6371),
+            lon=case.get("lon", 3.0633),
+            duration_minutes=case.get("duration_minutes", 15),
+            max_session_amount_cents=case.get("max_session_amount_cents"),
+        )
+
+        assert report.passed is False
+        assert report.error == case["error"]
+        assert provider.session is None
+        assert provider.stopped_session_id is None
+
+
 def test_autopay_smoke_refuses_to_start_when_session_already_exists():
     provider = FakeProvider(active_before=True)
 
