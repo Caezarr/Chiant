@@ -120,6 +120,7 @@ def audit_production_readiness(
             network_report_path,
             values,
             require_network_report=require_network_report,
+            require_network_recovery=require_network_recovery,
         ),
         _check_power_report(
             power_report_path,
@@ -490,6 +491,7 @@ def _check_network_report(
     env: Mapping[str, str],
     *,
     require_network_report: bool,
+    require_network_recovery: bool,
 ) -> ProductionCheck:
     if not require_network_report:
         return ProductionCheck(
@@ -509,17 +511,31 @@ def _check_network_report(
     expected_target = (env.get("NETWORK_PROBE_TARGET") or "1.1.1.1:443").strip()
     online = bool(payload.get("online"))
     recovery_configured = bool(payload.get("recovery_command_configured"))
+    recovery_command = str(payload.get("recovery_command") or "").strip()
+    expected_recovery_command = (env.get("NETWORK_RECOVERY_COMMAND") or "").strip()
+    recovery_command_ok = (
+        True
+        if not require_network_recovery
+        else bool(expected_recovery_command) and recovery_command == expected_recovery_command
+    )
     failures = payload.get("failures")
     failures_text = (
         ",".join(str(failure) for failure in failures) if isinstance(failures, list) else "-"
     )
-    ok = passed and online and target == expected_target and recovery_configured
+    ok = (
+        passed
+        and online
+        and target == expected_target
+        and recovery_configured
+        and recovery_command_ok
+    )
     return ProductionCheck(
         "network_runtime",
         ok,
         (
             f"passed={passed}, target={target or '-'}/{expected_target}, "
             f"online={online}, recovery_command={recovery_configured}, "
+            f"command={recovery_command or '-'}/{expected_recovery_command or '-'}, "
             f"failures={failures_text}"
         ),
     )

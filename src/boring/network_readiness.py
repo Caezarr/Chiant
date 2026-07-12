@@ -18,6 +18,7 @@ class NetworkCheckReport:
     online: bool
     timeout_seconds: float
     recovery_command_configured: bool
+    recovery_command: str | None
     checked_at: str
     failures: list[str]
     error: str | None = None
@@ -36,7 +37,8 @@ def run_network_check(
 ) -> NetworkCheckReport:
     monitor = monitor_factory(target, timeout_seconds)
     status = monitor.check()
-    recovery_configured = bool((recovery_command or "").strip())
+    recovery_command = (recovery_command or "").strip() or None
+    recovery_configured = recovery_command is not None
     checked_at = (now or datetime.now(timezone.utc)).isoformat()
     failures = _network_failures(status, recovery_command_configured=recovery_configured)
     return NetworkCheckReport(
@@ -45,6 +47,7 @@ def run_network_check(
         online=status.online,
         timeout_seconds=timeout_seconds,
         recovery_command_configured=recovery_configured,
+        recovery_command=recovery_command,
         checked_at=checked_at,
         failures=failures,
         error=status.error,

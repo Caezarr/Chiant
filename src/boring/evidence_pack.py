@@ -450,6 +450,8 @@ def _network_report_failures(payload: dict) -> list[str]:
         failures.append("online")
     if payload.get("recovery_command_configured") is not True:
         failures.append("recovery")
+    if not _has_text(payload.get("recovery_command")):
+        failures.append("recovery_command")
     return failures
 
 
