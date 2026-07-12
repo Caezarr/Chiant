@@ -22,7 +22,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/Status-pre--alpha-orange" alt="Status">
   <img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Tests-384%2F384-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-386%2F386-brightgreen" alt="Tests">
 </p>
 
 ---
@@ -99,7 +99,7 @@ git clone https://github.com/Caezarr/Chiant.git
 cd Chiant
 cp .env.example .env          # → renseigne ASSISTED_IMESSAGE_RECIPIENT au minimum
 make dev                      # uv sync + outils dev
-make test                     # 384 tests doivent passer
+make test                     # 386 tests doivent passer
 make zones                    # télécharge / met à jour les zones Lille
 make scrape-baseline          # images web candidates control_vehicle
 make scrape-negatives         # hard negatives gratuits
@@ -142,7 +142,7 @@ Architecture boîtier : [docs/BOX.md](docs/BOX.md). Déploiement Pi : [deploy/pi
 - Vertical 2 — **`boring.contest`** : génération RAPO automatique + escalade CCSP
 - CLI complète : `capture / detect / run / pay-now / contest-fps`
 - Runtime headless boîtier : `box-run / box-doctor`, config Pi 4 / Pi 5 documentée
-- Tests pytest (384/384), CI GitHub Actions, pre-commit hooks
+- Tests pytest (386/386), CI GitHub Actions, pre-commit hooks
 
 ### Ce qui manque ⏳
 - Modèle custom `control_vehicle` (besoin captation terrain — cf. HUMAN-TODO #1-3)
@@ -253,7 +253,7 @@ Le Premium capture la valeur avec la garantie qui démolit l'objection conversio
 - **Issues** : templates dans [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/)
 - **PRs** : checklist dans [`.github/pull_request_template.md`](.github/pull_request_template.md)
 - **Setup dev** : `make dev && pre-commit install`
-- **Tests** : `make test` — doit passer (384/384 actuellement) avant tout commit
+- **Tests** : `make test` — doit passer (386/386 actuellement) avant tout commit
 
 ---
 

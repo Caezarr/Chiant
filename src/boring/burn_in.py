@@ -38,7 +38,10 @@ class BurnInSample:
 class BurnInReport:
     started_at: float
     ended_at: float
+    requested_duration_seconds: float | None
     duration_seconds: float
+    interval_seconds: float | None
+    max_sample_gap_seconds: float | None
     sample_count: int
     camera_failures: int
     network_failures: int
@@ -111,6 +114,8 @@ class BoxBurnInRunner:
             samples,
             started_at=started_at,
             ended_at=ended_at,
+            requested_duration_seconds=duration_seconds,
+            interval_seconds=interval_seconds,
             config=self.config,
         )
         report_path.write_text(json.dumps(asdict(report), indent=2, sort_keys=True) + "\n")
@@ -158,6 +163,8 @@ def build_report(
     *,
     started_at: float,
     ended_at: float,
+    requested_duration_seconds: float | None = None,
+    interval_seconds: float | None = None,
     config: BoxConfig,
 ) -> BurnInReport:
     battery_values = [
@@ -183,8 +190,14 @@ def build_report(
     battery_critical_seen = (
         min_battery is not None and min_battery <= config.battery_critical_percent
     )
+    duration_seconds = max(0.0, ended_at - started_at)
+    requested_duration_ok = requested_duration_seconds is None or (
+        requested_duration_seconds > 0 and duration_seconds + 1.0 >= requested_duration_seconds
+    )
     passed = (
         bool(samples)
+        and duration_seconds > 0
+        and requested_duration_ok
         and camera_failures == 0
         and network_failures == 0
         and not thermal_critical_seen
@@ -193,7 +206,10 @@ def build_report(
     return BurnInReport(
         started_at=started_at,
         ended_at=ended_at,
-        duration_seconds=max(0.0, ended_at - started_at),
+        requested_duration_seconds=requested_duration_seconds,
+        duration_seconds=duration_seconds,
+        interval_seconds=interval_seconds,
+        max_sample_gap_seconds=_max_sample_gap_seconds(interval_seconds),
         sample_count=len(samples),
         camera_failures=camera_failures,
         network_failures=network_failures,
@@ -214,3 +230,9 @@ def build_report(
         battery_critical_seen=battery_critical_seen,
         passed=passed,
     )
+
+
+def _max_sample_gap_seconds(interval_seconds: float | None) -> float | None:
+    if interval_seconds is None or interval_seconds <= 0:
+        return None
+    return max(interval_seconds * 1.5, interval_seconds + 5.0)
