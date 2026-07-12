@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from boring.evidence_pack import build_evidence_pack, default_evidence_paths, write_pack
@@ -719,6 +720,8 @@ def test_evidence_pack_includes_burn_in_samples_jsonl(tmp_path: Path):
     assert "battery_delta=-22.00/-22.00" in item.detail
     assert "charging_seen=True/True" in item.detail
     assert "discharging_seen=True/True" in item.detail
+    assert "timestamps_monotonic=True" in item.detail
+    assert "timestamps_in_window=True" in item.detail
 
 
 def test_evidence_pack_rejects_burn_in_sample_camera_failure(tmp_path: Path):
@@ -760,6 +763,41 @@ def test_evidence_pack_rejects_burn_in_samples_charge_cycle_mismatch(tmp_path: P
     assert pack.passed is False
     assert item.passed is False
     assert "discharging_seen=False/True" in item.detail
+
+
+def test_evidence_pack_rejects_burn_in_samples_outside_report_window(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    sample_lines = []
+    for raw_line in paths["burn_in_samples"].read_text().splitlines():
+        payload = json.loads(raw_line)
+        payload["ts"] = "2025-12-31T23:00:00+00:00"
+        sample_lines.append(json.dumps(payload))
+    paths["burn_in_samples"].write_text("\n".join(sample_lines) + "\n")
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "timestamps_in_window=False" in item.detail
+
+
+def test_evidence_pack_rejects_non_monotonic_burn_in_samples(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    sample_lines = []
+    for line_number, raw_line in enumerate(paths["burn_in_samples"].read_text().splitlines()):
+        payload = json.loads(raw_line)
+        if line_number == 1:
+            payload["ts"] = "2026-01-01T10:00:00+00:00"
+        sample_lines.append(json.dumps(payload))
+    paths["burn_in_samples"].write_text("\n".join(sample_lines) + "\n")
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "timestamps_monotonic=False" in item.detail
 
 
 def test_evidence_pack_rejects_burn_in_samples_without_power_metrics(tmp_path: Path):
@@ -1133,6 +1171,7 @@ def _burn_in_payload() -> dict:
 
 def _burn_in_sample_lines() -> str:
     lines = []
+    started_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
     for index in range(600):
         if index == 0:
             battery_percent = 90
@@ -1141,7 +1180,7 @@ def _burn_in_sample_lines() -> str:
         lines.append(
             json.dumps(
                 {
-                    "ts": index * 60.0,
+                    "ts": (started_at + timedelta(minutes=index)).isoformat(),
                     "camera_ok": True,
                     "network_online": True,
                     "battery_percent": battery_percent,
