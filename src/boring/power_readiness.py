@@ -7,7 +7,12 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from boring.power import BatteryStatus, LinuxPowerSupplyMonitor, estimate_runtime_hours
+from boring.power import (
+    BatteryStatus,
+    LinuxPowerSupplyMonitor,
+    estimate_available_capacity_wh,
+    estimate_runtime_hours,
+)
 
 
 @dataclass(frozen=True)
@@ -17,6 +22,7 @@ class PowerCheckReport:
     charging: bool | None
     source: str | None
     battery_capacity_wh: float | None
+    available_battery_wh: float | None
     estimated_draw_watts: float
     estimated_runtime_hours: float | None
     required_runtime_hours: float
@@ -37,7 +43,11 @@ def run_power_check(
     now: datetime | None = None,
 ) -> PowerCheckReport:
     status = (monitor or LinuxPowerSupplyMonitor()).read()
-    runtime_hours = estimate_runtime_hours(battery_capacity_wh, estimated_draw_watts)
+    available_battery_wh = estimate_available_capacity_wh(
+        battery_capacity_wh,
+        status.percent if status else None,
+    )
+    runtime_hours = estimate_runtime_hours(available_battery_wh, estimated_draw_watts)
     checked_at = (now or datetime.now(timezone.utc)).isoformat()
     failures = _power_failures(
         status,
@@ -51,6 +61,7 @@ def run_power_check(
         charging=status.charging if status else None,
         source=status.source if status else None,
         battery_capacity_wh=battery_capacity_wh,
+        available_battery_wh=available_battery_wh,
         estimated_draw_watts=estimated_draw_watts,
         estimated_runtime_hours=runtime_hours,
         required_runtime_hours=required_runtime_hours,

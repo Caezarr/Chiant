@@ -549,7 +549,9 @@ def _check_power_report(
     charging = payload.get("charging")
     source = str(payload.get("source") or "")
     capacity_wh = _json_float(payload.get("battery_capacity_wh"))
+    available_wh = _json_float(payload.get("available_battery_wh"))
     expected_capacity_wh = _env_float(env, "BATTERY_CAPACITY_WH")
+    estimated_draw = _json_float(payload.get("estimated_draw_watts"))
     estimated_runtime = _json_float(payload.get("estimated_runtime_hours"))
     required_runtime = _json_float(payload.get("required_runtime_hours")) or (
         _env_float(env, "REQUIRED_RUNTIME_HOURS") or 10.0
@@ -564,6 +566,26 @@ def _check_power_report(
         and capacity_wh is not None
         and abs(capacity_wh - expected_capacity_wh) <= 1.0
     )
+    expected_available_wh = (
+        capacity_wh * (percent / 100)
+        if capacity_wh is not None and percent is not None and 0 <= percent <= 100
+        else None
+    )
+    expected_runtime = (
+        available_wh / estimated_draw
+        if available_wh is not None and estimated_draw is not None and estimated_draw > 0
+        else None
+    )
+    available_ok = (
+        available_wh is not None
+        and expected_available_wh is not None
+        and abs(available_wh - expected_available_wh) <= 0.1
+    )
+    runtime_consistent = (
+        estimated_runtime is not None
+        and expected_runtime is not None
+        and abs(estimated_runtime - expected_runtime) <= 0.1
+    )
     ok = (
         passed
         and source
@@ -571,6 +593,8 @@ def _check_power_report(
         and percent > battery_critical
         and isinstance(charging, bool)
         and capacity_ok
+        and available_ok
+        and runtime_consistent
         and estimated_runtime is not None
         and estimated_runtime >= required_runtime
     )
@@ -581,7 +605,9 @@ def _check_power_report(
             f"passed={passed}, source={source or '-'}, battery={percent if percent is not None else '-'}%, "
             f"charging={charging if isinstance(charging, bool) else '-'}, "
             f"capacity={capacity_wh or 0:.1f}/{expected_capacity_wh or 0:.1f}Wh, "
+            f"available={available_wh or 0:.1f}/{expected_available_wh or 0:.1f}Wh, "
             f"runtime={estimated_runtime or 0:.1f}/{required_runtime:.1f}h, "
+            f"runtime_consistent={runtime_consistent}, "
             f"failures={failures_text}"
         ),
     )
