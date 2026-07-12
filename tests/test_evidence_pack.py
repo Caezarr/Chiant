@@ -86,7 +86,7 @@ def test_evidence_pack_requires_complete_box_ready_report(tmp_path: Path):
 
     item = [item for item in pack.items if item.name == "box_ready"][0]
     assert item.passed is True
-    assert "checks=22" in item.detail
+    assert "checks=23" in item.detail
     assert "generated_at=ok" in item.detail
     assert "missing=-" in item.detail
     assert "failed=-" in item.detail
@@ -1640,6 +1640,7 @@ def _box_ready_payload() -> dict:
         "burn_in",
         "burn_in_samples",
         "runtime_event_log",
+        "state_path",
         "report_freshness",
     ]
     return {
