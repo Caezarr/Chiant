@@ -519,6 +519,7 @@ def _check_burn_in_report(
     charging_seen = bool(payload.get("charging_seen"))
     discharging_seen = bool(payload.get("discharging_seen"))
     charging_ok = charging_seen if require_charging_seen else True
+    discharging_ok = discharging_seen if require_charging_seen else True
     ok = (
         passed
         and duration_hours >= min_burn_in_hours
@@ -527,6 +528,7 @@ def _check_burn_in_report(
         and not battery_critical
         and not thermal_critical
         and charging_ok
+        and discharging_ok
     )
     return ProductionCheck(
         "burn_in",

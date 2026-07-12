@@ -117,6 +117,46 @@ def test_production_readiness_fails_without_charge_validation(tmp_path: Path):
     assert rehearsal.passed is True
 
 
+def test_production_readiness_fails_without_discharge_validation(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path, discharging_seen=False)
+
+    strict = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+    rehearsal = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+        require_charging_seen=False,
+    )
+
+    assert strict.passed is False
+    check = [check for check in strict.checks if check.name == "burn_in"][0]
+    assert check.ok is False
+    assert "discharging_seen=False" in check.detail
+    assert rehearsal.passed is True
+
+
 def test_production_readiness_fails_when_disk_space_is_low(tmp_path: Path, monkeypatch):
     artifacts = _write_ready_artifacts(tmp_path)
 
@@ -980,6 +1020,7 @@ def _write_ready_artifacts(
     burn_in_hours: float = 10,
     include_edge: bool = True,
     charging_seen: bool = True,
+    discharging_seen: bool = True,
     benchmark_passed: bool = True,
     benchmark_fps: float = 2.0,
     benchmark_min_fps: float = 2.0,
@@ -1122,7 +1163,7 @@ def _write_ready_artifacts(
                 "battery_critical_seen": False,
                 "thermal_critical_seen": False,
                 "charging_seen": charging_seen,
-                "discharging_seen": True,
+                "discharging_seen": discharging_seen,
                 "start_battery_percent": 70,
                 "end_battery_percent": 82 if charging_seen else 62,
                 "battery_delta_percent": 12 if charging_seen else -8,
