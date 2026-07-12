@@ -115,6 +115,7 @@ def audit_production_readiness(
         _check_camera_report(
             camera_report_path,
             values,
+            hardware_profile_path=hardware_profile_path,
             require_camera_report=require_camera_report,
         ),
         _check_network_report(
@@ -443,6 +444,7 @@ def _check_camera_report(
     path: Path,
     env: Mapping[str, str],
     *,
+    hardware_profile_path: Path | None = None,
     require_camera_report: bool,
 ) -> ProductionCheck:
     if not require_camera_report:
@@ -463,8 +465,11 @@ def _check_camera_report(
     expected_device = _env_int(env, "CAMERA_DEVICE", 0)
     width = _json_int(payload.get("width"))
     height = _json_int(payload.get("height"))
-    min_width = _json_int(payload.get("min_width")) or 640
-    min_height = _json_int(payload.get("min_height")) or 480
+    report_min_width = _json_int(payload.get("min_width")) or 640
+    report_min_height = _json_int(payload.get("min_height")) or 480
+    profile_min_width, profile_min_height = _hardware_camera_resolution(hardware_profile_path)
+    min_width = max(report_min_width, profile_min_width or 0)
+    min_height = max(report_min_height, profile_min_height or 0)
     failures = payload.get("failures")
     failures_text = (
         ",".join(str(failure) for failure in failures) if isinstance(failures, list) else "-"
@@ -483,9 +488,36 @@ def _check_camera_report(
         (
             f"passed={passed}, device={device_index}/{expected_device}, "
             f"resolution={_format_resolution(width, height)}, "
-            f"minimum={min_width}x{min_height}, failures={failures_text}"
+            f"minimum={min_width}x{min_height}, "
+            f"profile_min={_format_resolution(profile_min_width, profile_min_height)}, "
+            f"failures={failures_text}"
         ),
     )
+
+
+def _hardware_camera_resolution(path: Path | None) -> tuple[int | None, int | None]:
+    if path is None or not path.exists():
+        return None, None
+    try:
+        payload = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return None, None
+    camera = payload.get("camera") or {}
+    return _parse_resolution(camera.get("resolution"))
+
+
+def _parse_resolution(value: object) -> tuple[int | None, int | None]:
+    if not isinstance(value, str) or "x" not in value:
+        return None, None
+    width, height = value.lower().split("x", 1)
+    try:
+        parsed_width = int(width.strip())
+        parsed_height = int(height.strip())
+    except ValueError:
+        return None, None
+    if parsed_width <= 0 or parsed_height <= 0:
+        return None, None
+    return parsed_width, parsed_height
 
 
 def _check_network_report(
