@@ -1102,9 +1102,20 @@ def _check_burn_in_report(
     min_battery = _json_float(payload.get("min_battery_percent"))
     battery_delta = _json_float(payload.get("battery_delta_percent"))
     max_temp_c = _json_float(payload.get("max_temp_c"))
+    report_thermal_warning_c = _json_float(payload.get("thermal_warning_c"))
+    report_thermal_critical_c = _json_float(payload.get("thermal_critical_c"))
+    report_battery_low_percent = _json_int(payload.get("battery_low_percent"))
+    report_battery_critical_percent = _json_int(payload.get("battery_critical_percent"))
+    thermal_warning_c = _env_float(env, "THERMAL_WARNING_C") or 75.0
     thermal_critical_c = _env_float(env, "THERMAL_CRITICAL_C") or 85.0
     battery_low_percent = _env_int(env, "BATTERY_LOW_PERCENT", 25)
     battery_critical_percent = _env_int(env, "BATTERY_CRITICAL_PERCENT", 10)
+    thresholds_ok = (
+        report_thermal_warning_c == thermal_warning_c
+        and report_thermal_critical_c == thermal_critical_c
+        and report_battery_low_percent == battery_low_percent
+        and report_battery_critical_percent == battery_critical_percent
+    )
     battery_low = bool(payload.get("battery_low_seen"))
     battery_critical = bool(payload.get("battery_critical_seen"))
     thermal_critical = bool(payload.get("thermal_critical_seen"))
@@ -1125,6 +1136,7 @@ def _check_burn_in_report(
         and min_battery is not None
         and battery_delta is not None
         and max_temp_c is not None
+        and thresholds_ok
         and max_temp_c < thermal_critical_c
         and not battery_low
         and not battery_critical
@@ -1145,6 +1157,7 @@ def _check_burn_in_report(
             f"min_above_low={min_above_low}({battery_low_percent}%), "
             f"min_above_critical={min_above_critical}({battery_critical_percent}%), "
             f"max_temp={_format_temp(max_temp_c)}/{thermal_critical_c:.1f}C, "
+            f"thresholds_ok={thresholds_ok}, "
             f"battery_low={battery_low}, battery_critical={battery_critical}, "
             f"thermal_critical={thermal_critical}, "
             f"charging_seen={charging_seen}, discharging_seen={discharging_seen}"

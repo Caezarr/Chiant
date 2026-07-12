@@ -403,19 +403,54 @@ def _burn_in_report_failures(payload: dict) -> list[str]:
         failures.append("camera_failures")
     if payload.get("network_failures") != 0:
         failures.append("network_failures")
+    battery_low_percent = _integer(payload.get("battery_low_percent"))
+    battery_critical_percent = _integer(payload.get("battery_critical_percent"))
+    thermal_warning_c = _number(payload.get("thermal_warning_c"))
+    thermal_critical_c = _number(payload.get("thermal_critical_c"))
+    if battery_low_percent is None:
+        failures.append("battery_low_percent")
+    if battery_critical_percent is None:
+        failures.append("battery_critical_percent")
+    if thermal_warning_c is None:
+        failures.append("thermal_warning_c")
+    if thermal_critical_c is None:
+        failures.append("thermal_critical_c")
     min_battery = _number(payload.get("min_battery_percent"))
     if min_battery is None:
         failures.append("min_battery")
-    elif min_battery <= 25:
+    elif battery_low_percent is not None and min_battery <= battery_low_percent:
         failures.append("min_battery_low")
-    if min_battery is not None and min_battery <= 10:
+    if (
+        min_battery is not None
+        and battery_critical_percent is not None
+        and min_battery <= battery_critical_percent
+    ):
         failures.append("min_battery_critical")
-    if not isinstance(payload.get("max_temp_c"), (int, float)):
+    max_temp = _number(payload.get("max_temp_c"))
+    if max_temp is None:
         failures.append("max_temp")
+    elif thermal_critical_c is not None and max_temp >= thermal_critical_c:
+        failures.append("max_temp_critical")
     if payload.get("charging_seen") is not True:
         failures.append("charging_seen")
     if payload.get("discharging_seen") is not True:
         failures.append("discharging_seen")
+    if min_battery is not None and battery_low_percent is not None:
+        expected_low_seen = min_battery <= battery_low_percent
+        if payload.get("battery_low_seen") is not expected_low_seen:
+            failures.append("battery_low_threshold_mismatch")
+    if min_battery is not None and battery_critical_percent is not None:
+        expected_critical_seen = min_battery <= battery_critical_percent
+        if payload.get("battery_critical_seen") is not expected_critical_seen:
+            failures.append("battery_critical_threshold_mismatch")
+    if max_temp is not None and thermal_warning_c is not None:
+        expected_warning_seen = max_temp >= thermal_warning_c
+        if payload.get("thermal_warning_seen") is not expected_warning_seen:
+            failures.append("thermal_warning_threshold_mismatch")
+    if max_temp is not None and thermal_critical_c is not None:
+        expected_critical_seen = max_temp >= thermal_critical_c
+        if payload.get("thermal_critical_seen") is not expected_critical_seen:
+            failures.append("thermal_critical_threshold_mismatch")
     if payload.get("battery_low_seen") is True:
         failures.append("battery_low")
     if payload.get("battery_critical_seen") is True:
