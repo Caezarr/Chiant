@@ -890,6 +890,7 @@ def test_evidence_pack_requires_complete_notification_test(tmp_path: Path):
     assert "status=204" in item.detail
     assert "host=ok" in item.detail
     assert "hash=ok" in item.detail
+    assert "tested_at=ok" in item.detail
 
 
 def test_evidence_pack_rejects_notification_test_non_2xx(tmp_path: Path):
@@ -934,6 +935,20 @@ def test_evidence_pack_rejects_notification_test_without_hash(tmp_path: Path):
     assert pack.passed is False
     assert item.passed is False
     assert "hash=missing" in item.detail
+
+
+def test_evidence_pack_rejects_notification_test_without_timestamp(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["notification_test"].read_text())
+    payload.pop("tested_at")
+    paths["notification_test"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "notification_test"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "tested_at=missing" in item.detail
 
 
 def test_evidence_pack_rejects_notification_test_without_low_battery_message(tmp_path: Path):
