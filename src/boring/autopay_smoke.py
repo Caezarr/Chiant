@@ -39,6 +39,7 @@ def run_autopay_smoke(
     lat: float,
     lon: float,
     duration_minutes: int,
+    max_session_amount_cents: int | None = None,
     stop_after: bool = True,
 ) -> AutopaySmokeReport:
     tested_at = datetime.now(timezone.utc).isoformat()
@@ -81,11 +82,19 @@ def run_autopay_smoke(
             stopped = True
             active_after_stop = provider.get_active_session(plate)
             stop_verified = active_after_stop is None
+        amount_ok = session.amount_cents > 0
+        max_amount_ok = (
+            max_session_amount_cents is None or session.amount_cents <= max_session_amount_cents
+        )
         passed = (
-            session.amount_cents > 0
+            amount_ok
+            and max_amount_ok
             and active_verified
             and (stopped and stop_verified if stop_after else True)
         )
+        error = None
+        if amount_ok and not max_amount_ok:
+            error = f"session amount exceeds MAX_SESSION_AMOUNT_CENTS: {session.amount_cents}"
         return _report(
             provider=provider,
             dry_run=dry_run,
@@ -101,6 +110,7 @@ def run_autopay_smoke(
             stopped=stopped,
             stop_verified=stop_verified,
             passed=passed,
+            error=error,
         )
     except Exception as exc:
         return _report(

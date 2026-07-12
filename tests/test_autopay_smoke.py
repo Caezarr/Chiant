@@ -15,10 +15,12 @@ class FakeProvider(PaymentProvider):
         dry_run: bool = False,
         active_before: bool = False,
         stop_clears_session: bool = True,
+        amount_cents: int = 120,
     ) -> None:
         self.dry_run = dry_run
         self.active_before = active_before
         self.stop_clears_session = stop_clears_session
+        self.amount_cents = amount_cents
         self.session: ParkingSession | None = None
         self.stopped_session_id: str | None = None
 
@@ -41,7 +43,7 @@ class FakeProvider(PaymentProvider):
             location_id=location_id,
             start=datetime(2026, 7, 9, 12, 0, 0),
             end=datetime(2026, 7, 9, 12, 0, 0) + timedelta(minutes=duration_minutes),
-            amount_cents=120,
+            amount_cents=self.amount_cents,
         )
         return self.session
 
@@ -103,6 +105,26 @@ def test_autopay_smoke_fails_when_stop_does_not_clear_active_session():
     assert report.passed is False
     assert report.stopped is True
     assert report.stop_verified is False
+    assert provider.stopped_session_id == "session-1"
+
+
+def test_autopay_smoke_fails_when_amount_exceeds_limit():
+    provider = FakeProvider(amount_cents=800)
+
+    report = run_autopay_smoke(
+        provider=provider,
+        plate="AB-123-CD",
+        lat=50.6371,
+        lon=3.0633,
+        duration_minutes=15,
+        max_session_amount_cents=500,
+    )
+
+    assert report.passed is False
+    assert report.amount_cents == 800
+    assert report.stopped is True
+    assert report.stop_verified is True
+    assert "exceeds MAX_SESSION_AMOUNT_CENTS" in str(report.error)
     assert provider.stopped_session_id == "session-1"
 
 
