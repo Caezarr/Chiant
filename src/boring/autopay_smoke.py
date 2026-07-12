@@ -44,6 +44,10 @@ def run_autopay_smoke(
 ) -> AutopaySmokeReport:
     tested_at = datetime.now(timezone.utc).isoformat()
     dry_run = bool(getattr(provider, "dry_run", False))
+    zone_id: str | None = None
+    session = None
+    stopped = False
+    stop_verified = False
     if dry_run:
         return _report(
             provider=provider,
@@ -75,8 +79,6 @@ def run_autopay_smoke(
         session = provider.start_session(plate, zone_id, duration_minutes)
         active_after = provider.get_active_session(plate)
         active_verified = active_after is not None and active_after.session_id == session.session_id
-        stopped = False
-        stop_verified = False
         if stop_after:
             provider.stop_session(session.session_id)
             stopped = True
@@ -113,6 +115,15 @@ def run_autopay_smoke(
             error=error,
         )
     except Exception as exc:
+        error, stopped, stop_verified = _cleanup_after_error(
+            str(exc),
+            provider=provider,
+            plate=plate,
+            session_id=session.session_id if session is not None else None,
+            stop_after=stop_after,
+            stopped=stopped,
+            stop_verified=stop_verified,
+        )
         return _report(
             provider=provider,
             dry_run=dry_run,
@@ -120,8 +131,13 @@ def run_autopay_smoke(
             duration_minutes=duration_minutes,
             lat=lat,
             lon=lon,
+            zone_id=zone_id,
+            session_id=session.session_id if session is not None else None,
+            amount_cents=session.amount_cents if session is not None else None,
+            stopped=stopped,
+            stop_verified=stop_verified,
             tested_at=tested_at,
-            error=str(exc),
+            error=error,
         )
 
 
@@ -165,3 +181,28 @@ def _report(
         tested_at=tested_at,
         error=error,
     )
+
+
+def _cleanup_after_error(
+    error: str,
+    *,
+    provider: PaymentProvider,
+    plate: str,
+    session_id: str | None,
+    stop_after: bool,
+    stopped: bool,
+    stop_verified: bool,
+) -> tuple[str, bool, bool]:
+    if session_id is None or not stop_after or stopped:
+        return error, stopped, stop_verified
+    try:
+        provider.stop_session(session_id)
+    except Exception as exc:
+        return f"{error}; cleanup_stop_failed={exc}", False, False
+    try:
+        active_after_stop = provider.get_active_session(plate)
+    except Exception as exc:
+        return f"{error}; cleanup_stop_called=true; cleanup_verify_failed={exc}", True, False
+    if active_after_stop is None:
+        return f"{error}; cleanup_stop_verified=true", True, True
+    return f"{error}; cleanup_stop_verified=false", True, False

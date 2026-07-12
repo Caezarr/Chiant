@@ -44,7 +44,7 @@ uv run boring autopay-smoke --yes --output reports/autopay-smoke.json
    - `PAYBYPHONE_PAYMENT_METHOD_ID`
    - format exact `locationId`
    - flow critique `auth`, `location_lookup`, `session_start`, `active_session_check`, `session_stop`
-4. Tester avec `PAYMENT_DRY_RUN=false` sur une zone reelle et une duree minimale via `autopay-smoke`. Si la resolution GPS PayByPhone retourne plusieurs zones, configurer `PAYBYPHONE_LOCATION_ID` au lieu de laisser le client choisir. Lancer ce smoke apres la config finale: `box-ready` compare le rapport a `PAYMENT_PROVIDER`, `DEFAULT_VEHICLE_PLATE`, et `PAYBYPHONE_LOCATION_ID` quand elle est forcee.
+4. Tester avec `PAYMENT_DRY_RUN=false` sur une zone reelle et une duree minimale via `autopay-smoke`. Si la resolution GPS PayByPhone retourne plusieurs zones, configurer `PAYBYPHONE_LOCATION_ID` au lieu de laisser le client choisir. Lancer ce smoke apres la config finale: `box-ready` compare le rapport a `PAYMENT_PROVIDER`, `DEFAULT_VEHICLE_PLATE`, et `PAYBYPHONE_LOCATION_ID` quand elle est forcee. Si une erreur survient apres le demarrage de session, `autopay-smoke` tente de stopper la session avant de rendre un rapport d'echec.
 5. Verifier via `uv run boring status --plate ...` si `--no-stop-after` a ete utilise.
 6. Garder `reports/autopay-smoke.json` pour `box-ready`.
 
