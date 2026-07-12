@@ -205,6 +205,66 @@ def test_production_readiness_fails_without_burn_in_battery_metrics(tmp_path: Pa
     assert "battery=-" in check.detail
 
 
+def test_production_readiness_fails_without_burn_in_thermal_metrics(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["burn_in"].read_text())
+    payload["max_temp_c"] = None
+    artifacts["burn_in"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "burn_in"][0]
+    assert check.ok is False
+    assert "max_temp=-" in check.detail
+
+
+def test_production_readiness_recomputes_burn_in_thermal_threshold(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["burn_in"].read_text())
+    payload["max_temp_c"] = 86
+    payload["thermal_critical_seen"] = False
+    payload["passed"] = True
+    artifacts["burn_in"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "burn_in"][0]
+    assert check.ok is False
+    assert "max_temp=86.0C/85.0C" in check.detail
+
+
 def test_production_readiness_fails_when_disk_space_is_low(tmp_path: Path, monkeypatch):
     artifacts = _write_ready_artifacts(tmp_path)
 
@@ -1685,6 +1745,7 @@ def _write_ready_artifacts(
                 "end_battery_percent": 82 if charging_seen else 62,
                 "min_battery_percent": 62 if charging_seen else 62,
                 "battery_delta_percent": 12 if charging_seen else -8,
+                "max_temp_c": 55.0,
             }
         )
     )

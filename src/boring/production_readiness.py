@@ -126,6 +126,7 @@ def audit_production_readiness(
         ),
         _check_disk_space(values, storage_path),
         _check_burn_in_report(
+            values,
             burn_in_report_path,
             min_burn_in_hours=min_burn_in_hours,
             require_charging_seen=require_charging_seen,
@@ -686,6 +687,7 @@ def _check_vision_eval_report(
 
 
 def _check_burn_in_report(
+    env: Mapping[str, str],
     path: Path,
     *,
     min_burn_in_hours: float,
@@ -707,6 +709,8 @@ def _check_burn_in_report(
     end_battery = _json_float(payload.get("end_battery_percent"))
     min_battery = _json_float(payload.get("min_battery_percent"))
     battery_delta = _json_float(payload.get("battery_delta_percent"))
+    max_temp_c = _json_float(payload.get("max_temp_c"))
+    thermal_critical_c = _env_float(env, "THERMAL_CRITICAL_C") or 85.0
     battery_critical = bool(payload.get("battery_critical_seen"))
     thermal_critical = bool(payload.get("thermal_critical_seen"))
     charging_seen = bool(payload.get("charging_seen"))
@@ -723,6 +727,8 @@ def _check_burn_in_report(
         and end_battery is not None
         and min_battery is not None
         and battery_delta is not None
+        and max_temp_c is not None
+        and max_temp_c < thermal_critical_c
         and not battery_critical
         and not thermal_critical
         and charging_ok
@@ -736,6 +742,7 @@ def _check_burn_in_report(
             f"samples={sample_count}, "
             f"camera_failures={camera_failures}, network_failures={network_failures}, "
             f"battery={_format_battery(start_battery, end_battery, min_battery, battery_delta)}, "
+            f"max_temp={_format_temp(max_temp_c)}/{thermal_critical_c:.1f}C, "
             f"battery_critical={battery_critical}, thermal_critical={thermal_critical}, "
             f"charging_seen={charging_seen}, discharging_seen={discharging_seen}"
         ),
@@ -991,6 +998,12 @@ def _format_coord(lat: float | None, lon: float | None) -> str:
     if lat is None or lon is None:
         return "-"
     return f"{lat:.5f},{lon:.5f}"
+
+
+def _format_temp(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.1f}C"
 
 
 def _format_battery(
