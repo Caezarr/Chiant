@@ -484,6 +484,88 @@ def test_production_readiness_requires_autopay_stop_verification(tmp_path: Path)
     assert any(check.name == "autopay_smoke" and not check.ok for check in report.checks)
 
 
+def test_production_readiness_rejects_autopay_smoke_for_other_plate(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["autopay_smoke"].read_text())
+    payload["plate"] = "ZZ-999-ZZ"
+    artifacts["autopay_smoke"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    assert check.ok is False
+    assert "plate=ZZ-999-ZZ/AB-123-CD" in check.detail
+
+
+def test_production_readiness_rejects_autopay_smoke_for_other_provider(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["autopay_smoke"].read_text())
+    payload["provider"] = "easypark"
+    artifacts["autopay_smoke"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    assert check.ok is False
+    assert "provider=easypark/paybyphone" in check.detail
+
+
+def test_production_readiness_rejects_autopay_smoke_for_other_forced_zone(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    env = _ready_env()
+    env["PAYBYPHONE_LOCATION_ID"] = "zone-expected"
+
+    report = audit_production_readiness(
+        env=env,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    assert check.ok is False
+    assert "zone=zone-1/zone-expected" in check.detail
+
+
 def test_write_report_includes_passed(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     report = audit_production_readiness(
