@@ -2354,13 +2354,19 @@ def _write_ready_artifacts(
     dataset = tmp_path / "datasets" / "control_vehicle_v1"
     train_dir = dataset / "train" / "images"
     valid_dir = dataset / "valid" / "images"
+    train_label_dir = dataset / "train" / "labels"
+    valid_label_dir = dataset / "valid" / "labels"
     train_dir.mkdir(parents=True)
     valid_dir.mkdir(parents=True)
+    train_label_dir.mkdir(parents=True)
+    valid_label_dir.mkdir(parents=True)
     (dataset / "data.yaml").write_text("names: ['control_vehicle']\n")
     for index in range(300):
         (train_dir / f"train-{index}.jpg").write_bytes(b"image")
+        (train_label_dir / f"train-{index}.txt").write_text("0 0.5 0.5 0.2 0.2\n")
     for index in range(50):
         (valid_dir / f"valid-{index}.jpg").write_bytes(b"image")
+        (valid_label_dir / f"valid-{index}.txt").write_text("0 0.5 0.5 0.2 0.2\n")
 
     model = tmp_path / "models" / "best.pt"
     model.parent.mkdir()

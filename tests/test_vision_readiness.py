@@ -48,6 +48,36 @@ def test_audit_vision_readiness_fails_without_required_class(tmp_path: Path):
     assert any(check.name == "yolo_dataset" and not check.ok for check in report.checks)
 
 
+def test_audit_vision_readiness_fails_without_positive_labels(tmp_path: Path):
+    manifest = _write_manifest(tmp_path, positives=2, negatives=3)
+    dataset = _write_dataset(
+        tmp_path,
+        train=2,
+        valid=1,
+        names="names: ['control_vehicle']",
+        write_labels=False,
+    )
+    model = tmp_path / "models" / "best.pt"
+    model.parent.mkdir()
+    model.write_bytes(b"model")
+
+    report = audit_vision_readiness(
+        dataset_path=dataset,
+        model_path=model,
+        baseline_manifest=manifest,
+        min_positive_candidates=2,
+        min_negative_candidates=3,
+        min_train_images=2,
+        min_valid_images=1,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "yolo_dataset"][0]
+    assert check.ok is False
+    assert "train_positive_labels=0" in check.detail
+    assert "valid_positive_labels=0" in check.detail
+
+
 def test_audit_vision_readiness_fails_with_unreviewed_sources(tmp_path: Path):
     manifest = _write_manifest(tmp_path, positives=2, negatives=3, license_reviewed=False)
     dataset = _write_dataset(tmp_path, train=2, valid=1, names="names: ['control_vehicle']")
@@ -247,15 +277,31 @@ def _write_manifest(
     return manifest
 
 
-def _write_dataset(tmp_path: Path, *, train: int, valid: int, names: str) -> Path:
+def _write_dataset(
+    tmp_path: Path,
+    *,
+    train: int,
+    valid: int,
+    names: str,
+    write_labels: bool = True,
+) -> Path:
     dataset = tmp_path / "datasets" / "control_vehicle_v1"
     train_dir = dataset / "train" / "images"
     valid_dir = dataset / "valid" / "images"
+    train_label_dir = dataset / "train" / "labels"
+    valid_label_dir = dataset / "valid" / "labels"
     train_dir.mkdir(parents=True)
     valid_dir.mkdir(parents=True)
+    if write_labels:
+        train_label_dir.mkdir(parents=True)
+        valid_label_dir.mkdir(parents=True)
     (dataset / "data.yaml").write_text(names + "\n")
     for index in range(train):
         (train_dir / f"train-{index}.jpg").write_bytes(b"image")
+        if write_labels:
+            (train_label_dir / f"train-{index}.txt").write_text("0 0.5 0.5 0.2 0.2\n")
     for index in range(valid):
         (valid_dir / f"valid-{index}.jpg").write_bytes(b"image")
+        if write_labels:
+            (valid_label_dir / f"valid-{index}.txt").write_text("0 0.5 0.5 0.2 0.2\n")
     return dataset
