@@ -41,6 +41,7 @@ def test_vision_eval_report_passes_with_required_metrics(tmp_path: Path):
     assert payload["passed"] is True
     assert payload["min_recall"] == 0.90
     assert payload["dataset_path"] == "datasets/control_vehicle_v1"
+    assert payload["required_class"] == "control_vehicle"
 
 
 def test_vision_eval_report_fails_when_false_positive_rate_is_high():

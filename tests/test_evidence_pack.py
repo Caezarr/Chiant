@@ -498,6 +498,20 @@ def test_evidence_pack_recomputes_vision_eval_metrics_from_counts(tmp_path: Path
     assert "metrics_consistent=False" in item.detail
 
 
+def test_evidence_pack_rejects_vision_eval_for_other_class(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_eval"].read_text())
+    payload["required_class"] = "car"
+    paths["vision_eval"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "class=car/control_vehicle" in item.detail
+
+
 def test_evidence_pack_requires_complete_vision_benchmark(tmp_path: Path):
     paths = _write_evidence(tmp_path)
 
@@ -979,6 +993,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
                 "model_path": "models/best.pt",
                 "dataset_path": "datasets/control_vehicle_v1",
                 "dataset_id": "field-pi5-daylight-v1",
+                "required_class": "control_vehicle",
                 "recall": 0.93,
                 "min_recall": 0.9,
                 "precision": 93 / 94,

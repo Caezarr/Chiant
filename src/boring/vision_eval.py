@@ -16,6 +16,7 @@ from boring.detect import Detector
 class VisionEvalReport:
     model_path: str
     dataset_id: str
+    required_class: str
     recall: float
     precision: float
     false_positive_per_hour: float
@@ -39,6 +40,7 @@ def build_report(
     *,
     model_path: str,
     dataset_id: str,
+    required_class: str = "control_vehicle",
     recall: float,
     precision: float,
     false_positive_per_hour: float,
@@ -63,6 +65,7 @@ def build_report(
     return VisionEvalReport(
         model_path=model_path,
         dataset_id=dataset_id,
+        required_class=required_class,
         recall=recall,
         precision=precision,
         false_positive_per_hour=false_positive_per_hour,
@@ -131,6 +134,7 @@ def evaluate_yolo_dataset(
     return build_report(
         model_path=model_path,
         dataset_id=dataset_id,
+        required_class=required_class,
         dataset_path=str(dataset_path),
         recall=recall,
         precision=precision,
