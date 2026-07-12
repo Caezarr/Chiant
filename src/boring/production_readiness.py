@@ -108,6 +108,7 @@ def audit_production_readiness(
             min_burn_in_hours=min_burn_in_hours,
             require_charging_seen=require_charging_seen,
         ),
+        _check_runtime_event_log(storage_path, burn_in_report_path),
         _check_report_freshness(
             values,
             now=checked_at,
@@ -482,6 +483,69 @@ def _check_burn_in_report(
             f"charging_seen={charging_seen}, discharging_seen={discharging_seen}"
         ),
     )
+
+
+_BLOCKING_RUNTIME_EVENTS = {
+    "battery_critical",
+    "disk_low",
+    "network_offline",
+    "notification_failed",
+    "payment_skipped_battery_critical",
+    "payment_skipped_no_position",
+    "payment_skipped_offline",
+    "service_crashed",
+    "thermal_critical",
+}
+
+
+def _check_runtime_event_log(event_log_path: Path, burn_in_report_path: Path) -> ProductionCheck:
+    if not event_log_path.exists():
+        return ProductionCheck("runtime_event_log", True, f"missing optional {event_log_path}")
+    if not event_log_path.is_file():
+        return ProductionCheck("runtime_event_log", True, f"not a file: {event_log_path}")
+    started_at = _burn_in_started_at(burn_in_report_path)
+    failures: list[str] = []
+    scanned = 0
+    for line_number, raw_line in enumerate(event_log_path.read_text().splitlines(), start=1):
+        if not raw_line.strip():
+            continue
+        try:
+            event = json.loads(raw_line)
+        except json.JSONDecodeError:
+            failures.append(f"line{line_number}=invalid_json")
+            continue
+        if not isinstance(event, dict):
+            failures.append(f"line{line_number}=invalid_payload")
+            continue
+        timestamp = _parse_timestamp(event.get("ts"))
+        if started_at is not None and timestamp is not None:
+            if timestamp.astimezone(timezone.utc) < started_at:
+                continue
+        name = str(event.get("event") or "")
+        scanned += 1
+        if name in _BLOCKING_RUNTIME_EVENTS:
+            failures.append(f"{name}@line{line_number}")
+        elif name == "network_recovery_attempted" and event.get("ok") is False:
+            failures.append(f"network_recovery_failed@line{line_number}")
+
+    return ProductionCheck(
+        "runtime_event_log",
+        not failures,
+        (
+            f"scanned={scanned}, since={started_at.isoformat() if started_at else '-'}, "
+            f"failures={', '.join(failures) if failures else '-'}"
+        ),
+    )
+
+
+def _burn_in_started_at(path: Path) -> datetime | None:
+    try:
+        payload = json.loads(path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return _parse_timestamp(payload.get("started_at"))
 
 
 def _check_report_freshness(

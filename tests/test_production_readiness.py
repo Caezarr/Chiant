@@ -647,6 +647,101 @@ def test_production_readiness_can_disable_report_freshness_for_rehearsal(tmp_pat
     assert check.detail == "disabled"
 
 
+def test_production_readiness_allows_missing_runtime_event_log(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path / "events.jsonl",
+    )
+
+    assert report.passed is True
+    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    assert check.ok is True
+    assert "missing optional" in check.detail
+
+
+def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Path):
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    artifacts = _write_ready_artifacts(tmp_path, report_time=now)
+    events = tmp_path / "events.jsonl"
+    events.write_text(
+        json.dumps(
+            {
+                "ts": (now - timedelta(hours=11)).isoformat(),
+                "event": "notification_failed",
+            }
+        )
+        + "\n"
+    )
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=events,
+    )
+
+    assert report.passed is True
+    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    assert check.ok is True
+    assert "scanned=0" in check.detail
+
+
+def test_production_readiness_rejects_blocking_runtime_event(tmp_path: Path):
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    artifacts = _write_ready_artifacts(tmp_path, report_time=now)
+    events = tmp_path / "events.jsonl"
+    events.write_text(
+        json.dumps(
+            {
+                "ts": (now - timedelta(hours=1)).isoformat(),
+                "event": "payment_skipped_battery_critical",
+                "plate": "AB-123-CD",
+            }
+        )
+        + "\n"
+    )
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=events,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    assert check.ok is False
+    assert "payment_skipped_battery_critical@line1" in check.detail
+
+
 def test_write_report_includes_passed(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     report = audit_production_readiness(
