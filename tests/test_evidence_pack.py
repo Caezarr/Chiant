@@ -1183,6 +1183,14 @@ def test_default_evidence_paths_include_box_ready():
     assert paths["burn_in_samples"] == Path("burn-in/samples.jsonl")
 
 
+def test_default_evidence_paths_uses_configured_event_log(monkeypatch):
+    monkeypatch.setenv("BOX_EVENT_LOG_PATH", "/tmp/boring/events.jsonl")
+
+    paths = default_evidence_paths()
+
+    assert paths["runtime_events"] == Path("/tmp/boring/events.jsonl")
+
+
 def _write_evidence(tmp_path: Path) -> dict[str, Path]:
     paths = {
         "box_ready": tmp_path / "reports" / "box-readiness.json",
