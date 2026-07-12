@@ -119,6 +119,26 @@ def test_evaluate_yolo_dataset_fails_when_false_positives_exceed_hourly_limit(tm
     assert report.passed is False
 
 
+def test_evaluate_yolo_dataset_fails_with_invalid_label_lines(tmp_path: Path):
+    dataset = _write_yolo_eval_dataset(tmp_path)
+    (dataset / "valid" / "labels" / "positive-a.txt").write_text("0 1.5 0.5 0.2 0.2\n")
+    detector = FakeDetector([True, False, True, False])
+
+    report = evaluate_yolo_dataset(
+        detector=detector,
+        dataset_path=dataset,
+        model_path="models/best.pt",
+        dataset_id="unit-valid",
+        split="valid",
+        frame_interval_seconds=900,
+        min_recall=0.40,
+        max_false_positive_per_hour=2.0,
+    )
+
+    assert report.invalid_labels == 1
+    assert report.passed is False
+
+
 def _write_yolo_eval_dataset(tmp_path: Path) -> Path:
     dataset = tmp_path / "dataset"
     image_dir = dataset / "valid" / "images"

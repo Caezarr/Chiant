@@ -1636,6 +1636,7 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
         _integer(payload.get("false_negatives")) if isinstance(payload, dict) else None
     )
     invalid_images = _integer(payload.get("invalid_images")) if isinstance(payload, dict) else None
+    invalid_labels = _integer(payload.get("invalid_labels")) if isinstance(payload, dict) else None
     model_path = str(payload.get("model_path") or "") if isinstance(payload, dict) else ""
     dataset_path = str(payload.get("dataset_path") or "") if isinstance(payload, dict) else ""
     required_class = str(payload.get("required_class") or "") if isinstance(payload, dict) else ""
@@ -1675,6 +1676,7 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
         and false_positives is not None
         and false_negatives is not None
         and invalid_images == 0
+        and invalid_labels == 0
         and metrics_consistent
         and required_class == "control_vehicle"
         and bool(model_path)
@@ -1694,7 +1696,8 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
             f"fp_per_hour={_fmt(false_positive_per_hour)}/{_fmt(max_false_positive_per_hour)}, "
             f"hours={_fmt(evaluated_hours)}, frames={frames_evaluated}, "
             f"true_positives={true_positives}, false_positives={false_positives}, "
-            f"false_negatives={false_negatives}, invalid={invalid_images}, "
+            f"false_negatives={false_negatives}, invalid_images={invalid_images}, "
+            f"invalid_labels={invalid_labels}, "
             f"metrics_consistent={metrics_consistent}, "
             f"class={required_class or '-'}/control_vehicle, "
             f"model={'ok' if model_path else 'missing'}, "
