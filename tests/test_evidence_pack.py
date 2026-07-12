@@ -150,6 +150,55 @@ def test_evidence_pack_requires_complete_runtime_reports(tmp_path: Path):
         assert "failures=-" in item.detail
 
 
+def test_evidence_pack_requires_runtime_events_to_cover_burn_in_window(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "runtime_alignment"][0]
+    assert item.format == "derived"
+    assert item.passed is True
+    assert "heartbeat_start_gap=0s/1800s" in item.detail
+    assert "heartbeat_end_gap=0s/1800s" in item.detail
+
+
+def test_evidence_pack_rejects_runtime_events_without_burn_in_end_heartbeat(
+    tmp_path: Path,
+):
+    paths = _write_evidence(tmp_path)
+    paths["runtime_events"].write_text(
+        json.dumps({"ts": "2026-01-01T00:00:00+00:00", "event": "heartbeat"}) + "\n"
+    )
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "runtime_alignment"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "heartbeat_end_gap=36000s/1800s" in item.detail
+
+
+def test_evidence_pack_rejects_blocking_runtime_event_during_burn_in_window(
+    tmp_path: Path,
+):
+    paths = _write_evidence(tmp_path)
+    paths["runtime_events"].write_text(
+        json.dumps({"ts": "2026-01-01T00:00:00+00:00", "event": "heartbeat"})
+        + "\n"
+        + json.dumps({"ts": "2026-01-01T02:00:00+00:00", "event": "network_offline"})
+        + "\n"
+        + json.dumps({"ts": "2026-01-01T10:00:00+00:00", "event": "heartbeat"})
+        + "\n"
+    )
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "runtime_alignment"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "blocking=network_offline@line2" in item.detail
+
+
 def test_evidence_pack_rejects_generic_camera_report(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     paths["camera_runtime"].write_text(json.dumps({"passed": True}))
@@ -675,7 +724,10 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
         )
     )
     paths["runtime_events"].write_text(
-        json.dumps({"ts": "2026-01-01T00:00:00+00:00", "event": "heartbeat"}) + "\n"
+        json.dumps({"ts": "2026-01-01T00:00:00+00:00", "event": "heartbeat"})
+        + "\n"
+        + json.dumps({"ts": "2026-01-01T10:00:00+00:00", "event": "heartbeat"})
+        + "\n"
     )
     paths["burn_in_samples"].write_text(
         json.dumps(
@@ -839,8 +891,8 @@ def _systemd_runtime_payload() -> dict:
 def _burn_in_payload() -> dict:
     return {
         "passed": True,
-        "started_at": 0,
-        "ended_at": 36_000,
+        "started_at": "2026-01-01T00:00:00+00:00",
+        "ended_at": "2026-01-01T10:00:00+00:00",
         "duration_seconds": 36_000,
         "sample_count": 600,
         "camera_failures": 0,
