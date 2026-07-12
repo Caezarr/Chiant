@@ -885,6 +885,7 @@ def _check_benchmark_report(
 
     passed = bool(payload.get("passed"))
     frames_processed = int(payload.get("frames_processed") or 0)
+    detections_seen = int(payload.get("detections_seen") or 0)
     measured_fps = float(payload.get("measured_fps") or 0)
     min_fps = float(payload.get("min_fps") or 0)
     required_fps = required_min_fps if required_min_fps is not None else min_fps
@@ -894,6 +895,7 @@ def _check_benchmark_report(
     ok = (
         passed
         and frames_processed > 0
+        and detections_seen > 0
         and min_fps >= required_fps
         and measured_fps >= required_fps
         and model_ok
@@ -904,7 +906,7 @@ def _check_benchmark_report(
         (
             f"passed={passed}, fps={measured_fps:.2f}/{min_fps:.2f}, "
             f"required={required_fps:.2f}, "
-            f"frames={frames_processed}, device={device}, "
+            f"frames={frames_processed}, detections={detections_seen}, device={device}, "
             f"model={report_model or '-'}/{expected_model_path or '-'}"
         ),
     )

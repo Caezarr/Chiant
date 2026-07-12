@@ -43,7 +43,7 @@ def test_run_vision_benchmark_fails_without_frames():
 
 def test_run_vision_benchmark_fails_when_too_slow():
     report = run_vision_benchmark(
-        detector=_FakeDetector(),
+        detector=_FakeDetector(detections_per_frame=1),
         frames=[(1.0, object()), (2.0, object())],
         model_path="models/best.pt",
         device="cpu",
@@ -56,9 +56,26 @@ def test_run_vision_benchmark_fails_when_too_slow():
     assert report.measured_fps == 1.0
 
 
+def test_run_vision_benchmark_fails_without_positive_detections():
+    report = run_vision_benchmark(
+        detector=_FakeDetector(detections_per_frame=0),
+        frames=[(1.0, object()), (2.0, object())],
+        model_path="models/best.pt",
+        device="cpu",
+        min_fps=1.0,
+        max_frames=2,
+        clock=_FakeClock([0.0, 1.0]),
+    )
+
+    assert report.passed is False
+    assert report.frames_processed == 2
+    assert report.detections_seen == 0
+    assert report.measured_fps == 2.0
+
+
 def test_write_report(tmp_path: Path):
     report = run_vision_benchmark(
-        detector=_FakeDetector(),
+        detector=_FakeDetector(detections_per_frame=1),
         frames=[(1.0, object())],
         model_path="models/best.pt",
         device="cpu",

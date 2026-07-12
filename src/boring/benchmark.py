@@ -53,7 +53,7 @@ def run_vision_benchmark(
         duration_seconds=duration,
         measured_fps=measured_fps,
         min_fps=min_fps,
-        passed=frames_processed > 0 and measured_fps >= min_fps,
+        passed=frames_processed > 0 and detections_seen > 0 and measured_fps >= min_fps,
         generated_at=datetime.now(timezone.utc).isoformat(),
     )
 

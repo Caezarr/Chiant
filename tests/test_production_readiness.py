@@ -1216,6 +1216,39 @@ def test_production_readiness_fails_when_benchmark_fails(tmp_path: Path):
     assert any(check.name == "vision_benchmark" and not check.ok for check in report.checks)
 
 
+def test_production_readiness_fails_when_benchmark_has_no_detections(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["benchmark"].read_text())
+    payload["detections_seen"] = 0
+    payload["passed"] = True
+    artifacts["benchmark"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "vision_benchmark"][0]
+    assert check.ok is False
+    assert "detections=0" in check.detail
+
+
 def test_production_readiness_fails_when_benchmark_uses_other_model(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     payload = json.loads(artifacts["benchmark"].read_text())
@@ -2518,7 +2551,7 @@ def _write_ready_artifacts(
                 "model_path": str(model),
                 "device": "cpu",
                 "frames_processed": 120,
-                "detections_seen": 0,
+                "detections_seen": 12,
                 "duration_seconds": 60.0,
                 "measured_fps": benchmark_fps,
                 "min_fps": benchmark_min_fps,
