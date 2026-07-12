@@ -171,8 +171,16 @@ quand MEL stabilisera sa nouvelle API geOrchestra.
 
 ## Tests
 
-- **Unitaires** (`tests/test_*.py`) : geofence, tracker, payment stubs, deep link
+- **Unitaires** (`tests/test_*.py`) : geofence, tracker, providers, readiness,
+  power, storage, systemd, vision, evidence pack
 - **Intégration** (`tests/test_glue_integration.py`) : `process_trigger` end-to-end
   avec MockProvider + NotifyCollector
+- **Gates terrain simulés** : `tests/test_production_readiness.py`,
+  `tests/test_evidence_pack.py`, `tests/test_runtime.py`
 
-33+ tests, ~2s en local. CI sur chaque push (ruff + pytest).
+437 tests passent en local. CI sur chaque push (ruff + pytest).
+
+## Audit maintenabilité
+
+Voir [docs/CODE_AUDIT.md](docs/CODE_AUDIT.md) pour l'audit CTO/dev, les PRs de
+cleanup mergées, les risques restants et les prochaines extractions utiles.
