@@ -18,6 +18,7 @@ class BoxState:
     last_session_plate: str | None = None
     daily_paid_on: date | None = None
     daily_paid_cents: int = 0
+    load_error: str | None = None
 
 
 class BoxStateStore:
@@ -31,20 +32,24 @@ class BoxStateStore:
             return BoxState()
         try:
             data = json.loads(self.path.read_text())
-        except (OSError, json.JSONDecodeError):
-            return BoxState()
-        return BoxState(
-            last_payment_at=_parse_dt(data.get("last_payment_at")),
-            last_session_id=data.get("last_session_id"),
-            last_session_provider=data.get("last_session_provider"),
-            last_session_plate=data.get("last_session_plate"),
-            daily_paid_on=_parse_date(data.get("daily_paid_on")),
-            daily_paid_cents=int(data.get("daily_paid_cents") or 0),
-        )
+        except (OSError, json.JSONDecodeError) as exc:
+            return BoxState(load_error=f"invalid state file: {exc}")
+        try:
+            return BoxState(
+                last_payment_at=_parse_dt(data.get("last_payment_at")),
+                last_session_id=data.get("last_session_id"),
+                last_session_provider=data.get("last_session_provider"),
+                last_session_plate=data.get("last_session_plate"),
+                daily_paid_on=_parse_date(data.get("daily_paid_on")),
+                daily_paid_cents=int(data.get("daily_paid_cents") or 0),
+            )
+        except (AttributeError, TypeError, ValueError) as exc:
+            return BoxState(load_error=f"invalid state payload: {exc}")
 
     def save(self, state: BoxState) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = asdict(state)
+        payload.pop("load_error", None)
         if state.last_payment_at is not None:
             payload["last_payment_at"] = state.last_payment_at.isoformat()
         if state.daily_paid_on is not None:
@@ -53,6 +58,8 @@ class BoxStateStore:
 
     def record_session(self, session: ParkingSession) -> None:
         current = self.load()
+        if current.load_error is not None:
+            raise RuntimeError(current.load_error)
         payment_day = session.start.date()
         previous_total = current.daily_paid_cents if current.daily_paid_on == payment_day else 0
         self.save(
@@ -68,6 +75,8 @@ class BoxStateStore:
 
     def paid_today_cents(self, today: date | None = None) -> int:
         state = self.load()
+        if state.load_error is not None:
+            raise RuntimeError(state.load_error)
         today = today or datetime.now().date()
         if state.daily_paid_on != today:
             return 0

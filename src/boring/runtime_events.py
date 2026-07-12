@@ -12,6 +12,7 @@ BLOCKING_RUNTIME_EVENTS = frozenset(
         "payment_skipped_battery_critical",
         "payment_skipped_no_position",
         "payment_skipped_offline",
+        "payment_skipped_state_corrupt",
         "service_crashed",
         "thermal_critical",
     }

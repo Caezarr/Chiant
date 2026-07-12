@@ -150,6 +150,41 @@ def test_handle_trigger_skips_payment_when_battery_is_critical(tmp_path, monkeyp
     assert "payment_skipped_battery_critical" in (tmp_path / "events.jsonl").read_text()
 
 
+def test_handle_trigger_skips_payment_when_state_file_is_corrupt(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_notify(title: str, message: str, sound: bool = True) -> None:
+        calls.append((title, message, sound))
+
+    monkeypatch.setattr("boring.runtime.notify", fake_notify)
+    state_path = tmp_path / "state.json"
+    state_path.write_text("{not-json")
+    event_log = EventLog(tmp_path / "events.jsonl")
+    provider = object()
+
+    result = _handle_trigger(
+        payment=provider,
+        cooldown=object(),
+        state_store=BoxStateStore(state_path),
+        event_log=event_log,
+        state=RuntimeState(network_online=True),
+        config=BoxConfig(vehicle_plate="AB-123-CD"),
+        position_provider=StaticPositionProvider(50.6371, 3.0633),
+        zones=None,
+        detection_count=1,
+    )
+
+    assert result is None
+    assert calls == [
+        (
+            "Boring Box — paiement bloque",
+            "Etat local illisible: verifier /var/lib/boring/state.json avant autopaiement.",
+            True,
+        )
+    ]
+    assert "payment_skipped_state_corrupt" in (tmp_path / "events.jsonl").read_text()
+
+
 def test_check_network_notifies_offline_then_recovered(tmp_path: Path, monkeypatch):
     calls = []
 

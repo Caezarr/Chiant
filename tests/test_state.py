@@ -13,6 +13,31 @@ def test_state_store_missing_file_loads_empty(tmp_path):
 
     assert state.last_payment_at is None
     assert state.last_session_id is None
+    assert state.load_error is None
+
+
+def test_state_store_corrupt_file_reports_load_error(tmp_path):
+    path = tmp_path / "state.json"
+    path.write_text("{not-json")
+    store = BoxStateStore(path)
+
+    state = store.load()
+
+    assert state.load_error is not None
+    assert "invalid state file" in state.load_error
+
+
+def test_state_store_refuses_daily_total_when_state_is_corrupt(tmp_path):
+    path = tmp_path / "state.json"
+    path.write_text("{not-json")
+    store = BoxStateStore(path)
+
+    try:
+        store.paid_today_cents(date(2026, 7, 9))
+    except RuntimeError as exc:
+        assert "invalid state file" in str(exc)
+    else:
+        raise AssertionError("expected corrupt state to block paid_today_cents")
 
 
 def test_state_store_roundtrip(tmp_path):
