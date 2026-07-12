@@ -75,6 +75,39 @@ def run_autopay_smoke(
             tested_at=tested_at,
             error="stop_after must be true for production smoke",
         )
+    if duration_minutes <= 0:
+        return _report(
+            provider=provider,
+            dry_run=dry_run,
+            plate=plate,
+            duration_minutes=duration_minutes,
+            lat=lat,
+            lon=lon,
+            tested_at=tested_at,
+            error="duration_minutes must be positive",
+        )
+    if max_session_amount_cents is not None and max_session_amount_cents <= 0:
+        return _report(
+            provider=provider,
+            dry_run=dry_run,
+            plate=plate,
+            duration_minutes=duration_minutes,
+            lat=lat,
+            lon=lon,
+            tested_at=tested_at,
+            error="max_session_amount_cents must be positive",
+        )
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return _report(
+            provider=provider,
+            dry_run=dry_run,
+            plate=plate,
+            duration_minutes=duration_minutes,
+            lat=lat,
+            lon=lon,
+            tested_at=tested_at,
+            error="lat/lon out of bounds",
+        )
     try:
         active_before = provider.get_active_session(plate)
         if active_before is not None:
