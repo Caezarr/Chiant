@@ -248,6 +248,23 @@ def test_audit_vision_readiness_can_require_edge_export(tmp_path: Path):
     )
     assert missing.passed is False
 
+    (model.parent / "best.onnx").write_bytes(b"")
+    empty = audit_vision_readiness(
+        dataset_path=dataset,
+        model_path=model,
+        baseline_manifest=manifest,
+        min_positive_candidates=1,
+        min_negative_candidates=1,
+        min_train_images=1,
+        min_valid_images=1,
+        require_edge_export=True,
+    )
+    assert empty.passed is False
+    assert any(
+        check.name == "edge_export" and "empty best.onnx/best.tflite" in check.detail
+        for check in empty.checks
+    )
+
     (model.parent / "best.onnx").write_bytes(b"edge")
     ready = audit_vision_readiness(
         dataset_path=dataset,

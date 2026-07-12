@@ -312,7 +312,10 @@ def _check_edge_export(model: Path) -> VisionCheck:
     existing = [candidate for candidate in candidates if candidate.exists()]
     if not existing:
         return VisionCheck("edge_export", False, "missing best.onnx or best.tflite")
-    return VisionCheck("edge_export", True, ", ".join(str(path) for path in existing))
+    non_empty = [candidate for candidate in existing if candidate.stat().st_size > 0]
+    if not non_empty:
+        return VisionCheck("edge_export", False, "empty best.onnx/best.tflite")
+    return VisionCheck("edge_export", True, ", ".join(str(path) for path in non_empty))
 
 
 def _count_images(root: Path) -> int:
