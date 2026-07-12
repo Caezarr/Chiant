@@ -16,6 +16,7 @@ class FakeProvider(PaymentProvider):
         active_before: bool = False,
         stop_clears_session: bool = True,
         amount_cents: int = 120,
+        active_amount_cents: int | None = None,
         fail_active_after_start: bool = False,
         session_location_id: str = "zone-1",
         active_duration_minutes: int | None = None,
@@ -24,6 +25,7 @@ class FakeProvider(PaymentProvider):
         self.active_before = active_before
         self.stop_clears_session = stop_clears_session
         self.amount_cents = amount_cents
+        self.active_amount_cents = active_amount_cents
         self.fail_active_after_start = fail_active_after_start
         self.session_location_id = session_location_id
         self.active_duration_minutes = active_duration_minutes
@@ -67,7 +69,17 @@ class FakeProvider(PaymentProvider):
             )
         if self.fail_active_after_start and self.session is not None:
             raise RuntimeError("active session lookup failed")
-        return self.session
+        if self.session is None or self.active_amount_cents is None:
+            return self.session
+        return ParkingSession(
+            provider=self.session.provider,
+            session_id=self.session.session_id,
+            vehicle_plate=self.session.vehicle_plate,
+            location_id=self.session.location_id,
+            start=self.session.start,
+            end=self.session.end,
+            amount_cents=self.active_amount_cents,
+        )
 
     def stop_session(self, session_id: str) -> None:
         self.stopped_session_id = session_id
@@ -92,6 +104,8 @@ def test_autopay_smoke_starts_verifies_and_stops_real_session():
     assert report.session_location_id == "zone-1"
     assert report.session_id == "session-1"
     assert report.amount_cents == 120
+    assert report.active_session_amount_cents == 120
+    assert report.amount_verified is True
     assert report.duration_minutes == 15
     assert report.active_session_duration_minutes == 15
     assert report.duration_verified is True
@@ -195,6 +209,25 @@ def test_autopay_smoke_fails_when_amount_exceeds_limit():
     assert report.stopped is True
     assert report.stop_verified is True
     assert "exceeds MAX_SESSION_AMOUNT_CENTS" in str(report.error)
+    assert provider.stopped_session_id == "session-1"
+
+
+def test_autopay_smoke_fails_when_active_session_amount_differs():
+    provider = FakeProvider(amount_cents=120, active_amount_cents=180)
+
+    report = run_autopay_smoke(
+        provider=provider,
+        plate="AB-123-CD",
+        lat=50.6371,
+        lon=3.0633,
+        duration_minutes=15,
+    )
+
+    assert report.passed is False
+    assert report.amount_cents == 120
+    assert report.active_session_amount_cents == 180
+    assert report.amount_verified is False
+    assert "active session amount mismatch" in str(report.error)
     assert provider.stopped_session_id == "session-1"
 
 

@@ -2681,7 +2681,77 @@ def test_production_readiness_rejects_autopay_smoke_above_session_limit(
     assert report.passed is False
     check = [check for check in report.checks if check.name == "autopay_smoke"][0]
     assert check.ok is False
-    assert "amount=650/500" in check.detail
+    assert "amount=650/120/500" in check.detail
+
+
+def test_production_readiness_rejects_autopay_smoke_for_unverified_active_amount(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["autopay_smoke"].read_text())
+    payload["active_session_amount_cents"] = 180
+    payload["amount_verified"] = False
+    artifacts["autopay_smoke"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    assert check.ok is False
+    assert "amount=120/180/500" in check.detail
+    assert "amount_verified=False" in check.detail
+
+
+def test_production_readiness_requires_autopay_smoke_active_amount(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["autopay_smoke"].read_text())
+    payload.pop("active_session_amount_cents")
+    payload.pop("amount_verified")
+    artifacts["autopay_smoke"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    assert check.ok is False
+    assert "amount=120/None/500" in check.detail
+    assert "amount_verified=False" in check.detail
 
 
 def test_production_readiness_rejects_autopay_smoke_for_other_duration(
@@ -3672,6 +3742,8 @@ def _write_ready_artifacts(
                 "session_location_id": "zone-1",
                 "session_id": "session-1",
                 "amount_cents": 120 if autopay_smoke_passed else 0,
+                "active_session_amount_cents": 120 if autopay_smoke_passed else 0,
+                "amount_verified": autopay_smoke_passed,
                 "duration_minutes": 15,
                 "active_session_duration_minutes": 15,
                 "duration_verified": autopay_smoke_passed,

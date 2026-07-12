@@ -889,6 +889,8 @@ def test_evidence_pack_requires_complete_autopay_smoke(tmp_path: Path):
     item = [item for item in pack.items if item.name == "autopay_smoke"][0]
     assert item.passed is True
     assert "dry_run=False" in item.detail
+    assert "amount=120/120" in item.detail
+    assert "amount_verified=True" in item.detail
     assert "stop_verified=True" in item.detail
     assert "duration=15/15" in item.detail
     assert "duration_verified=True" in item.detail
@@ -958,6 +960,38 @@ def test_evidence_pack_rejects_autopay_smoke_without_verified_duration(tmp_path:
     assert item.passed is False
     assert "duration=15/5" in item.detail
     assert "duration_verified=False" in item.detail
+
+
+def test_evidence_pack_rejects_autopay_smoke_without_verified_amount(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["autopay_smoke"].read_text())
+    payload["active_session_amount_cents"] = 180
+    payload["amount_verified"] = False
+    paths["autopay_smoke"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "amount=120/180" in item.detail
+    assert "amount_verified=False" in item.detail
+
+
+def test_evidence_pack_requires_autopay_smoke_active_amount(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["autopay_smoke"].read_text())
+    payload.pop("active_session_amount_cents")
+    payload.pop("amount_verified")
+    paths["autopay_smoke"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "amount=120/None" in item.detail
+    assert "amount_verified=False" in item.detail
 
 
 def test_evidence_pack_rejects_autopay_smoke_without_session_id(tmp_path: Path):
@@ -1422,6 +1456,8 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
                 "session_location_id": "zone-1",
                 "session_id": "session-1",
                 "amount_cents": 120,
+                "active_session_amount_cents": 120,
+                "amount_verified": True,
                 "duration_minutes": 15,
                 "active_session_duration_minutes": 15,
                 "duration_verified": True,

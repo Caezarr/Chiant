@@ -1516,6 +1516,15 @@ def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
     dry_run = payload.get("dry_run") is True if isinstance(payload, dict) else True
     amount_cents = payload.get("amount_cents") if isinstance(payload, dict) else None
     amount_ok = isinstance(amount_cents, int) and amount_cents > 0
+    active_amount = (
+        payload.get("active_session_amount_cents") if isinstance(payload, dict) else None
+    )
+    amount_verified = payload.get("amount_verified") is True if isinstance(payload, dict) else False
+    active_amount_ok = (
+        isinstance(active_amount, int)
+        and isinstance(amount_cents, int)
+        and active_amount == amount_cents
+    )
     active_verified = (
         payload.get("active_session_verified") is True if isinstance(payload, dict) else False
     )
@@ -1542,6 +1551,8 @@ def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
         passed
         and not dry_run
         and amount_ok
+        and amount_verified
+        and active_amount_ok
         and active_verified
         and stopped
         and stop_verified
@@ -1562,7 +1573,8 @@ def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
         sha256=hashlib.sha256(raw).hexdigest(),
         format=_format(name),
         detail=(
-            f"passed={passed}, dry_run={dry_run}, amount={amount_cents}, "
+            f"passed={passed}, dry_run={dry_run}, amount={amount_cents}/{active_amount}, "
+            f"amount_verified={amount_verified}, "
             f"active={active_verified}, stopped={stopped}, stop_verified={stop_verified}, "
             f"duration={duration_minutes}/{active_duration}, duration_verified={duration_verified}, "
             f"provider={'ok' if provider else 'missing'}, "

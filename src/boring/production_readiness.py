@@ -932,6 +932,11 @@ def _check_autopay_smoke_report(
     stop_verified = bool(payload.get("stop_verified"))
     amount_cents = payload.get("amount_cents")
     amount_ok = isinstance(amount_cents, int) and amount_cents > 0
+    active_amount = payload.get("active_session_amount_cents")
+    amount_verified = payload.get("amount_verified") is True
+    active_amount_ok = (
+        isinstance(active_amount, int) and amount_ok and active_amount == amount_cents
+    )
     max_session_amount = int(_env_float(env, "MAX_SESSION_AMOUNT_CENTS") or 500)
     max_session_ok = max_session_amount > 0 and amount_ok and amount_cents <= max_session_amount
     duration_minutes = payload.get("duration_minutes")
@@ -971,6 +976,8 @@ def _check_autopay_smoke_report(
         and stopped
         and stop_verified
         and amount_ok
+        and amount_verified
+        and active_amount_ok
         and max_session_ok
         and duration_ok
         and duration_verified
@@ -986,7 +993,8 @@ def _check_autopay_smoke_report(
         (
             f"passed={passed}, dry_run={dry_run}, active={active_verified}, "
             f"stopped={stopped}, stop_verified={stop_verified}, "
-            f"amount={amount_cents}/{max_session_amount}, "
+            f"amount={amount_cents}/{active_amount}/{max_session_amount}, "
+            f"amount_verified={amount_verified}, "
             f"duration={duration_minutes}/{expected_duration}, "
             f"active_duration={active_duration if active_duration is not None else '-'}/{expected_duration}, "
             f"duration_verified={duration_verified}, "
