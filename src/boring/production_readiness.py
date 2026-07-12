@@ -1177,6 +1177,8 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
     expected_charging_seen = bool(report.get("charging_seen"))
     expected_discharging_seen = bool(report.get("discharging_seen"))
     expected_max_temp = _json_float(report.get("max_temp_c"))
+    started_at = _parse_timestamp(report.get("started_at"))
+    ended_at = _parse_timestamp(report.get("ended_at"))
     invalid_lines = 0
     scanned = 0
     camera_failures = 0
@@ -1184,6 +1186,7 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
     battery_values: list[float] = []
     charging_values: list[bool] = []
     temp_values: list[float] = []
+    timestamps: list[datetime] = []
     for line_number, raw_line in enumerate(samples_path.read_text().splitlines(), start=1):
         if not raw_line.strip():
             continue
@@ -1196,6 +1199,11 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
             invalid_lines += 1
             continue
         scanned += 1
+        timestamp = _parse_timestamp(sample.get("ts"))
+        if timestamp is None:
+            invalid_lines += 1
+            continue
+        timestamps.append(timestamp.astimezone(timezone.utc))
         if sample.get("camera_ok") is not True:
             camera_failures += 1
         if sample.get("network_online") is not True:
@@ -1221,6 +1229,15 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
     charging_seen = any(value is True for value in charging_values)
     discharging_seen = any(value is False for value in charging_values)
     max_temp = max(temp_values) if temp_values else None
+    timestamps_monotonic = all(
+        previous <= current for previous, current in zip(timestamps, timestamps[1:])
+    )
+    timestamps_in_window = (
+        started_at is not None
+        and ended_at is not None
+        and len(timestamps) == scanned
+        and all(started_at <= timestamp <= ended_at for timestamp in timestamps)
+    )
     sample_count_ok = scanned == expected_sample_count
     camera_ok = camera_failures == expected_camera_failures == 0
     network_ok = network_failures == expected_network_failures == 0
@@ -1245,6 +1262,8 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
         and network_ok
         and battery_ok
         and temp_ok
+        and timestamps_monotonic
+        and timestamps_in_window
     )
     return ProductionCheck(
         "burn_in_samples",
@@ -1260,6 +1279,8 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
             f"charging_seen={charging_seen}/{expected_charging_seen}, "
             f"discharging_seen={discharging_seen}/{expected_discharging_seen}, "
             f"max_temp={_format_temp(max_temp)}/{_format_temp(expected_max_temp)}, "
+            f"timestamps_monotonic={timestamps_monotonic}, "
+            f"timestamps_in_window={timestamps_in_window}, "
             f"invalid_lines={invalid_lines}"
         ),
     )
