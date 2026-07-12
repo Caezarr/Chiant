@@ -466,6 +466,20 @@ def test_evidence_pack_rejects_notification_test_without_host(tmp_path: Path):
     assert "host=missing" in item.detail
 
 
+def test_evidence_pack_rejects_notification_test_without_low_battery_message(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["notification_test"].read_text())
+    payload["message"] = "Canal notification pret."
+    paths["notification_test"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "notification_test"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "battery_message=False" in item.detail
+
+
 def test_evidence_pack_includes_runtime_events_jsonl(tmp_path: Path):
     paths = _write_evidence(tmp_path)
 
