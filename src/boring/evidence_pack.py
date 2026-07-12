@@ -1136,6 +1136,7 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
     invalid_images = _integer(payload.get("invalid_images")) if isinstance(payload, dict) else None
     model_path = str(payload.get("model_path") or "") if isinstance(payload, dict) else ""
     dataset_path = str(payload.get("dataset_path") or "") if isinstance(payload, dict) else ""
+    required_class = str(payload.get("required_class") or "") if isinstance(payload, dict) else ""
     precision = _number(payload.get("precision")) if isinstance(payload, dict) else None
     expected_recall = _metric_ratio(true_positives, true_positives, false_negatives)
     expected_precision = _metric_ratio(true_positives, true_positives, false_positives)
@@ -1173,6 +1174,7 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
         and false_negatives is not None
         and invalid_images == 0
         and metrics_consistent
+        and required_class == "control_vehicle"
         and bool(model_path)
         and bool(dataset_path)
     )
@@ -1192,6 +1194,7 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
             f"true_positives={true_positives}, false_positives={false_positives}, "
             f"false_negatives={false_negatives}, invalid={invalid_images}, "
             f"metrics_consistent={metrics_consistent}, "
+            f"class={required_class or '-'}/control_vehicle, "
             f"model={'ok' if model_path else 'missing'}, "
             f"dataset={'ok' if dataset_path else 'missing'}"
         ),

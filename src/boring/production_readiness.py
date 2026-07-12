@@ -1054,6 +1054,8 @@ def _check_vision_eval_report(
         report_dataset,
         expected_dataset_path,
     )
+    required_class = str(payload.get("required_class") or "")
+    class_ok = required_class == "control_vehicle"
     ok = (
         passed
         and recall >= min_recall
@@ -1065,6 +1067,7 @@ def _check_vision_eval_report(
         and metrics_consistent
         and model_ok
         and dataset_ok
+        and class_ok
     )
     return ProductionCheck(
         "vision_eval",
@@ -1076,6 +1079,7 @@ def _check_vision_eval_report(
             f"true_positives={true_positives}, false_positives={false_positives}, "
             f"false_negatives={false_negatives}, invalid={invalid_images}, "
             f"metrics_consistent={metrics_consistent}, "
+            f"class={required_class or '-'}/control_vehicle, "
             f"model={report_model or '-'}/{expected_model_path or '-'}, "
             f"dataset={report_dataset or '-'}/{expected_dataset_path or '-'}"
         ),
