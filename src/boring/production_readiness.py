@@ -618,7 +618,7 @@ def _check_runtime_event_log(
 
     return ProductionCheck(
         "runtime_event_log",
-        not failures,
+        scanned > 0 and not failures,
         (
             f"scanned={scanned}, since={started_at.isoformat() if started_at else '-'}, "
             f"failures={', '.join(failures) if failures else '-'}"
