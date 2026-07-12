@@ -11,6 +11,31 @@ from pathlib import Path
 from boring.hardware_profile import audit_hardware_profile
 from boring.runtime_events import BLOCKING_RUNTIME_EVENTS
 
+REQUIRED_BOX_READY_CHECKS = {
+    "autopay",
+    "autopay_smoke",
+    "burn_in",
+    "burn_in_samples",
+    "camera_runtime",
+    "disk_space",
+    "hardware",
+    "hardware_env_consistency",
+    "network_recovery",
+    "network_runtime",
+    "notification_test",
+    "notification_webhook",
+    "position_runtime",
+    "power_budget",
+    "power_runtime",
+    "report_freshness",
+    "runtime_event_log",
+    "systemd_runtime",
+    "systemd_service",
+    "vision",
+    "vision_benchmark",
+    "vision_eval",
+}
+
 
 @dataclass(frozen=True)
 class EvidenceItem:
@@ -77,6 +102,7 @@ def evidence_item_ok(item: EvidenceItem) -> bool:
         return False
     if item.name in {
         "autopay_smoke",
+        "box_ready",
         "burn_in_samples",
         "hardware_profile",
         "notification_test",
@@ -97,6 +123,8 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
     raw = path.read_bytes()
     if name == "autopay_smoke":
         return _read_autopay_smoke(name, path, raw)
+    if name == "box_ready":
+        return _read_box_ready(name, path, raw)
     if name == "burn_in_samples":
         return _read_burn_in_samples(name, path, raw)
     if name == "hardware_profile":
@@ -136,6 +164,81 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
         sha256=hashlib.sha256(raw).hexdigest(),
         format=_format(name),
         detail=_detail(payload),
+    )
+
+
+def _read_box_ready(name: str, path: Path, raw: bytes) -> EvidenceItem:
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        return EvidenceItem(
+            name,
+            str(path),
+            True,
+            False,
+            None,
+            len(raw),
+            hashlib.sha256(raw).hexdigest(),
+            _format(name),
+            "invalid json",
+        )
+    if not isinstance(payload, dict):
+        return EvidenceItem(
+            name=name,
+            path=str(path),
+            present=True,
+            valid_json=True,
+            passed=False,
+            size_bytes=len(raw),
+            sha256=hashlib.sha256(raw).hexdigest(),
+            format=_format(name),
+            detail="json is not an object",
+        )
+
+    checks = payload.get("checks")
+    if not isinstance(checks, list):
+        return EvidenceItem(
+            name=name,
+            path=str(path),
+            present=True,
+            valid_json=True,
+            passed=False,
+            size_bytes=len(raw),
+            sha256=hashlib.sha256(raw).hexdigest(),
+            format=_format(name),
+            detail="checks=missing",
+        )
+
+    check_status: dict[str, bool] = {}
+    malformed = 0
+    for check in checks:
+        if not isinstance(check, dict):
+            malformed += 1
+            continue
+        check_name = check.get("name")
+        ok = check.get("ok")
+        if not isinstance(check_name, str) or not isinstance(ok, bool):
+            malformed += 1
+            continue
+        check_status[check_name] = ok
+
+    missing = sorted(REQUIRED_BOX_READY_CHECKS - set(check_status))
+    failed = sorted(name for name in REQUIRED_BOX_READY_CHECKS if check_status.get(name) is False)
+    passed = payload.get("passed") is True and not missing and not failed and malformed == 0
+    return EvidenceItem(
+        name=name,
+        path=str(path),
+        present=True,
+        valid_json=True,
+        passed=passed,
+        size_bytes=len(raw),
+        sha256=hashlib.sha256(raw).hexdigest(),
+        format=_format(name),
+        detail=(
+            f"passed={payload.get('passed') is True}, checks={len(check_status)}, "
+            f"missing={','.join(missing) if missing else '-'}, "
+            f"failed={','.join(failed) if failed else '-'}, malformed={malformed}"
+        ),
     )
 
 
