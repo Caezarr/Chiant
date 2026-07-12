@@ -20,6 +20,8 @@ class AutopaySmokeReport:
     session_location_id: str | None
     session_id: str | None
     amount_cents: int | None
+    active_session_amount_cents: int | None
+    amount_verified: bool
     duration_minutes: int
     active_session_duration_minutes: int | None
     duration_verified: bool
@@ -90,6 +92,8 @@ def run_autopay_smoke(
         )
         active_duration = _session_duration_minutes(active_after)
         duration_verified = active_duration == duration_minutes
+        active_amount = active_after.amount_cents if active_after is not None else None
+        amount_verified = active_amount == session.amount_cents
         if stop_after:
             provider.stop_session(session.session_id)
             stopped = True
@@ -104,6 +108,7 @@ def run_autopay_smoke(
             and max_amount_ok
             and session_location_ok
             and active_verified
+            and amount_verified
             and duration_verified
             and (stopped and stop_verified if stop_after else True)
         )
@@ -114,6 +119,8 @@ def run_autopay_smoke(
             error = f"session location mismatch: {session.location_id}/{zone_id}"
         elif not duration_verified:
             error = f"active session duration mismatch: {active_duration}/{duration_minutes}min"
+        elif not amount_verified:
+            error = f"active session amount mismatch: {active_amount}/{session.amount_cents}"
         return _report(
             provider=provider,
             dry_run=dry_run,
@@ -126,6 +133,8 @@ def run_autopay_smoke(
             session_location_id=session.location_id,
             session_id=session.session_id,
             amount_cents=session.amount_cents,
+            active_session_amount_cents=active_amount,
+            amount_verified=amount_verified,
             active_session_duration_minutes=active_duration,
             duration_verified=duration_verified,
             active_session_verified=active_verified,
@@ -180,6 +189,8 @@ def _report(
     session_location_id: str | None = None,
     session_id: str | None = None,
     amount_cents: int | None = None,
+    active_session_amount_cents: int | None = None,
+    amount_verified: bool = False,
     active_session_duration_minutes: int | None = None,
     duration_verified: bool = False,
     active_session_verified: bool = False,
@@ -197,6 +208,8 @@ def _report(
         session_location_id=session_location_id,
         session_id=session_id,
         amount_cents=amount_cents,
+        active_session_amount_cents=active_session_amount_cents,
+        amount_verified=amount_verified,
         duration_minutes=duration_minutes,
         active_session_duration_minutes=active_session_duration_minutes,
         duration_verified=duration_verified,
