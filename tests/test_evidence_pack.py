@@ -701,6 +701,11 @@ def test_evidence_pack_requires_complete_vision_benchmark(tmp_path: Path):
     assert "measured_fps=2.00/2.00" in alignment.detail
     assert "benchmark_min_fps=2.00/2.00" in alignment.detail
 
+    camera_alignment = [item for item in pack.items if item.name == "hardware_camera_alignment"][0]
+    assert camera_alignment.passed is True
+    assert "frame=1280x720/1280x720" in camera_alignment.detail
+    assert "min=1280x720/1280x720" in camera_alignment.detail
+
     model_alignment = [item for item in pack.items if item.name == "vision_model_alignment"][0]
     assert model_alignment.passed is True
     assert "same_model=True" in model_alignment.detail
@@ -791,6 +796,38 @@ def test_evidence_pack_rejects_benchmark_minimum_below_hardware_profile_target(
     assert alignment.passed is False
     assert "measured_fps=2.00/2.00" in alignment.detail
     assert "benchmark_min_fps=1.00/2.00" in alignment.detail
+
+
+def test_evidence_pack_rejects_camera_below_hardware_profile_resolution(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["camera_runtime"].read_text())
+    payload["width"] = 640
+    payload["height"] = 480
+    paths["camera_runtime"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    alignment = [item for item in pack.items if item.name == "hardware_camera_alignment"][0]
+    assert pack.passed is False
+    assert alignment.passed is False
+    assert "frame=640x480/1280x720" in alignment.detail
+    assert "min=1280x720/1280x720" in alignment.detail
+
+
+def test_evidence_pack_rejects_camera_check_with_loose_hardware_threshold(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["camera_runtime"].read_text())
+    payload["min_width"] = 640
+    payload["min_height"] = 480
+    paths["camera_runtime"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    alignment = [item for item in pack.items if item.name == "hardware_camera_alignment"][0]
+    assert pack.passed is False
+    assert alignment.passed is False
+    assert "frame=1280x720/1280x720" in alignment.detail
+    assert "min=640x480/1280x720" in alignment.detail
 
 
 def test_evidence_pack_rejects_slow_vision_benchmark(tmp_path: Path):
@@ -1522,7 +1559,11 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
                 "profile_id": "pi5-test-001",
                 "preset_id": "pi5-production",
                 "board": {"model": "raspberry-pi-5", "ram_gb": 8},
-                "camera": {"type": "usb-uvc", "device": "/dev/video0"},
+                "camera": {
+                    "type": "usb-uvc",
+                    "device": "/dev/video0",
+                    "resolution": "1280x720",
+                },
                 "storage": {"capacity_gb": 64, "endurance": True},
                 "power": {
                     "ups_power_supply": True,
@@ -1579,8 +1620,8 @@ def _camera_runtime_payload() -> dict:
         "device_index": 0,
         "width": 1280,
         "height": 720,
-        "min_width": 640,
-        "min_height": 480,
+        "min_width": 1280,
+        "min_height": 720,
         "checked_at": "2026-01-01T00:00:00+00:00",
         "failures": [],
         "error": None,

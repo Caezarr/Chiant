@@ -112,6 +112,13 @@ def build_evidence_pack(
                 paths["vision_benchmark"],
             )
         )
+    if "hardware_profile" in paths and "camera_runtime" in paths:
+        items.append(
+            _read_hardware_camera_alignment(
+                paths["hardware_profile"],
+                paths["camera_runtime"],
+            )
+        )
     if "vision_eval" in paths and "vision_benchmark" in paths:
         items.append(_read_vision_model_alignment(paths["vision_eval"], paths["vision_benchmark"]))
         items.append(
@@ -495,6 +502,99 @@ def _read_hardware_benchmark_alignment(
             f"benchmark_passed={benchmark_passed}, "
             f"measured_fps={_fmt(measured_fps)}/{_fmt(required_fps)}, "
             f"benchmark_min_fps={_fmt(benchmark_min_fps)}/{_fmt(required_fps)}"
+        ),
+    )
+
+
+def _read_hardware_camera_alignment(
+    hardware_profile_path: Path,
+    camera_path: Path,
+) -> EvidenceItem:
+    path = f"{hardware_profile_path} + {camera_path}"
+    if not hardware_profile_path.exists() or not camera_path.exists():
+        missing = [
+            str(missing_path)
+            for missing_path in (hardware_profile_path, camera_path)
+            if not missing_path.exists()
+        ]
+        return EvidenceItem(
+            "hardware_camera_alignment",
+            path,
+            False,
+            False,
+            None,
+            None,
+            None,
+            _format("hardware_camera_alignment"),
+            f"missing {', '.join(missing)}",
+        )
+
+    try:
+        hardware = json.loads(hardware_profile_path.read_text())
+        camera = json.loads(camera_path.read_text())
+    except json.JSONDecodeError as exc:
+        return EvidenceItem(
+            "hardware_camera_alignment",
+            path,
+            True,
+            False,
+            None,
+            None,
+            None,
+            _format("hardware_camera_alignment"),
+            f"invalid json {exc}",
+        )
+    if not isinstance(hardware, dict) or not isinstance(camera, dict):
+        return EvidenceItem(
+            "hardware_camera_alignment",
+            path,
+            True,
+            True,
+            False,
+            None,
+            None,
+            _format("hardware_camera_alignment"),
+            "json is not an object",
+        )
+
+    profile_camera = hardware.get("camera") if isinstance(hardware.get("camera"), dict) else {}
+    required_width, required_height = _resolution_tuple(profile_camera.get("resolution"))
+    width = _integer(camera.get("width"))
+    height = _integer(camera.get("height"))
+    min_width = _integer(camera.get("min_width"))
+    min_height = _integer(camera.get("min_height"))
+    camera_passed = camera.get("passed") is True
+    frame_ok = (
+        required_width is not None
+        and required_height is not None
+        and width is not None
+        and height is not None
+        and width >= required_width
+        and height >= required_height
+    )
+    threshold_ok = (
+        required_width is not None
+        and required_height is not None
+        and min_width is not None
+        and min_height is not None
+        and min_width >= required_width
+        and min_height >= required_height
+    )
+    passed = camera_passed and frame_ok and threshold_ok
+    raw = hardware_profile_path.read_bytes() + camera_path.read_bytes()
+    return EvidenceItem(
+        "hardware_camera_alignment",
+        path,
+        True,
+        True,
+        passed,
+        len(raw),
+        hashlib.sha256(raw).hexdigest(),
+        _format("hardware_camera_alignment"),
+        (
+            f"camera_passed={camera_passed}, "
+            f"frame={_fmt_resolution(width, height)}/{_fmt_resolution(required_width, required_height)}, "
+            f"min={_fmt_resolution(min_width, min_height)}/{_fmt_resolution(required_width, required_height)}"
         ),
     )
 
@@ -1873,6 +1973,20 @@ def _integer(value: object) -> int | None:
     return None
 
 
+def _resolution_tuple(value: object) -> tuple[int | None, int | None]:
+    if not isinstance(value, str) or "x" not in value:
+        return None, None
+    width, height = value.lower().split("x", 1)
+    try:
+        parsed_width = int(width.strip())
+        parsed_height = int(height.strip())
+    except ValueError:
+        return None, None
+    if parsed_width <= 0 or parsed_height <= 0:
+        return None, None
+    return parsed_width, parsed_height
+
+
 def _has_text(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
@@ -1909,6 +2023,12 @@ def _fmt(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value:.2f}"
+
+
+def _fmt_resolution(width: int | None, height: int | None) -> str:
+    if width is None or height is None:
+        return "-"
+    return f"{width}x{height}"
 
 
 def _same_path(left: str, right: str) -> bool:
