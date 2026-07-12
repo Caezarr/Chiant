@@ -89,7 +89,7 @@ def run_box_service(config: BoxConfig | None = None) -> None:
     tracker = StreamTracker(required_consecutive=config.consecutive_frames)
     cooldown = PaymentCooldown(
         cooldown_minutes=config.cooldown_minutes,
-        last_payment=persisted.last_payment_at,
+        last_payment=None if persisted.load_error else persisted.last_payment_at,
     )
     payment = make_payment_provider(dry_run=config.payment_dry_run)
     payment.login(os.getenv("PAYBYPHONE_USERNAME", ""), os.getenv("PAYBYPHONE_PASSWORD", ""))
@@ -698,6 +698,21 @@ def _handle_trigger(
             source=position.source,
         )
 
+    try:
+        already_paid_today_cents = state_store.paid_today_cents()
+    except RuntimeError as exc:
+        event_log.write(
+            "payment_skipped_state_corrupt",
+            plate=config.vehicle_plate,
+            error=str(exc),
+        )
+        notify(
+            "Boring Box — paiement bloque",
+            "Etat local illisible: verifier /var/lib/boring/state.json avant autopaiement.",
+            sound=True,
+        )
+        return None
+
     def on_success(session) -> None:
         state_store.record_session(session)
         event_log.write(
@@ -720,7 +735,7 @@ def _handle_trigger(
         payment_limits=PaymentLimits(
             max_session_amount_cents=config.max_session_amount_cents,
             max_daily_amount_cents=config.max_daily_amount_cents,
-            already_paid_today_cents=state_store.paid_today_cents(),
+            already_paid_today_cents=already_paid_today_cents,
         ),
     )
 
