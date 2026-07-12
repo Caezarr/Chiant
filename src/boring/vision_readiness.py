@@ -243,16 +243,31 @@ def _check_yolo_dataset(
         return VisionCheck("yolo_dataset", False, f"missing {data_yaml}")
     train_images = _count_images(dataset / "train")
     valid_images = _count_images(dataset / "valid")
-    classes = _extract_yaml_classes(data_yaml)
-    has_class = required_class in classes
-    ok = train_images >= min_train_images and valid_images >= min_valid_images and has_class
+    class_map = _extract_yaml_class_map(data_yaml)
+    class_index = _class_index(class_map, required_class)
+    has_class = class_index is not None
+    train_positive_labels = (
+        _count_positive_labels(dataset / "train", class_index) if class_index is not None else 0
+    )
+    valid_positive_labels = (
+        _count_positive_labels(dataset / "valid", class_index) if class_index is not None else 0
+    )
+    labels_ok = train_positive_labels > 0 and valid_positive_labels > 0
+    ok = (
+        train_images >= min_train_images
+        and valid_images >= min_valid_images
+        and has_class
+        and labels_ok
+    )
     return VisionCheck(
         "yolo_dataset",
         ok,
         (
             f"train_images={train_images}/{min_train_images}, "
             f"valid_images={valid_images}/{min_valid_images}, "
-            f"class={required_class if has_class else 'missing'}"
+            f"class={required_class if has_class else 'missing'}, "
+            f"train_positive_labels={train_positive_labels}, "
+            f"valid_positive_labels={valid_positive_labels}"
         ),
     )
 
@@ -285,9 +300,14 @@ def _count_images(root: Path) -> int:
 
 
 def _extract_yaml_classes(data_yaml: Path) -> set[str]:
+    return set(_extract_yaml_class_map(data_yaml).values())
+
+
+def _extract_yaml_class_map(data_yaml: Path) -> dict[int, str]:
     text = data_yaml.read_text()
-    classes: set[str] = set()
+    classes: dict[int, str] = {}
     in_names_block = False
+    next_index = 0
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
@@ -295,15 +315,63 @@ def _extract_yaml_classes(data_yaml: Path) -> set[str]:
         if line.startswith("names:"):
             value = line.split(":", 1)[1].strip()
             if value.startswith("[") and value.endswith("]"):
-                for item in value.strip("[]").split(","):
-                    classes.add(item.strip().strip("'\""))
+                for index, item in enumerate(value.strip("[]").split(",")):
+                    name = item.strip().strip("'\"")
+                    if name:
+                        classes[index] = name
                 in_names_block = False
             else:
                 in_names_block = True
+                next_index = 0
             continue
         if in_names_block:
             if ":" not in line:
                 continue
-            _, value = line.split(":", 1)
-            classes.add(value.strip().strip("'\""))
-    return {name for name in classes if name}
+            raw_key, raw_value = line.split(":", 1)
+            value = raw_value.strip().strip("'\"")
+            try:
+                index = int(raw_key.strip())
+            except ValueError:
+                index = next_index
+            if value:
+                classes[index] = value
+                next_index = max(next_index, index + 1)
+    return classes
+
+
+def _class_index(class_map: dict[int, str], required_class: str) -> int | None:
+    for index, name in class_map.items():
+        if name == required_class:
+            return index
+    return None
+
+
+def _count_positive_labels(split_root: Path, class_index: int) -> int:
+    image_dir = split_root / "images"
+    label_dir = split_root / "labels"
+    if not image_dir.exists() or not label_dir.exists():
+        return 0
+    positives = 0
+    for image_path in image_dir.glob("**/*"):
+        if image_path.suffix.lower() not in {".jpg", ".jpeg", ".png"}:
+            continue
+        label_path = label_dir / f"{image_path.stem}.txt"
+        if _label_has_class(label_path, class_index):
+            positives += 1
+    return positives
+
+
+def _label_has_class(label_path: Path, class_index: int) -> bool:
+    if not label_path.exists():
+        return False
+    for raw_line in label_path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        first = line.split(maxsplit=1)[0]
+        try:
+            if int(float(first)) == class_index:
+                return True
+        except ValueError:
+            continue
+    return False
