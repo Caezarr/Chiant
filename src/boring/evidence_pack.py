@@ -75,7 +75,14 @@ class EvidencePack:
 
 
 def build_evidence_pack(paths: dict[str, Path]) -> EvidencePack:
-    items = [_read_item(name, path) for name, path in paths.items()]
+    items = [
+        _read_item(
+            name,
+            path,
+            burn_in_report_path=paths.get("burn_in") if name == "burn_in_samples" else None,
+        )
+        for name, path in paths.items()
+    ]
     if "burn_in" in paths and "runtime_events" in paths:
         items.append(_read_runtime_alignment(paths["burn_in"], paths["runtime_events"]))
     return EvidencePack(
@@ -127,7 +134,12 @@ def evidence_item_ok(item: EvidenceItem) -> bool:
     return item.passed is True
 
 
-def _read_item(name: str, path: Path) -> EvidenceItem:
+def _read_item(
+    name: str,
+    path: Path,
+    *,
+    burn_in_report_path: Path | None = None,
+) -> EvidenceItem:
     if not path.exists():
         return EvidenceItem(
             name, str(path), False, False, None, None, None, _format(name), "missing"
@@ -138,7 +150,7 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
     if name == "box_ready":
         return _read_box_ready(name, path, raw)
     if name == "burn_in_samples":
-        return _read_burn_in_samples(name, path, raw)
+        return _read_burn_in_samples(name, path, raw, report_path=burn_in_report_path)
     if name == "hardware_profile":
         return _read_hardware_profile(name, path, raw)
     if name == "notification_test":
@@ -670,13 +682,20 @@ def _read_runtime_events(name: str, path: Path, raw: bytes) -> EvidenceItem:
     )
 
 
-def _read_burn_in_samples(name: str, path: Path, raw: bytes) -> EvidenceItem:
+def _read_burn_in_samples(
+    name: str,
+    path: Path,
+    raw: bytes,
+    *,
+    report_path: Path | None = None,
+) -> EvidenceItem:
     invalid_lines = 0
     scanned = 0
     camera_failures = 0
     network_failures = 0
-    battery_samples = 0
-    temp_samples = 0
+    battery_values: list[float] = []
+    charging_values: list[bool] = []
+    temp_values: list[float] = []
     for line_number, line in enumerate(raw.decode("utf-8", errors="replace").splitlines(), 1):
         if not line.strip():
             continue
@@ -693,18 +712,73 @@ def _read_burn_in_samples(name: str, path: Path, raw: bytes) -> EvidenceItem:
             camera_failures += 1
         if payload.get("network_online") is not True:
             network_failures += 1
-        if payload.get("battery_percent") is not None:
-            battery_samples += 1
-        if payload.get("temp_c") is not None:
-            temp_samples += 1
+        battery = _number(payload.get("battery_percent"))
+        if battery is not None:
+            battery_values.append(battery)
+        charging = payload.get("battery_charging")
+        if isinstance(charging, bool):
+            charging_values.append(charging)
+        temp = _number(payload.get("temp_c"))
+        if temp is not None:
+            temp_values.append(temp)
+
+    report = _load_burn_in_sample_report(report_path)
+    expected_sample_count = _integer(report.get("sample_count")) if report else None
+    expected_camera_failures = _integer(report.get("camera_failures")) if report else None
+    expected_network_failures = _integer(report.get("network_failures")) if report else None
+    expected_start_battery = _number(report.get("start_battery_percent")) if report else None
+    expected_end_battery = _number(report.get("end_battery_percent")) if report else None
+    expected_min_battery = _number(report.get("min_battery_percent")) if report else None
+    expected_battery_delta = _number(report.get("battery_delta_percent")) if report else None
+    expected_charging_seen = report.get("charging_seen") if report else None
+    expected_discharging_seen = report.get("discharging_seen") if report else None
+    expected_max_temp = _number(report.get("max_temp_c")) if report else None
+
+    start_battery = battery_values[0] if battery_values else None
+    end_battery = battery_values[-1] if battery_values else None
+    min_battery = min(battery_values) if battery_values else None
+    battery_delta = (
+        end_battery - start_battery
+        if start_battery is not None and end_battery is not None
+        else None
+    )
+    charging_seen = any(value is True for value in charging_values)
+    discharging_seen = any(value is False for value in charging_values)
+    max_temp = max(temp_values) if temp_values else None
+
+    report_ok = report is not None
+    sample_count_ok = expected_sample_count is not None and scanned == expected_sample_count
+    camera_ok = (
+        expected_camera_failures is not None and camera_failures == expected_camera_failures == 0
+    )
+    network_ok = (
+        expected_network_failures is not None and network_failures == expected_network_failures == 0
+    )
+    battery_ok = (
+        start_battery is not None
+        and start_battery == expected_start_battery
+        and end_battery is not None
+        and end_battery == expected_end_battery
+        and min_battery is not None
+        and min_battery == expected_min_battery
+        and battery_delta is not None
+        and battery_delta == expected_battery_delta
+        and isinstance(expected_charging_seen, bool)
+        and charging_seen == expected_charging_seen
+        and isinstance(expected_discharging_seen, bool)
+        and discharging_seen == expected_discharging_seen
+    )
+    temp_ok = max_temp is not None and max_temp == expected_max_temp
 
     passed = (
-        invalid_lines == 0
+        report_ok
+        and invalid_lines == 0
         and scanned > 0
-        and camera_failures == 0
-        and network_failures == 0
-        and battery_samples > 0
-        and temp_samples > 0
+        and sample_count_ok
+        and camera_ok
+        and network_ok
+        and battery_ok
+        and temp_ok
     )
     return EvidenceItem(
         name=name,
@@ -716,11 +790,30 @@ def _read_burn_in_samples(name: str, path: Path, raw: bytes) -> EvidenceItem:
         sha256=hashlib.sha256(raw).hexdigest(),
         format=_format(name),
         detail=(
-            f"scanned={scanned}, camera_failures={camera_failures}, "
-            f"network_failures={network_failures}, battery_samples={battery_samples}, "
-            f"temp_samples={temp_samples}, invalid_lines={invalid_lines}"
+            f"report={'ok' if report_ok else 'missing'}, "
+            f"scanned={scanned}/{expected_sample_count if expected_sample_count is not None else '-'}, "
+            f"camera_failures={camera_failures}/{expected_camera_failures if expected_camera_failures is not None else '-'}, "
+            f"network_failures={network_failures}/{expected_network_failures if expected_network_failures is not None else '-'}, "
+            f"start_battery={_fmt(start_battery)}/{_fmt(expected_start_battery)}, "
+            f"end_battery={_fmt(end_battery)}/{_fmt(expected_end_battery)}, "
+            f"min_battery={_fmt(min_battery)}/{_fmt(expected_min_battery)}, "
+            f"battery_delta={_fmt_delta(battery_delta)}/{_fmt_delta(expected_battery_delta)}, "
+            f"charging_seen={charging_seen}/{expected_charging_seen if expected_charging_seen is not None else '-'}, "
+            f"discharging_seen={discharging_seen}/{expected_discharging_seen if expected_discharging_seen is not None else '-'}, "
+            f"max_temp={_fmt(max_temp)}/{_fmt(expected_max_temp)}, "
+            f"invalid_lines={invalid_lines}"
         ),
     )
+
+
+def _load_burn_in_sample_report(path: Path | None) -> dict | None:
+    if path is None or not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def _read_paybyphone_endpoints(name: str, path: Path, raw: bytes) -> EvidenceItem:
@@ -1074,3 +1167,9 @@ def _fmt(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value:.2f}"
+
+
+def _fmt_delta(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:+.2f}"

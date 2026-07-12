@@ -544,8 +544,12 @@ def test_evidence_pack_includes_burn_in_samples_jsonl(tmp_path: Path):
     item = [item for item in pack.items if item.name == "burn_in_samples"][0]
     assert item.format == "jsonl"
     assert item.passed is True
-    assert "battery_samples=1" in item.detail
-    assert "temp_samples=1" in item.detail
+    assert "scanned=600/600" in item.detail
+    assert "start_battery=90.00/90.00" in item.detail
+    assert "end_battery=68.00/68.00" in item.detail
+    assert "battery_delta=-22.00/-22.00" in item.detail
+    assert "charging_seen=True/True" in item.detail
+    assert "discharging_seen=True/True" in item.detail
 
 
 def test_evidence_pack_rejects_burn_in_sample_camera_failure(tmp_path: Path):
@@ -556,7 +560,8 @@ def test_evidence_pack_rejects_burn_in_sample_camera_failure(tmp_path: Path):
                 "ts": 1.0,
                 "camera_ok": False,
                 "network_online": True,
-                "battery_percent": 82,
+                "battery_percent": 90,
+                "battery_charging": True,
                 "temp_c": 44.0,
             }
         )
@@ -571,6 +576,23 @@ def test_evidence_pack_rejects_burn_in_sample_camera_failure(tmp_path: Path):
     assert "camera_failures=1" in item.detail
 
 
+def test_evidence_pack_rejects_burn_in_samples_charge_cycle_mismatch(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    sample_lines = []
+    for raw_line in paths["burn_in_samples"].read_text().splitlines():
+        payload = json.loads(raw_line)
+        payload["battery_charging"] = True
+        sample_lines.append(json.dumps(payload))
+    paths["burn_in_samples"].write_text("\n".join(sample_lines) + "\n")
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "discharging_seen=False/True" in item.detail
+
+
 def test_evidence_pack_rejects_burn_in_samples_without_power_metrics(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     paths["burn_in_samples"].write_text(
@@ -580,6 +602,7 @@ def test_evidence_pack_rejects_burn_in_samples_without_power_metrics(tmp_path: P
                 "camera_ok": True,
                 "network_online": True,
                 "battery_percent": None,
+                "battery_charging": True,
                 "temp_c": None,
             }
         )
@@ -591,8 +614,8 @@ def test_evidence_pack_rejects_burn_in_samples_without_power_metrics(tmp_path: P
     item = [item for item in pack.items if item.name == "burn_in_samples"][0]
     assert pack.passed is False
     assert item.passed is False
-    assert "battery_samples=0" in item.detail
-    assert "temp_samples=0" in item.detail
+    assert "start_battery=-/90.00" in item.detail
+    assert "max_temp=-/56.00" in item.detail
 
 
 def test_evidence_pack_includes_paybyphone_endpoints(tmp_path: Path):
@@ -757,18 +780,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
         + json.dumps({"ts": "2026-01-01T10:00:00+00:00", "event": "heartbeat"})
         + "\n"
     )
-    paths["burn_in_samples"].write_text(
-        json.dumps(
-            {
-                "ts": 1.0,
-                "camera_ok": True,
-                "network_online": True,
-                "battery_percent": 82,
-                "temp_c": 44.0,
-            }
-        )
-        + "\n"
-    )
+    paths["burn_in_samples"].write_text(_burn_in_sample_lines())
     paths["paybyphone_endpoints"].write_text(
         json.dumps(
             {
@@ -937,3 +949,25 @@ def _burn_in_payload() -> dict:
         "battery_low_seen": False,
         "battery_critical_seen": False,
     }
+
+
+def _burn_in_sample_lines() -> str:
+    lines = []
+    for index in range(600):
+        if index == 0:
+            battery_percent = 90
+        else:
+            battery_percent = 68
+        lines.append(
+            json.dumps(
+                {
+                    "ts": index * 60.0,
+                    "camera_ok": True,
+                    "network_online": True,
+                    "battery_percent": battery_percent,
+                    "battery_charging": index < 300,
+                    "temp_c": 56.0 if index == 599 else 44.0,
+                }
+            )
+        )
+    return "\n".join(lines) + "\n"
