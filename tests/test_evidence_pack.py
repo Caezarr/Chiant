@@ -609,6 +609,26 @@ def test_evidence_pack_requires_complete_vision_benchmark(tmp_path: Path):
     assert "measured_fps=2.00/2.00" in alignment.detail
     assert "benchmark_min_fps=2.00/2.00" in alignment.detail
 
+    model_alignment = [item for item in pack.items if item.name == "vision_model_alignment"][0]
+    assert model_alignment.passed is True
+    assert "same_model=True" in model_alignment.detail
+
+
+def test_evidence_pack_rejects_vision_benchmark_from_other_model(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_benchmark"].read_text())
+    payload["model_path"] = "models/other.pt"
+    paths["vision_benchmark"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    alignment = [item for item in pack.items if item.name == "vision_model_alignment"][0]
+    assert pack.passed is False
+    assert alignment.passed is False
+    assert "eval_model=models/best.pt" in alignment.detail
+    assert "benchmark_model=models/other.pt" in alignment.detail
+    assert "same_model=False" in alignment.detail
+
 
 def test_evidence_pack_rejects_benchmark_below_hardware_profile_target(tmp_path: Path):
     paths = _write_evidence(tmp_path)

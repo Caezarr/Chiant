@@ -111,6 +111,8 @@ def build_evidence_pack(
                 paths["vision_benchmark"],
             )
         )
+    if "vision_eval" in paths and "vision_benchmark" in paths:
+        items.append(_read_vision_model_alignment(paths["vision_eval"], paths["vision_benchmark"]))
     if max_report_age_hours is not None:
         items.append(
             _read_report_freshness(
@@ -482,6 +484,85 @@ def _read_hardware_benchmark_alignment(
             f"benchmark_passed={benchmark_passed}, "
             f"measured_fps={_fmt(measured_fps)}/{_fmt(required_fps)}, "
             f"benchmark_min_fps={_fmt(benchmark_min_fps)}/{_fmt(required_fps)}"
+        ),
+    )
+
+
+def _read_vision_model_alignment(
+    eval_path: Path,
+    benchmark_path: Path,
+) -> EvidenceItem:
+    path = f"{eval_path} + {benchmark_path}"
+    if not eval_path.exists() or not benchmark_path.exists():
+        missing = [
+            str(missing_path)
+            for missing_path in (eval_path, benchmark_path)
+            if not missing_path.exists()
+        ]
+        return EvidenceItem(
+            "vision_model_alignment",
+            path,
+            False,
+            False,
+            None,
+            None,
+            None,
+            _format("vision_model_alignment"),
+            f"missing {', '.join(missing)}",
+        )
+
+    try:
+        eval_payload = json.loads(eval_path.read_text())
+        benchmark_payload = json.loads(benchmark_path.read_text())
+    except json.JSONDecodeError as exc:
+        return EvidenceItem(
+            "vision_model_alignment",
+            path,
+            True,
+            False,
+            None,
+            None,
+            None,
+            _format("vision_model_alignment"),
+            f"invalid json {exc}",
+        )
+    if not isinstance(eval_payload, dict) or not isinstance(benchmark_payload, dict):
+        return EvidenceItem(
+            "vision_model_alignment",
+            path,
+            True,
+            True,
+            False,
+            None,
+            None,
+            _format("vision_model_alignment"),
+            "json is not an object",
+        )
+
+    eval_model = str(eval_payload.get("model_path") or "")
+    benchmark_model = str(benchmark_payload.get("model_path") or "")
+    passed = (
+        bool(eval_model)
+        and bool(benchmark_model)
+        and _same_path(
+            eval_model,
+            benchmark_model,
+        )
+    )
+    raw = eval_path.read_bytes() + benchmark_path.read_bytes()
+    return EvidenceItem(
+        "vision_model_alignment",
+        path,
+        True,
+        True,
+        passed,
+        len(raw),
+        hashlib.sha256(raw).hexdigest(),
+        _format("vision_model_alignment"),
+        (
+            f"eval_model={eval_model or '-'}, "
+            f"benchmark_model={benchmark_model or '-'}, "
+            f"same_model={passed}"
         ),
     )
 
@@ -1534,6 +1615,14 @@ def _fmt(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value:.2f}"
+
+
+def _same_path(left: str, right: str) -> bool:
+    if not left or not right:
+        return False
+    return Path(left).expanduser().resolve(strict=False) == Path(right).expanduser().resolve(
+        strict=False,
+    )
 
 
 def _fmt_delta(value: float | None) -> str:
