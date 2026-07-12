@@ -500,6 +500,10 @@ def box_ready(
         Path("burn-in/report.json"),
         help="Rapport produit par box-burn-in.",
     ),
+    state_path: Path = typer.Option(
+        Path("/var/lib/boring/state.json"),
+        help="Chemin BOX_STATE_PATH a verifier pour l'etat autopay persistant.",
+    ),
     storage_path: Path = typer.Option(
         Path("/var/lib/boring/events.jsonl"),
         help="Chemin dont la partition doit garder assez d'espace libre.",
@@ -574,6 +578,7 @@ def box_ready(
         autopay_smoke_report_path=autopay_smoke_report,
         notification_report_path=notification_report,
         burn_in_report_path=burn_in_report,
+        state_path=state_path,
         storage_path=storage_path,
         require_real_payment=not allow_dry_run,
         require_autopay_smoke=not allow_missing_autopay_smoke,
