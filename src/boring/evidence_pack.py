@@ -8,18 +8,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-
-_BLOCKING_RUNTIME_EVENTS = {
-    "battery_critical",
-    "disk_low",
-    "network_offline",
-    "notification_failed",
-    "payment_skipped_battery_critical",
-    "payment_skipped_no_position",
-    "payment_skipped_offline",
-    "service_crashed",
-    "thermal_critical",
-}
+from boring.runtime_events import BLOCKING_RUNTIME_EVENTS
 
 
 @dataclass(frozen=True)
@@ -146,7 +135,7 @@ def _read_runtime_events(name: str, path: Path, raw: bytes) -> EvidenceItem:
         event = payload.get("event")
         if event == "heartbeat":
             heartbeat_seen = True
-        if event in _BLOCKING_RUNTIME_EVENTS:
+        if event in BLOCKING_RUNTIME_EVENTS:
             blocking.append(f"{event}@line{line_number}")
         if event == "network_recovery_attempted" and payload.get("ok") is False:
             blocking.append(f"network_recovery_failed@line{line_number}")

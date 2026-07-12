@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 from boring.autopay_readiness import audit_autopay_readiness
 from boring.hardware_profile import audit_hardware_profile
 from boring.power_budget import build_power_budget
+from boring.runtime_events import BLOCKING_RUNTIME_EVENTS
 from boring.storage import DiskSpaceMonitor
 from boring.vision_readiness import audit_vision_readiness
 
@@ -931,19 +932,6 @@ def _check_burn_in_report(
     )
 
 
-_BLOCKING_RUNTIME_EVENTS = {
-    "battery_critical",
-    "disk_low",
-    "network_offline",
-    "notification_failed",
-    "payment_skipped_battery_critical",
-    "payment_skipped_no_position",
-    "payment_skipped_offline",
-    "service_crashed",
-    "thermal_critical",
-}
-
-
 def _check_runtime_event_log(
     event_log_path: Path,
     burn_in_report_path: Path,
@@ -995,7 +983,7 @@ def _check_runtime_event_log(
                     earliest_heartbeat = timestamp
                 if latest_heartbeat is None or timestamp > latest_heartbeat:
                     latest_heartbeat = timestamp
-        if name in _BLOCKING_RUNTIME_EVENTS:
+        if name in BLOCKING_RUNTIME_EVENTS:
             failures.append(f"{name}@line{line_number}")
         elif name == "network_recovery_attempted" and event.get("ok") is False:
             failures.append(f"network_recovery_failed@line{line_number}")
