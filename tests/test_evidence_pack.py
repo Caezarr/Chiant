@@ -613,6 +613,15 @@ def test_evidence_pack_requires_complete_vision_benchmark(tmp_path: Path):
     assert model_alignment.passed is True
     assert "same_model=True" in model_alignment.detail
 
+    artifact_alignment = [item for item in pack.items if item.name == "vision_artifact_alignment"][
+        0
+    ]
+    assert artifact_alignment.passed is True
+    assert "eval_model=ok" in artifact_alignment.detail
+    assert "benchmark_model=ok" in artifact_alignment.detail
+    assert "dataset=ok" in artifact_alignment.detail
+    assert "data_yaml=ok" in artifact_alignment.detail
+
 
 def test_evidence_pack_rejects_vision_benchmark_from_other_model(tmp_path: Path):
     paths = _write_evidence(tmp_path)
@@ -625,9 +634,37 @@ def test_evidence_pack_rejects_vision_benchmark_from_other_model(tmp_path: Path)
     alignment = [item for item in pack.items if item.name == "vision_model_alignment"][0]
     assert pack.passed is False
     assert alignment.passed is False
-    assert "eval_model=models/best.pt" in alignment.detail
+    assert "best.pt" in alignment.detail
     assert "benchmark_model=models/other.pt" in alignment.detail
     assert "same_model=False" in alignment.detail
+
+
+def test_evidence_pack_rejects_vision_eval_with_missing_model_artifact(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_eval"].read_text())
+    Path(payload["model_path"]).unlink()
+
+    pack = build_evidence_pack(paths)
+
+    alignment = [item for item in pack.items if item.name == "vision_artifact_alignment"][0]
+    assert pack.passed is False
+    assert alignment.passed is False
+    assert "eval_model=missing" in alignment.detail
+    assert "benchmark_model=missing" in alignment.detail
+
+
+def test_evidence_pack_rejects_vision_eval_without_dataset_yaml(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_eval"].read_text())
+    (Path(payload["dataset_path"]) / "data.yaml").unlink()
+
+    pack = build_evidence_pack(paths)
+
+    alignment = [item for item in pack.items if item.name == "vision_artifact_alignment"][0]
+    assert pack.passed is False
+    assert alignment.passed is False
+    assert "dataset=ok" in alignment.detail
+    assert "data_yaml=missing" in alignment.detail
 
 
 def test_evidence_pack_rejects_benchmark_below_hardware_profile_target(tmp_path: Path):
@@ -1139,12 +1176,18 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
     paths["power_runtime"].write_text(json.dumps(_power_runtime_payload()))
     paths["systemd_runtime"].write_text(json.dumps(_systemd_runtime_payload()))
     paths["burn_in"].write_text(json.dumps(_burn_in_payload()))
+    model_path = tmp_path / "models" / "best.pt"
+    model_path.parent.mkdir(parents=True)
+    model_path.write_bytes(b"model")
+    dataset_path = tmp_path / "datasets" / "control_vehicle_v1"
+    dataset_path.mkdir(parents=True)
+    (dataset_path / "data.yaml").write_text("names: ['control_vehicle']\n")
     paths["vision_eval"].write_text(
         json.dumps(
             {
                 "passed": True,
-                "model_path": "models/best.pt",
-                "dataset_path": "datasets/control_vehicle_v1",
+                "model_path": str(model_path),
+                "dataset_path": str(dataset_path),
                 "dataset_id": "field-pi5-daylight-v1",
                 "required_class": "control_vehicle",
                 "recall": 0.93,
@@ -1166,7 +1209,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
         json.dumps(
             {
                 "passed": True,
-                "model_path": "models/best.pt",
+                "model_path": str(model_path),
                 "target_labels": ["control_vehicle"],
                 "device": "cpu",
                 "frames_processed": 120,

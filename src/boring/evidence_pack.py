@@ -113,6 +113,9 @@ def build_evidence_pack(
         )
     if "vision_eval" in paths and "vision_benchmark" in paths:
         items.append(_read_vision_model_alignment(paths["vision_eval"], paths["vision_benchmark"]))
+        items.append(
+            _read_vision_artifact_alignment(paths["vision_eval"], paths["vision_benchmark"])
+        )
     if max_report_age_hours is not None:
         items.append(
             _read_report_freshness(
@@ -563,6 +566,84 @@ def _read_vision_model_alignment(
             f"eval_model={eval_model or '-'}, "
             f"benchmark_model={benchmark_model or '-'}, "
             f"same_model={passed}"
+        ),
+    )
+
+
+def _read_vision_artifact_alignment(
+    eval_path: Path,
+    benchmark_path: Path,
+) -> EvidenceItem:
+    path = f"{eval_path} + {benchmark_path}"
+    if not eval_path.exists() or not benchmark_path.exists():
+        missing = [
+            str(missing_path)
+            for missing_path in (eval_path, benchmark_path)
+            if not missing_path.exists()
+        ]
+        return EvidenceItem(
+            "vision_artifact_alignment",
+            path,
+            False,
+            False,
+            None,
+            None,
+            None,
+            _format("vision_artifact_alignment"),
+            f"missing {', '.join(missing)}",
+        )
+
+    try:
+        eval_payload = json.loads(eval_path.read_text())
+        benchmark_payload = json.loads(benchmark_path.read_text())
+    except json.JSONDecodeError as exc:
+        return EvidenceItem(
+            "vision_artifact_alignment",
+            path,
+            True,
+            False,
+            None,
+            None,
+            None,
+            _format("vision_artifact_alignment"),
+            f"invalid json {exc}",
+        )
+    if not isinstance(eval_payload, dict) or not isinstance(benchmark_payload, dict):
+        return EvidenceItem(
+            "vision_artifact_alignment",
+            path,
+            True,
+            True,
+            False,
+            None,
+            None,
+            _format("vision_artifact_alignment"),
+            "json is not an object",
+        )
+
+    eval_model = str(eval_payload.get("model_path") or "")
+    benchmark_model = str(benchmark_payload.get("model_path") or "")
+    dataset = str(eval_payload.get("dataset_path") or "")
+    model_exists = bool(eval_model) and _path_exists(eval_model)
+    benchmark_model_exists = bool(benchmark_model) and _path_exists(benchmark_model)
+    dataset_exists = bool(dataset) and _path_exists(dataset)
+    data_yaml_exists = bool(dataset) and (Path(dataset).expanduser() / "data.yaml").exists()
+    passed = model_exists and benchmark_model_exists and dataset_exists and data_yaml_exists
+    raw = eval_path.read_bytes() + benchmark_path.read_bytes()
+    return EvidenceItem(
+        "vision_artifact_alignment",
+        path,
+        True,
+        True,
+        passed,
+        len(raw),
+        hashlib.sha256(raw).hexdigest(),
+        _format("vision_artifact_alignment"),
+        (
+            f"eval_model={'ok' if model_exists else 'missing'}, "
+            f"benchmark_model={'ok' if benchmark_model_exists else 'missing'}, "
+            f"dataset={'ok' if dataset_exists else 'missing'}, "
+            f"data_yaml={'ok' if data_yaml_exists else 'missing'}"
         ),
     )
 
@@ -1623,6 +1704,10 @@ def _same_path(left: str, right: str) -> bool:
     return Path(left).expanduser().resolve(strict=False) == Path(right).expanduser().resolve(
         strict=False,
     )
+
+
+def _path_exists(value: str) -> bool:
+    return Path(value).expanduser().exists()
 
 
 def _fmt_delta(value: float | None) -> str:
