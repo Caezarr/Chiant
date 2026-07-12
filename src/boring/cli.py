@@ -22,6 +22,7 @@ from boring.camera_readiness import run_camera_check
 from boring.camera_readiness import write_report as write_camera_report
 from boring.capture import capture_auto, capture_interactive
 from boring.cli_vision import register_vision_commands
+from boring.code_audit import run_code_audit
 from boring.config import BoxConfig
 from boring.contest.rapo import RAPOContestClient
 from boring.detect import Detector, run_live_detection
@@ -710,6 +711,34 @@ def status(
         console.print(table)
     except Exception as e:
         console.print(f"[red]Erreur : {e}[/red]")
+
+
+@app.command("code-audit")
+def code_audit() -> None:
+    """Affiche les signaux CTO/dev locaux: taille, stubs, artefacts terrain."""
+    report = run_code_audit(Path("."))
+    table = Table(title="Boring — code audit")
+    table.add_column("Signal", style="bold")
+    table.add_column("Value")
+    table.add_column("Detail")
+    table.add_row(
+        "Big files",
+        str(len(report.big_files)),
+        ", ".join(f"{path} ({lines})" for path, lines in report.big_files) or "-",
+    )
+    table.add_row(
+        "Stub providers",
+        str(len(report.stub_providers)),
+        ", ".join(report.stub_providers) or "-",
+    )
+    table.add_row(
+        "Missing field artifacts",
+        str(len(report.missing_field_artifacts)),
+        ", ".join(report.missing_field_artifacts) or "-",
+    )
+    table.add_row("Test files", str(report.test_files), "tests/test_*.py")
+    table.add_row("Warnings", str(report.warning_count), "audit is informational")
+    console.print(table)
 
 
 @app.command()

@@ -14,6 +14,12 @@ console = Console()
 class DryRunParkingProvider(PaymentProvider):
     """Base class for providers whose real API integration is not implemented yet."""
 
+    integration_status = "stub"
+    production_ready = False
+    required_proof = (
+        "HAR or official API docs covering login, zone lookup, start session, "
+        "active session, and stop session"
+    )
     display_name: str
     stub_zone_id: str
     stub_session_prefix: str

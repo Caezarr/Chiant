@@ -5,7 +5,7 @@ Date: 2026-07-12
 ## Verdict
 
 Le repo est sain pour un prototype technique ambitieux: les domaines sont bien
-separes, les gates de readiness sont nombreux, la CI couvre 437 tests, et les
+separes, les gates de readiness sont nombreux, la CI couvre 441 tests, et les
 chemins critiques ont des preuves locales reproductibles.
 
 Le code n'est pas "trop abstrait"; il est plutot devenu tres defensif autour du
@@ -71,6 +71,44 @@ Validation:
 - `uv run pytest` -> 437 passed
 - CI GitHub verte avant merge.
 
+### PR #139 - Extract readiness JSON helpers
+
+Changement: extraction de `src/boring/readiness_json.py`.
+
+Impact:
+
+- `production_readiness.py` et `evidence_pack.py` partagent maintenant le parsing
+  de timestamps et le calcul SHA-256;
+- l'ancien parsing timestamp dupliqué a été supprimé;
+- les gros fichiers readiness restent stricts, mais la première extraction est
+  faite sans rewrite global.
+
+Validation:
+
+- `uv run ruff check src tests scripts`
+- `uv run ruff format --check src tests scripts`
+- `uv run pytest` -> 437 passed
+- CI GitHub verte avant merge.
+
+### PR #140 - Extract vision CLI commands
+
+Changement: extraction de `src/boring/cli_vision.py`.
+
+Impact:
+
+- `vision-ready`, `vision-sources`, `vision-benchmark` et `vision-eval` sortent
+  du CLI monolithique;
+- `boring.cli:app` reste l'entrypoint public;
+- les noms et l'ordre des commandes top-level sont conservés.
+
+Validation:
+
+- `uv run boring --help`
+- `uv run ruff check src tests scripts`
+- `uv run ruff format --check src tests scripts`
+- `uv run pytest` -> 437 passed
+- CI GitHub verte avant merge.
+
 ## Ce qui a ete audite
 
 - etat Git/GitHub: `main` aligne avec `origin/main`;
@@ -131,11 +169,11 @@ Recommandation:
 
 ## Prochaines PRs utiles
 
-1. Extraire les commandes Typer par domaine, en commencant par vision ou autopay.
-2. Extraire un petit module `readiness_json.py` pour les helpers communs JSON.
-3. Ajouter un graphe court "operator flow" dans `ARCHITECTURE.md`.
-4. Ajouter une commande d'audit local qui imprime les checks CTO: tests, gros
-   fichiers, stubs, et artefacts terrain manquants.
+1. Extraire les commandes Typer autopay dans `cli_autopay.py`.
+2. Extraire les commandes Typer readiness/runtime dans `cli_readiness.py`.
+3. Extraire de nouveaux helpers JSON prudemment depuis `production_readiness.py`
+   et `evidence_pack.py`.
+4. Transformer `code-audit` en sortie JSON optionnelle si on veut l'intégrer à CI.
 
 ## Decision
 
