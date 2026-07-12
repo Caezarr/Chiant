@@ -153,6 +153,7 @@ sudo ./deploy/pi/install.sh
 ```
 
 `install.sh` lance `uv sync --no-dev` sous l'utilisateur `boring`, verifie `uv run boring --help`, puis rend `boring-box.service` avec `WorkingDirectory`, `EnvironmentFile` et `ReadWritePaths` alignes sur `--install-dir` et `--state-dir`. Utilise `--skip-sync` uniquement pour une repetition de copie ou un runtime deja synchronise.
+Si tu installes ailleurs que `/opt/boring` ou `/var/lib/boring`, lance `box-ready` avec l'unit installee et le `--state-path` final: le gate verifie que `ReadWritePaths` couvre le dossier applicatif et le parent de `BOX_STATE_PATH`.
 
 Commandes :
 
