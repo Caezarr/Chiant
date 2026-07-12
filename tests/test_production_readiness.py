@@ -893,8 +893,9 @@ def test_production_readiness_can_disable_report_freshness_for_rehearsal(tmp_pat
     assert check.detail == "disabled"
 
 
-def test_production_readiness_allows_missing_runtime_event_log(tmp_path: Path):
+def test_production_readiness_requires_runtime_event_log(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
+    artifacts["events"].unlink()
 
     report = audit_production_readiness(
         env=_ready_env(),
@@ -909,6 +910,34 @@ def test_production_readiness_allows_missing_runtime_event_log(tmp_path: Path):
         notification_report_path=artifacts["notification"],
         burn_in_report_path=artifacts["burn_in"],
         storage_path=tmp_path / "events.jsonl",
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    assert check.ok is False
+    assert "missing required" in check.detail
+
+
+def test_production_readiness_can_allow_missing_runtime_event_log_for_rehearsal(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    artifacts["events"].unlink()
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path / "events.jsonl",
+        require_runtime_event_log=False,
     )
 
     assert report.passed is True
@@ -1261,6 +1290,19 @@ def _write_ready_artifacts(
         )
     )
 
+    events = tmp_path / "events.jsonl"
+    events.write_text(
+        json.dumps(
+            {
+                "ts": report_time.isoformat(),
+                "event": "service_started",
+                "model_path": str(model),
+                "payment_dry_run": False,
+            }
+        )
+        + "\n"
+    )
+
     return {
         "manifest": manifest,
         "dataset": dataset,
@@ -1272,4 +1314,5 @@ def _write_ready_artifacts(
         "autopay_smoke": autopay_smoke,
         "notification": notification,
         "burn_in": burn_in,
+        "events": events,
     }
