@@ -547,6 +547,9 @@ def _systemd_report_failures(payload: dict) -> list[str]:
     watchdog_usec = _integer(payload.get("watchdog_usec"))
     if watchdog_usec is None or watchdog_usec <= 0:
         failures.append("watchdog")
+    main_pid = _integer(payload.get("main_pid"))
+    if main_pid is None or main_pid <= 0:
+        failures.append("main_pid")
     if "boring box-run" not in str(payload.get("exec_start") or ""):
         failures.append("exec_start")
     if payload.get("user") != "boring":
