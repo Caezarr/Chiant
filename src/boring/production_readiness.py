@@ -333,6 +333,8 @@ def _check_autopay_smoke_report(
     stop_verified = bool(payload.get("stop_verified"))
     amount_cents = payload.get("amount_cents")
     amount_ok = isinstance(amount_cents, int) and amount_cents > 0
+    max_session_amount = int(_env_float(env, "MAX_SESSION_AMOUNT_CENTS") or 500)
+    max_session_ok = max_session_amount > 0 and amount_ok and amount_cents <= max_session_amount
     provider = str(payload.get("provider") or "unknown")
     expected_provider = (env.get("PAYMENT_PROVIDER") or "paybyphone").strip().lower()
     provider_ok = provider.lower() == expected_provider
@@ -350,6 +352,7 @@ def _check_autopay_smoke_report(
         and stopped
         and stop_verified
         and amount_ok
+        and max_session_ok
         and provider_ok
         and plate_ok
         and zone_ok
@@ -360,7 +363,8 @@ def _check_autopay_smoke_report(
         (
             f"passed={passed}, dry_run={dry_run}, active={active_verified}, "
             f"stopped={stopped}, stop_verified={stop_verified}, "
-            f"amount={amount_cents}, provider={provider}/{expected_provider}, "
+            f"amount={amount_cents}/{max_session_amount}, "
+            f"provider={provider}/{expected_provider}, "
             f"plate={plate or '-'}/{expected_plate}, "
             f"zone={zone_id or '-'}/{expected_zone_id or '-'}, "
             f"error={error or '-'}"
