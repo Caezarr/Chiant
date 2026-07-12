@@ -17,6 +17,7 @@ from boring.runtime import (
     _check_thermal,
     _current_inference_fps,
     _handle_trigger,
+    _heartbeat,
     box_doctor,
 )
 from boring.state import BoxStateStore
@@ -434,6 +435,26 @@ def test_check_thermal_notifies_critical_once(tmp_path: Path, monkeypatch):
     assert calls == [("Boring Box — temperature critique", "87.4C", True)]
     assert state.thermal_critical_alert_sent is True
     assert (tmp_path / "events.jsonl").read_text().count("thermal_critical") == 1
+
+
+def test_heartbeat_logs_runtime_activity(tmp_path: Path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "boring.runtime.notify",
+        lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+    config = BoxConfig(heartbeat_seconds=30, inference_fps=2)
+    state = RuntimeState(last_heartbeat=-60)
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    _heartbeat(0, state, config, event_log)
+
+    assert calls == [
+        (("Boring Box — alive", "Service actif, detection en cours."), {"sound": False})
+    ]
+    events = (tmp_path / "events.jsonl").read_text()
+    assert "heartbeat" in events
+    assert '"inference_fps": 2' in events
 
 
 class _FakeNetwork:

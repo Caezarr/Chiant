@@ -171,7 +171,7 @@ def _background_monitor(
         _check_thermal(now, thermal, state, config, event_log)
         _check_network(now, network, state, config, event_log)
         _check_disk(now, disk, state, config, event_log)
-        _heartbeat(now, state, config)
+        _heartbeat(now, state, config, event_log)
         systemd.watchdog("Boring Box monitor alive")
         stop_event.wait(
             max(
@@ -696,10 +696,17 @@ def _handle_trigger(
     )
 
 
-def _heartbeat(now: float, state: RuntimeState, config: BoxConfig) -> None:
+def _heartbeat(
+    now: float,
+    state: RuntimeState,
+    config: BoxConfig,
+    event_log: EventLog | None = None,
+) -> None:
     if config.heartbeat_seconds <= 0:
         return
     if now - state.last_heartbeat < config.heartbeat_seconds:
         return
     state.last_heartbeat = now
+    if event_log is not None:
+        event_log.write("heartbeat", inference_fps=_current_inference_fps(state, config))
     notify("Boring Box — alive", "Service actif, detection en cours.", sound=False)

@@ -986,7 +986,7 @@ def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Pa
         + json.dumps(
             {
                 "ts": now.isoformat(),
-                "event": "service_started",
+                "event": "heartbeat",
             }
         )
         + "\n"
@@ -1011,6 +1011,40 @@ def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Pa
     check = [check for check in report.checks if check.name == "runtime_event_log"][0]
     assert check.ok is True
     assert "scanned=1" in check.detail
+    assert "heartbeat=True" in check.detail
+
+
+def test_production_readiness_rejects_runtime_log_without_heartbeat(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    artifacts["events"].write_text(
+        json.dumps(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "event": "service_started",
+            }
+        )
+        + "\n"
+    )
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=artifacts["events"],
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    assert check.ok is False
+    assert "heartbeat=False" in check.detail
 
 
 def test_production_readiness_rejects_blocking_runtime_event(tmp_path: Path):
@@ -1327,7 +1361,7 @@ def _write_ready_artifacts(
         json.dumps(
             {
                 "ts": report_time.isoformat(),
-                "event": "service_started",
+                "event": "heartbeat",
                 "model_path": str(model),
                 "payment_dry_run": False,
             }
