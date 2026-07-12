@@ -216,6 +216,32 @@ def test_handle_trigger_skips_payment_when_state_file_is_corrupt(tmp_path, monke
     assert "payment_skipped_state_corrupt" in (tmp_path / "events.jsonl").read_text()
 
 
+def test_handle_trigger_logs_notification_failure_when_payment_is_blocked(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr("boring.runtime.notify", lambda *_, **__: False)
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    result = _handle_trigger(
+        payment=object(),
+        cooldown=object(),
+        state_store=BoxStateStore(tmp_path / "state.json"),
+        event_log=event_log,
+        state=RuntimeState(network_online=False),
+        config=BoxConfig(vehicle_plate="AB-123-CD"),
+        position_provider=StaticPositionProvider(50.6371, 3.0633),
+        zones=None,
+        detection_count=2,
+    )
+
+    assert result is None
+    events = (tmp_path / "events.jsonl").read_text()
+    assert "payment_skipped_offline" in events
+    assert "notification_failed" in events
+    assert "network_offline" in events
+
+
 def test_check_network_notifies_offline_then_recovered(tmp_path: Path, monkeypatch):
     calls = []
 
@@ -245,6 +271,21 @@ def test_check_network_notifies_offline_then_recovered(tmp_path: Path, monkeypat
     events = (tmp_path / "events.jsonl").read_text()
     assert "network_offline" in events
     assert "network_recovered" in events
+
+
+def test_check_network_logs_notification_failure_when_offline(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr("boring.runtime.notify", lambda *_, **__: False)
+    config = BoxConfig(network_check_seconds=1)
+    state = RuntimeState(last_network_check=-10)
+    network = _FakeNetwork([NetworkStatus(False, "probe", "down")])
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    _check_network(0, network, state, config, event_log)
+
+    events = (tmp_path / "events.jsonl").read_text()
+    assert "network_offline" in events
+    assert "notification_failed" in events
+    assert "probe" in events
 
 
 def test_check_network_runs_recovery_command_when_offline(tmp_path: Path, monkeypatch):
@@ -284,6 +325,38 @@ def test_check_network_runs_recovery_command_when_offline(tmp_path: Path, monkey
     assert "network_recovery_attempted" in (tmp_path / "events.jsonl").read_text()
 
 
+def test_check_network_logs_notification_failure_when_recovery_fails(
+    tmp_path: Path,
+    monkeypatch,
+):
+    def fake_recovery(command: str, *, timeout_seconds: float):
+        return SimpleNamespace(
+            command=command,
+            ok=False,
+            returncode=1,
+            error="boom",
+            stderr="",
+        )
+
+    monkeypatch.setattr("boring.runtime.notify", lambda *_, **__: False)
+    monkeypatch.setattr("boring.runtime.run_network_recovery", fake_recovery)
+    config = BoxConfig(
+        network_check_seconds=1,
+        network_recovery_command="systemctl restart NetworkManager",
+        network_recovery_cooldown_seconds=300,
+    )
+    state = RuntimeState(last_network_check=-10)
+    network = _FakeNetwork([NetworkStatus(False, "probe", "down")])
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    _check_network(0, network, state, config, event_log)
+
+    events = (tmp_path / "events.jsonl").read_text()
+    assert "network_recovery_attempted" in events
+    assert "notification_failed" in events
+    assert "systemctl restart NetworkManager" in events
+
+
 def test_check_disk_notifies_low_then_recovered(tmp_path: Path, monkeypatch):
     calls = []
 
@@ -312,6 +385,21 @@ def test_check_disk_notifies_low_then_recovered(tmp_path: Path, monkeypatch):
     events = (tmp_path / "events.jsonl").read_text()
     assert "disk_low" in events
     assert "disk_recovered" in events
+
+
+def test_check_disk_logs_notification_failure_when_low(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr("boring.runtime.notify", lambda *_, **__: False)
+    config = BoxConfig(disk_min_free_mb=512, disk_check_seconds=1)
+    state = RuntimeState(last_disk_check=-10)
+    disk = _FakeDisk([DiskStatus("/var/lib/boring", 200, 10_000)])
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    _check_disk(0, disk, state, config, event_log)
+
+    events = (tmp_path / "events.jsonl").read_text()
+    assert "disk_low" in events
+    assert "notification_failed" in events
+    assert "/var/lib/boring" in events
 
 
 def test_current_inference_fps_uses_low_power_when_any_saver_active():
@@ -553,6 +641,24 @@ def test_check_thermal_notifies_critical_once(tmp_path: Path, monkeypatch):
     assert calls == [("Boring Box — temperature critique", "87.4C", True)]
     assert state.thermal_critical_alert_sent is True
     assert (tmp_path / "events.jsonl").read_text().count("thermal_critical") == 1
+
+
+def test_check_thermal_logs_notification_failure_when_critical(
+    tmp_path: Path,
+    monkeypatch,
+):
+    monkeypatch.setattr("boring.runtime.notify", lambda *_, **__: False)
+    config = BoxConfig(thermal_warning_c=70, thermal_critical_c=85, thermal_check_seconds=1)
+    state = RuntimeState(last_thermal_check=-10)
+    thermal = _FakeThermal([ThermalStatus(87.4, "/sys/class/thermal/thermal_zone0")])
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    _check_thermal(0, thermal, state, config, event_log)
+
+    events = (tmp_path / "events.jsonl").read_text()
+    assert "thermal_critical" in events
+    assert "notification_failed" in events
+    assert "87.4" in events
 
 
 def test_heartbeat_logs_runtime_activity(tmp_path: Path, monkeypatch):
