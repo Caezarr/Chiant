@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import configparser
 import json
 import os
 from dataclasses import asdict, dataclass
@@ -46,6 +47,7 @@ def audit_production_readiness(
     baseline_manifest: Path = Path("datasets/baseline/manifest.jsonl"),
     endpoints_path: Path = Path("scripts/paybyphone_endpoints.json"),
     hardware_profile_path: Path = Path("deploy/pi/hardware-profile.json"),
+    service_unit_path: Path = Path("deploy/systemd/boring-box.service"),
     vision_eval_report_path: Path = Path("reports/vision-eval.json"),
     benchmark_report_path: Path = Path("reports/vision-benchmark.json"),
     autopay_smoke_report_path: Path = Path("reports/autopay-smoke.json"),
@@ -87,6 +89,7 @@ def audit_production_readiness(
         ),
         _summary_check("hardware", hardware.passed, _failed_names(hardware.checks)),
         _check_hardware_env_consistency(values, hardware_profile_path),
+        _check_systemd_service(service_unit_path),
         _check_vision_eval_report(
             vision_eval_report_path,
             expected_model_path=model_path,
@@ -218,6 +221,61 @@ def _check_hardware_env_consistency(env: Mapping[str, str], path: Path) -> Produ
         (
             f"battery profile/env={profile_battery_wh:.1f}/{env_battery_wh:.1f}Wh, "
             f"charge profile/env={profile_charge_watts:.1f}/{env_charge_watts:.1f}W"
+        ),
+    )
+
+
+def _check_systemd_service(path: Path) -> ProductionCheck:
+    if not path.exists():
+        return ProductionCheck("systemd_service", False, f"missing {path}")
+    parser = configparser.ConfigParser(interpolation=None, strict=False)
+    parser.optionxform = str.lower
+    try:
+        parser.read_string(path.read_text())
+    except (OSError, configparser.Error) as exc:
+        return ProductionCheck("systemd_service", False, f"invalid {path}: {exc}")
+
+    service = parser["Service"] if parser.has_section("Service") else {}
+    install = parser["Install"] if parser.has_section("Install") else {}
+    service_type = str(service.get("type", "")).strip().lower()
+    exec_start = str(service.get("execstart", ""))
+    restart = str(service.get("restart", "")).strip().lower()
+    watchdog = _duration_seconds(str(service.get("watchdogsec", "")))
+    notify_access = str(service.get("notifyaccess", "")).strip().lower()
+    user = str(service.get("user", "")).strip()
+    supplementary = set(str(service.get("supplementarygroups", "")).split())
+    read_write_paths = set(str(service.get("readwritepaths", "")).split())
+    wanted_by = str(install.get("wantedby", "")).strip()
+
+    failures = []
+    if service_type != "notify":
+        failures.append(f"Type={service_type or '-'}")
+    if "boring box-run" not in exec_start:
+        failures.append("ExecStart")
+    if restart != "always":
+        failures.append(f"Restart={restart or '-'}")
+    if watchdog is None or watchdog <= 0:
+        failures.append(f"WatchdogSec={service.get('watchdogsec', '-')}")
+    if notify_access not in {"main", "all"}:
+        failures.append(f"NotifyAccess={notify_access or '-'}")
+    if user != "boring":
+        failures.append(f"User={user or '-'}")
+    missing_groups = {"video", "gpio", "i2c", "netdev"} - supplementary
+    if missing_groups:
+        failures.append(f"groups={','.join(sorted(missing_groups))}")
+    missing_paths = {"/opt/boring", "/var/lib/boring"} - read_write_paths
+    if missing_paths:
+        failures.append(f"write_paths={','.join(sorted(missing_paths))}")
+    if wanted_by != "multi-user.target":
+        failures.append(f"WantedBy={wanted_by or '-'}")
+
+    return ProductionCheck(
+        "systemd_service",
+        not failures,
+        (
+            f"type={service_type or '-'}, watchdog={watchdog or 0:.0f}s, "
+            f"restart={restart or '-'}, user={user or '-'}, "
+            f"failures={', '.join(failures) if failures else '-'}"
         ),
     )
 
@@ -790,6 +848,22 @@ def _json_float(value) -> float | None:
     try:
         return float(value)
     except (TypeError, ValueError):
+        return None
+
+
+def _duration_seconds(value: str) -> float | None:
+    raw = value.strip().lower()
+    if not raw:
+        return None
+    try:
+        if raw.endswith("ms"):
+            return float(raw[:-2]) / 1000
+        if raw.endswith("min"):
+            return float(raw[:-3]) * 60
+        if raw.endswith("s"):
+            return float(raw[:-1])
+        return float(raw)
+    except ValueError:
         return None
 
 
