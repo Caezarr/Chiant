@@ -36,6 +36,42 @@ run() {
   fi
 }
 
+render_service() {
+  target="$1"
+  if [ "$DRY_RUN" = "1" ]; then
+    printf '+ render boring-box.service > %s (INSTALL_DIR=%s STATE_DIR=%s)\n' \
+      "$target" "$INSTALL_DIR" "$STATE_DIR"
+    return
+  fi
+
+  cat > "$target" <<EOF
+[Unit]
+Description=Boring Parking Box
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+WorkingDirectory=$INSTALL_DIR
+EnvironmentFile=$INSTALL_DIR/.env
+ExecStart=/usr/bin/env uv run boring box-run
+Restart=always
+RestartSec=5
+WatchdogSec=120
+NotifyAccess=main
+User=boring
+Group=video
+SupplementaryGroups=video gpio i2c netdev
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=$INSTALL_DIR $STATE_DIR
+
+[Install]
+WantedBy=multi-user.target
+EOF
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --source)
@@ -125,7 +161,7 @@ if [ "$SKIP_SYNC" = "0" ]; then
   run su -s /bin/sh boring -c "cd '$INSTALL_DIR' && uv run boring --help >/dev/null"
 fi
 
-run cp "$INSTALL_DIR/deploy/systemd/boring-box.service" "$SERVICE_PATH"
+render_service "$SERVICE_PATH"
 run systemctl daemon-reload
 
 if [ "$START_SERVICE" = "1" ]; then

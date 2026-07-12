@@ -32,7 +32,7 @@ uv run boring box-ready --hardware-profile deploy/pi/hardware-profile.json --vis
 uv run boring box-evidence-pack --model models/best.pt --output reports/evidence-pack.json
 ```
 
-`install.sh` cree l'utilisateur `boring`, prepare `/opt/boring` et `/var/lib/boring`, copie le repo en excluant `.git`, `.venv`, `datasets`, `runs` et `frames`, lance `uv sync --no-dev` sous l'utilisateur `boring`, verifie que la CLI demarre, installe l'unit systemd, puis laisse le service arrete sauf si tu passes `--start`. Passe `--skip-sync` seulement pour une copie/repetition rapide ou si tu as deja synchronise le runtime.
+`install.sh` cree l'utilisateur `boring`, prepare `/opt/boring` et `/var/lib/boring` ou les chemins passes via `--install-dir`/`--state-dir`, copie le repo en excluant `.git`, `.venv`, `datasets`, `runs` et `frames`, lance `uv sync --no-dev` sous l'utilisateur `boring`, verifie que la CLI demarre, rend l'unit systemd avec ces chemins, puis laisse le service arrete sauf si tu passes `--start`. Passe `--skip-sync` seulement pour une copie/repetition rapide ou si tu as deja synchronise le runtime.
 
 ## First boot checks
 
