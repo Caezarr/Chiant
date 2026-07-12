@@ -18,7 +18,6 @@ This folder contains deployment assets for the Boring Parking Box.
 DRY_RUN=1 ./deploy/pi/install.sh
 sudo ./deploy/pi/install.sh
 cd /opt/boring
-uv sync --no-dev
 uv run boring box-doctor
 uv run boring box-runtime-checks --output-dir reports
 uv run boring box-burn-in --minutes 120 --interval 60 --output burn-in/pi-first-run
@@ -33,7 +32,7 @@ uv run boring box-ready --hardware-profile deploy/pi/hardware-profile.json --vis
 uv run boring box-evidence-pack --output reports/evidence-pack.json
 ```
 
-`install.sh` cree l'utilisateur `boring`, prepare `/opt/boring` et `/var/lib/boring`, copie le repo en excluant `.git`, `.venv`, `datasets`, `runs` et `frames`, installe l'unit systemd, puis laisse le service arrete sauf si tu passes `--start`.
+`install.sh` cree l'utilisateur `boring`, prepare `/opt/boring` et `/var/lib/boring`, copie le repo en excluant `.git`, `.venv`, `datasets`, `runs` et `frames`, lance `uv sync --no-dev` sous l'utilisateur `boring`, verifie que la CLI demarre, installe l'unit systemd, puis laisse le service arrete sauf si tu passes `--start`. Passe `--skip-sync` seulement pour une copie/repetition rapide ou si tu as deja synchronise le runtime.
 
 ## First boot checks
 

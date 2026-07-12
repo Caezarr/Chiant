@@ -6,6 +6,7 @@ INSTALL_DIR="/opt/boring"
 STATE_DIR="/var/lib/boring"
 SERVICE_PATH="/etc/systemd/system/boring-box.service"
 START_SERVICE=0
+SKIP_SYNC=0
 DRY_RUN="${DRY_RUN:-0}"
 
 usage() {
@@ -20,6 +21,7 @@ Options:
   --install-dir DIR  Destination applicative (defaut: /opt/boring)
   --state-dir DIR    Etat persistant (defaut: /var/lib/boring)
   --start            Enable + start boring-box apres installation
+  --skip-sync        Ne pas lancer uv sync --no-dev apres copie
 
 Env:
   DRY_RUN=1          Affiche les actions sans les executer
@@ -50,6 +52,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --start)
       START_SERVICE=1
+      shift
+      ;;
+    --skip-sync)
+      SKIP_SYNC=1
       shift
       ;;
     -h|--help)
@@ -113,6 +119,12 @@ fi
 
 run chmod 0755 "$INSTALL_DIR/deploy/pi/network-recover.example.sh"
 run chown -R boring:boring "$INSTALL_DIR" "$STATE_DIR"
+
+if [ "$SKIP_SYNC" = "0" ]; then
+  run su -s /bin/sh boring -c "cd '$INSTALL_DIR' && uv sync --no-dev"
+  run su -s /bin/sh boring -c "cd '$INSTALL_DIR' && uv run boring --help >/dev/null"
+fi
+
 run cp "$INSTALL_DIR/deploy/systemd/boring-box.service" "$SERVICE_PATH"
 run systemctl daemon-reload
 
@@ -121,6 +133,6 @@ if [ "$START_SERVICE" = "1" ]; then
   run systemctl restart boring-box
 else
   echo "Install complete. Edit $INSTALL_DIR/.env, then run:"
-  echo "  cd $INSTALL_DIR && uv sync --no-dev && uv run boring box-doctor"
+  echo "  cd $INSTALL_DIR && uv run boring box-doctor"
   echo "  sudo systemctl enable boring-box && sudo systemctl start boring-box"
 fi
