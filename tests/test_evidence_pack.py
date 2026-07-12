@@ -47,7 +47,75 @@ def test_evidence_pack_fails_when_required_report_has_no_passed_flag(tmp_path: P
 
     assert pack.passed is False
     vision_eval = [item for item in pack.items if item.name == "vision_eval"][0]
-    assert vision_eval.passed is None
+    assert vision_eval.passed is False
+    assert "model=missing" in vision_eval.detail
+
+
+def test_evidence_pack_requires_complete_vision_eval(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    assert item.passed is True
+    assert "frames=10800" in item.detail
+    assert "invalid=0" in item.detail
+    assert "model=ok" in item.detail
+    assert "dataset=ok" in item.detail
+
+
+def test_evidence_pack_rejects_vision_eval_without_frames(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_eval"].read_text())
+    payload["frames_evaluated"] = 0
+    paths["vision_eval"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "frames=0" in item.detail
+
+
+def test_evidence_pack_rejects_vision_eval_with_invalid_images(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_eval"].read_text())
+    payload["invalid_images"] = 1
+    paths["vision_eval"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "invalid=1" in item.detail
+
+
+def test_evidence_pack_requires_complete_vision_benchmark(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_benchmark"][0]
+    assert item.passed is True
+    assert "fps=2.00/2.00" in item.detail
+    assert "frames=120" in item.detail
+    assert "device=ok" in item.detail
+
+
+def test_evidence_pack_rejects_slow_vision_benchmark(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_benchmark"].read_text())
+    payload["measured_fps"] = 1.0
+    paths["vision_benchmark"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_benchmark"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "fps=1.00/2.00" in item.detail
 
 
 def test_write_pack_includes_passed(tmp_path: Path):
@@ -369,6 +437,43 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
     for path in paths.values():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"passed": True}))
+    paths["vision_eval"].write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "model_path": "models/best.pt",
+                "dataset_path": "datasets/control_vehicle_v1",
+                "dataset_id": "field-pi5-daylight-v1",
+                "recall": 0.93,
+                "min_recall": 0.9,
+                "precision": 0.98,
+                "false_positive_per_hour": 0.5,
+                "max_false_positive_per_hour": 1.0,
+                "evaluated_hours": 3.0,
+                "frames_evaluated": 10_800,
+                "true_positives": 93,
+                "false_positives": 1,
+                "false_negatives": 7,
+                "invalid_images": 0,
+                "generated_at": "2026-01-01T00:00:00+00:00",
+            }
+        )
+    )
+    paths["vision_benchmark"].write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "model_path": "models/best.pt",
+                "device": "cpu",
+                "frames_processed": 120,
+                "detections_seen": 0,
+                "duration_seconds": 60.0,
+                "measured_fps": 2.0,
+                "min_fps": 2.0,
+                "generated_at": "2026-01-01T00:00:00+00:00",
+            }
+        )
+    )
     paths["autopay_smoke"].write_text(
         json.dumps(
             {

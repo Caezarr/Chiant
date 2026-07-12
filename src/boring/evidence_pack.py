@@ -80,6 +80,8 @@ def evidence_item_ok(item: EvidenceItem) -> bool:
         "notification_test",
         "paybyphone_endpoints",
         "runtime_events",
+        "vision_benchmark",
+        "vision_eval",
     }:
         return item.passed is True
     if item.name == "hardware_profile":
@@ -103,6 +105,10 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
         return _read_paybyphone_endpoints(name, path, raw)
     if name == "runtime_events":
         return _read_runtime_events(name, path, raw)
+    if name == "vision_benchmark":
+        return _read_vision_benchmark(name, path, raw)
+    if name == "vision_eval":
+        return _read_vision_eval(name, path, raw)
     try:
         payload = json.loads(raw.decode("utf-8"))
     except json.JSONDecodeError:
@@ -374,6 +380,122 @@ def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
     )
 
 
+def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        return EvidenceItem(
+            name,
+            str(path),
+            True,
+            False,
+            None,
+            len(raw),
+            hashlib.sha256(raw).hexdigest(),
+            _format(name),
+            "invalid json",
+        )
+    passed = payload.get("passed") is True if isinstance(payload, dict) else False
+    recall = _number(payload.get("recall")) if isinstance(payload, dict) else None
+    min_recall = _number(payload.get("min_recall")) if isinstance(payload, dict) else None
+    false_positive_per_hour = (
+        _number(payload.get("false_positive_per_hour")) if isinstance(payload, dict) else None
+    )
+    max_false_positive_per_hour = (
+        _number(payload.get("max_false_positive_per_hour")) if isinstance(payload, dict) else None
+    )
+    evaluated_hours = _number(payload.get("evaluated_hours")) if isinstance(payload, dict) else None
+    frames_evaluated = (
+        _integer(payload.get("frames_evaluated")) if isinstance(payload, dict) else None
+    )
+    invalid_images = _integer(payload.get("invalid_images")) if isinstance(payload, dict) else None
+    model_path = str(payload.get("model_path") or "") if isinstance(payload, dict) else ""
+    dataset_path = str(payload.get("dataset_path") or "") if isinstance(payload, dict) else ""
+    ok = (
+        passed
+        and recall is not None
+        and min_recall is not None
+        and recall >= min_recall
+        and false_positive_per_hour is not None
+        and max_false_positive_per_hour is not None
+        and false_positive_per_hour <= max_false_positive_per_hour
+        and evaluated_hours is not None
+        and evaluated_hours > 0
+        and frames_evaluated is not None
+        and frames_evaluated > 0
+        and invalid_images == 0
+        and bool(model_path)
+        and bool(dataset_path)
+    )
+    return EvidenceItem(
+        name=name,
+        path=str(path),
+        present=True,
+        valid_json=True,
+        passed=ok,
+        size_bytes=len(raw),
+        sha256=hashlib.sha256(raw).hexdigest(),
+        format=_format(name),
+        detail=(
+            f"passed={passed}, recall={_fmt(recall)}/{_fmt(min_recall)}, "
+            f"fp_per_hour={_fmt(false_positive_per_hour)}/{_fmt(max_false_positive_per_hour)}, "
+            f"hours={_fmt(evaluated_hours)}, frames={frames_evaluated}, "
+            f"invalid={invalid_images}, model={'ok' if model_path else 'missing'}, "
+            f"dataset={'ok' if dataset_path else 'missing'}"
+        ),
+    )
+
+
+def _read_vision_benchmark(name: str, path: Path, raw: bytes) -> EvidenceItem:
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        return EvidenceItem(
+            name,
+            str(path),
+            True,
+            False,
+            None,
+            len(raw),
+            hashlib.sha256(raw).hexdigest(),
+            _format(name),
+            "invalid json",
+        )
+    passed = payload.get("passed") is True if isinstance(payload, dict) else False
+    frames_processed = (
+        _integer(payload.get("frames_processed")) if isinstance(payload, dict) else None
+    )
+    measured_fps = _number(payload.get("measured_fps")) if isinstance(payload, dict) else None
+    min_fps = _number(payload.get("min_fps")) if isinstance(payload, dict) else None
+    model_path = str(payload.get("model_path") or "") if isinstance(payload, dict) else ""
+    device = str(payload.get("device") or "") if isinstance(payload, dict) else ""
+    ok = (
+        passed
+        and frames_processed is not None
+        and frames_processed > 0
+        and measured_fps is not None
+        and min_fps is not None
+        and measured_fps >= min_fps
+        and bool(model_path)
+        and bool(device)
+    )
+    return EvidenceItem(
+        name=name,
+        path=str(path),
+        present=True,
+        valid_json=True,
+        passed=ok,
+        size_bytes=len(raw),
+        sha256=hashlib.sha256(raw).hexdigest(),
+        format=_format(name),
+        detail=(
+            f"passed={passed}, fps={_fmt(measured_fps)}/{_fmt(min_fps)}, "
+            f"frames={frames_processed}, model={'ok' if model_path else 'missing'}, "
+            f"device={'ok' if device else 'missing'}"
+        ),
+    )
+
+
 def _detail(payload) -> str:
     if not isinstance(payload, dict):
         return "json is not an object"
@@ -386,3 +508,25 @@ def _format(name: str) -> str:
     if name in {"burn_in_samples", "runtime_events"}:
         return "jsonl"
     return "json"
+
+
+def _number(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
+def _integer(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    return None
+
+
+def _fmt(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.2f}"
