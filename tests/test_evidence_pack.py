@@ -132,6 +132,66 @@ def test_evidence_pack_rejects_box_ready_missing_required_check(tmp_path: Path):
     assert "missing=runtime_event_log" in item.detail
 
 
+def test_evidence_pack_requires_complete_runtime_reports(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+
+    pack = build_evidence_pack(paths)
+
+    for name in [
+        "systemd_runtime",
+        "position_runtime",
+        "camera_runtime",
+        "network_runtime",
+        "power_runtime",
+        "burn_in",
+    ]:
+        item = [item for item in pack.items if item.name == name][0]
+        assert item.passed is True
+        assert "failures=-" in item.detail
+
+
+def test_evidence_pack_rejects_generic_camera_report(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    paths["camera_runtime"].write_text(json.dumps({"passed": True}))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "camera_runtime"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "width" in item.detail
+    assert "height" in item.detail
+
+
+def test_evidence_pack_rejects_runtime_report_with_failures(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["network_runtime"].read_text())
+    payload["passed"] = True
+    payload["failures"] = ["online=false"]
+    paths["network_runtime"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "network_runtime"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "failures=failures" in item.detail
+
+
+def test_evidence_pack_rejects_burn_in_without_charge_cycle(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["burn_in"].read_text())
+    payload["charging_seen"] = False
+    paths["burn_in"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "burn_in"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "charging_seen" in item.detail
+
+
 def test_evidence_pack_rejects_hardware_profile_without_preset(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["hardware_profile"].read_text())
@@ -537,6 +597,12 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"passed": True}))
     paths["box_ready"].write_text(json.dumps(_box_ready_payload()))
+    paths["camera_runtime"].write_text(json.dumps(_camera_runtime_payload()))
+    paths["position_runtime"].write_text(json.dumps(_position_runtime_payload()))
+    paths["network_runtime"].write_text(json.dumps(_network_runtime_payload()))
+    paths["power_runtime"].write_text(json.dumps(_power_runtime_payload()))
+    paths["systemd_runtime"].write_text(json.dumps(_systemd_runtime_payload()))
+    paths["burn_in"].write_text(json.dumps(_burn_in_payload()))
     paths["vision_eval"].write_text(
         json.dumps(
             {
@@ -695,4 +761,99 @@ def _box_ready_payload() -> dict:
     return {
         "passed": True,
         "checks": [{"name": name, "ok": True, "detail": "ok"} for name in check_names],
+    }
+
+
+def _camera_runtime_payload() -> dict:
+    return {
+        "passed": True,
+        "device_index": 0,
+        "width": 1280,
+        "height": 720,
+        "min_width": 640,
+        "min_height": 480,
+        "checked_at": "2026-01-01T00:00:00+00:00",
+        "failures": [],
+        "error": None,
+    }
+
+
+def _position_runtime_payload() -> dict:
+    return {
+        "passed": True,
+        "mode": "static",
+        "source": "static",
+        "lat": 50.6371,
+        "lon": 3.0633,
+        "checked_at": "2026-01-01T00:00:00+00:00",
+        "failures": [],
+    }
+
+
+def _network_runtime_payload() -> dict:
+    return {
+        "passed": True,
+        "target": "1.1.1.1:443",
+        "online": True,
+        "timeout_seconds": 3.0,
+        "recovery_command_configured": True,
+        "checked_at": "2026-01-01T00:00:00+00:00",
+        "failures": [],
+        "error": None,
+    }
+
+
+def _power_runtime_payload() -> dict:
+    return {
+        "passed": True,
+        "battery_percent": 82,
+        "charging": False,
+        "source": "/sys/class/power_supply/BAT0",
+        "battery_capacity_wh": 100,
+        "estimated_draw_watts": 8,
+        "estimated_runtime_hours": 12.5,
+        "required_runtime_hours": 10,
+        "checked_at": "2026-01-01T00:00:00+00:00",
+        "failures": [],
+    }
+
+
+def _systemd_runtime_payload() -> dict:
+    return {
+        "service": "boring-box.service",
+        "passed": True,
+        "enabled_state": "enabled",
+        "active_state": "active",
+        "sub_state": "running",
+        "unit_file_state": "enabled",
+        "type": "notify",
+        "watchdog_usec": 30_000_000,
+        "exec_start": "/opt/boring/.venv/bin/boring box-run",
+        "user": "boring",
+        "checked_at": "2026-01-01T00:00:00+00:00",
+        "failures": [],
+        "error": None,
+    }
+
+
+def _burn_in_payload() -> dict:
+    return {
+        "passed": True,
+        "started_at": 0,
+        "ended_at": 36_000,
+        "duration_seconds": 36_000,
+        "sample_count": 600,
+        "camera_failures": 0,
+        "network_failures": 0,
+        "start_battery_percent": 90,
+        "end_battery_percent": 68,
+        "min_battery_percent": 68,
+        "battery_delta_percent": -22,
+        "charging_seen": True,
+        "discharging_seen": True,
+        "max_temp_c": 56.0,
+        "thermal_warning_seen": False,
+        "thermal_critical_seen": False,
+        "battery_low_seen": False,
+        "battery_critical_seen": False,
     }
