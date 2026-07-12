@@ -15,6 +15,11 @@ def test_pi_install_script_is_idempotent_and_conservative():
     assert "hardware-profile.example.json" in script
     assert "--exclude datasets" in script
     assert "START_SERVICE=0" in script
+    assert "SKIP_SYNC=0" in script
+    assert "--skip-sync" in script
+    assert "uv sync --no-dev" in script
+    assert "uv run boring --help >/dev/null" in script
+    assert "su -s /bin/sh boring -c" in script
     assert "systemctl restart boring-box" in script
     assert 'if [ "$START_SERVICE" = "1" ]' in script
 
