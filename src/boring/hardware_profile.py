@@ -125,7 +125,7 @@ def _check_camera(payload: dict) -> HardwareCheck:
     camera_type = str(camera.get("type") or "")
     device = str(camera.get("device") or "")
     resolution = str(camera.get("resolution") or "")
-    resolution_ok = not resolution or _parse_resolution(resolution) is not None
+    resolution_ok = _parse_resolution(resolution) is not None
     ok = camera_type in SUPPORTED_CAMERA_TYPES and bool(device) and resolution_ok
     return HardwareCheck(
         "camera",
