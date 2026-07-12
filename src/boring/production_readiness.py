@@ -105,7 +105,10 @@ def audit_production_readiness(
         ),
         _summary_check("hardware", hardware.passed, _failed_names(hardware.checks)),
         _check_hardware_env_consistency(values, hardware_profile_path),
-        _check_systemd_service(service_unit_path),
+        _check_systemd_service(
+            service_unit_path,
+            state_path=state_path,
+        ),
         _check_systemd_report(
             systemd_report_path,
             require_systemd_report=require_systemd_report,
@@ -331,7 +334,7 @@ def _check_hardware_env_consistency(env: Mapping[str, str], path: Path) -> Produ
     )
 
 
-def _check_systemd_service(path: Path) -> ProductionCheck:
+def _check_systemd_service(path: Path, *, state_path: Path) -> ProductionCheck:
     if not path.exists():
         return ProductionCheck("systemd_service", False, f"missing {path}")
     parser = configparser.ConfigParser(interpolation=None, strict=False)
@@ -345,6 +348,8 @@ def _check_systemd_service(path: Path) -> ProductionCheck:
     install = parser["Install"] if parser.has_section("Install") else {}
     service_type = str(service.get("type", "")).strip().lower()
     exec_start = str(service.get("execstart", ""))
+    working_directory = str(service.get("workingdirectory", "")).strip()
+    environment_file = str(service.get("environmentfile", "")).strip()
     restart = str(service.get("restart", "")).strip().lower()
     watchdog = _duration_seconds(str(service.get("watchdogsec", "")))
     notify_access = str(service.get("notifyaccess", "")).strip().lower()
@@ -358,6 +363,12 @@ def _check_systemd_service(path: Path) -> ProductionCheck:
         failures.append(f"Type={service_type or '-'}")
     if "boring box-run" not in exec_start:
         failures.append("ExecStart")
+    if not working_directory:
+        failures.append("WorkingDirectory")
+    if not environment_file:
+        failures.append("EnvironmentFile")
+    elif working_directory and environment_file != f"{working_directory}/.env":
+        failures.append(f"EnvironmentFile={environment_file}")
     if restart != "always":
         failures.append(f"Restart={restart or '-'}")
     if watchdog is None or watchdog <= 0:
@@ -369,7 +380,11 @@ def _check_systemd_service(path: Path) -> ProductionCheck:
     missing_groups = {"video", "gpio", "i2c", "netdev"} - supplementary
     if missing_groups:
         failures.append(f"groups={','.join(sorted(missing_groups))}")
-    missing_paths = {"/opt/boring", "/var/lib/boring"} - read_write_paths
+    expected_write_paths = {
+        working_directory,
+        str(state_path.parent),
+    } - {""}
+    missing_paths = expected_write_paths - read_write_paths
     if missing_paths:
         failures.append(f"write_paths={','.join(sorted(missing_paths))}")
     if wanted_by != "multi-user.target":
@@ -381,6 +396,7 @@ def _check_systemd_service(path: Path) -> ProductionCheck:
         (
             f"type={service_type or '-'}, watchdog={watchdog or 0:.0f}s, "
             f"restart={restart or '-'}, user={user or '-'}, "
+            f"workdir={working_directory or '-'}, "
             f"failures={', '.join(failures) if failures else '-'}"
         ),
     )

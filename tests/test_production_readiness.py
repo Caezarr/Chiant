@@ -861,6 +861,64 @@ def test_production_readiness_rejects_unsafe_systemd_service(tmp_path: Path):
     assert "User=root" in check.detail
 
 
+def test_production_readiness_accepts_custom_rendered_systemd_paths(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    install_dir = tmp_path / "srv" / "boring"
+    state_dir = tmp_path / "srv" / "boring-state"
+    install_dir.mkdir(parents=True)
+    state_dir.mkdir(parents=True)
+    state_path = state_dir / "state.json"
+    env = _ready_env()
+    env["BOX_STATE_PATH"] = str(state_path)
+
+    service = tmp_path / "boring-box.service"
+    service.write_text(
+        "\n".join(
+            [
+                "[Service]",
+                "Type=notify",
+                f"WorkingDirectory={install_dir}",
+                f"EnvironmentFile={install_dir}/.env",
+                "ExecStart=/usr/bin/env uv run boring box-run",
+                "Restart=always",
+                "WatchdogSec=120",
+                "NotifyAccess=main",
+                "User=boring",
+                "SupplementaryGroups=video gpio i2c netdev",
+                f"ReadWritePaths={install_dir} {state_dir}",
+                "",
+                "[Install]",
+                "WantedBy=multi-user.target",
+            ]
+        )
+    )
+
+    report = audit_production_readiness(
+        env=env,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        service_unit_path=service,
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        state_path=state_path,
+        storage_path=artifacts["events"],
+    )
+
+    check = [check for check in report.checks if check.name == "systemd_service"][0]
+    assert check.ok is True
+
+
 def test_production_readiness_fails_without_systemd_runtime_report(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
 
