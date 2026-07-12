@@ -567,6 +567,37 @@ def test_production_readiness_rejects_autopay_smoke_for_other_forced_zone(
     assert "zone=zone-1/zone-expected" in check.detail
 
 
+def test_production_readiness_rejects_autopay_smoke_above_session_limit(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["autopay_smoke"].read_text())
+    payload["amount_cents"] = 650
+    artifacts["autopay_smoke"].write_text(json.dumps(payload))
+    env = _ready_env()
+    env["MAX_SESSION_AMOUNT_CENTS"] = "500"
+
+    report = audit_production_readiness(
+        env=env,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    assert check.ok is False
+    assert "amount=650/500" in check.detail
+
+
 def test_production_readiness_rejects_stale_reports(tmp_path: Path):
     now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now - timedelta(hours=96))
