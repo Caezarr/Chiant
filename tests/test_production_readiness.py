@@ -3631,7 +3631,11 @@ def _write_ready_artifacts(
             {
                 "preset_id": "pi5-production",
                 "board": {"model": "raspberry-pi-5", "ram_gb": 8},
-                "camera": {"type": "usb-uvc", "device": "/dev/video0"},
+                "camera": {
+                    "type": "usb-uvc",
+                    "device": "/dev/video0",
+                    "resolution": "1280x720",
+                },
                 "storage": {"capacity_gb": 64, "endurance": True},
                 "power": {
                     "ups_power_supply": True,

@@ -61,13 +61,23 @@ def test_hardware_profile_rejects_invalid_camera_resolution(tmp_path: Path):
     assert "resolution=wide" in camera.detail
 
 
+def test_hardware_profile_rejects_missing_camera_resolution(tmp_path: Path):
+    profile = _write_profile(tmp_path, camera_resolution=None)
+
+    report = audit_hardware_profile(profile)
+
+    assert report.passed is False
+    camera = [check for check in report.checks if check.name == "camera"][0]
+    assert "resolution=-" in camera.detail
+
+
 def _write_profile(
     tmp_path: Path,
     *,
     battery_capacity_wh: float = 100,
     vehicle_charge_watts: float = 30,
     min_benchmark_fps: float = 2.0,
-    camera_resolution: str | None = None,
+    camera_resolution: str | None = "1920x1080",
 ) -> Path:
     profile = tmp_path / "hardware-profile.json"
     profile.write_text(
