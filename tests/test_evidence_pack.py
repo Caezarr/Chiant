@@ -95,6 +95,48 @@ def test_evidence_pack_digest_changes_when_report_changes(tmp_path: Path):
     assert first_autopay.sha256 != second_autopay.sha256
 
 
+def test_evidence_pack_includes_runtime_events_jsonl(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "runtime_events"][0]
+    assert item.format == "jsonl"
+    assert item.passed is True
+    assert "heartbeat=True" in item.detail
+
+
+def test_evidence_pack_rejects_runtime_events_without_heartbeat(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    paths["runtime_events"].write_text(
+        json.dumps({"ts": "2026-01-01T00:00:00+00:00", "event": "startup"}) + "\n"
+    )
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "runtime_events"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "heartbeat=False" in item.detail
+
+
+def test_evidence_pack_rejects_blocking_runtime_event(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    paths["runtime_events"].write_text(
+        json.dumps({"ts": "2026-01-01T00:00:00+00:00", "event": "heartbeat"})
+        + "\n"
+        + json.dumps({"ts": "2026-01-01T00:05:00+00:00", "event": "network_offline"})
+        + "\n"
+    )
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "runtime_events"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "network_offline@line2" in item.detail
+
+
 def test_default_evidence_paths_include_box_ready():
     paths = default_evidence_paths()
 
@@ -105,6 +147,7 @@ def test_default_evidence_paths_include_box_ready():
     assert paths["camera_runtime"] == Path("reports/camera-check.json")
     assert paths["network_runtime"] == Path("reports/network-check.json")
     assert paths["power_runtime"] == Path("reports/power-check.json")
+    assert paths["runtime_events"] == Path("/var/lib/boring/events.jsonl")
 
 
 def _write_evidence(tmp_path: Path) -> dict[str, Path]:
@@ -116,6 +159,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
         "camera_runtime": tmp_path / "reports" / "camera-check.json",
         "network_runtime": tmp_path / "reports" / "network-check.json",
         "power_runtime": tmp_path / "reports" / "power-check.json",
+        "runtime_events": tmp_path / "events.jsonl",
         "vision_eval": tmp_path / "reports" / "vision-eval.json",
         "vision_benchmark": tmp_path / "reports" / "vision-benchmark.json",
         "autopay_smoke": tmp_path / "reports" / "autopay-smoke.json",
@@ -125,5 +169,8 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
     for path in paths.values():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"passed": True}))
+    paths["runtime_events"].write_text(
+        json.dumps({"ts": "2026-01-01T00:00:00+00:00", "event": "heartbeat"}) + "\n"
+    )
     paths["hardware_profile"].write_text(json.dumps({"board": {"model": "raspberry-pi-5"}}))
     return paths
