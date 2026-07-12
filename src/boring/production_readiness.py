@@ -568,10 +568,10 @@ def _check_power_report(
     available_wh = _json_float(payload.get("available_battery_wh"))
     expected_capacity_wh = _env_float(env, "BATTERY_CAPACITY_WH")
     estimated_draw = _json_float(payload.get("estimated_draw_watts"))
+    expected_draw = _env_float(env, "ESTIMATED_DRAW_WATTS") or 8.0
     estimated_runtime = _json_float(payload.get("estimated_runtime_hours"))
-    required_runtime = _json_float(payload.get("required_runtime_hours")) or (
-        _env_float(env, "REQUIRED_RUNTIME_HOURS") or 10.0
-    )
+    required_runtime = _json_float(payload.get("required_runtime_hours"))
+    expected_required_runtime = _env_float(env, "REQUIRED_RUNTIME_HOURS") or 10.0
     battery_critical = _env_int(env, "BATTERY_CRITICAL_PERCENT", 10)
     failures = payload.get("failures")
     failures_text = (
@@ -581,6 +581,10 @@ def _check_power_report(
         expected_capacity_wh is not None
         and capacity_wh is not None
         and abs(capacity_wh - expected_capacity_wh) <= 1.0
+    )
+    draw_ok = estimated_draw is not None and abs(estimated_draw - expected_draw) <= 0.1
+    required_runtime_ok = (
+        required_runtime is not None and abs(required_runtime - expected_required_runtime) <= 0.1
     )
     expected_available_wh = (
         capacity_wh * (percent / 100)
@@ -609,10 +613,12 @@ def _check_power_report(
         and percent > battery_critical
         and isinstance(charging, bool)
         and capacity_ok
+        and draw_ok
+        and required_runtime_ok
         and available_ok
         and runtime_consistent
         and estimated_runtime is not None
-        and estimated_runtime >= required_runtime
+        and estimated_runtime >= expected_required_runtime
     )
     return ProductionCheck(
         "power_runtime",
@@ -621,8 +627,10 @@ def _check_power_report(
             f"passed={passed}, source={source or '-'}, battery={percent if percent is not None else '-'}%, "
             f"charging={charging if isinstance(charging, bool) else '-'}, "
             f"capacity={capacity_wh or 0:.1f}/{expected_capacity_wh or 0:.1f}Wh, "
+            f"draw={estimated_draw or 0:.1f}/{expected_draw:.1f}W, "
             f"available={available_wh or 0:.1f}/{expected_available_wh or 0:.1f}Wh, "
-            f"runtime={estimated_runtime or 0:.1f}/{required_runtime:.1f}h, "
+            f"runtime={estimated_runtime or 0:.1f}/{expected_required_runtime:.1f}h, "
+            f"required={required_runtime or 0:.1f}/{expected_required_runtime:.1f}h, "
             f"runtime_consistent={runtime_consistent}, "
             f"failures={failures_text}"
         ),

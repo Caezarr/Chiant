@@ -1059,6 +1059,73 @@ def test_production_readiness_rejects_power_runtime_using_full_capacity(
     assert "runtime_consistent=False" in check.detail
 
 
+def test_production_readiness_rejects_power_runtime_for_other_draw(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["power"].read_text())
+    payload["estimated_draw_watts"] = 5
+    payload["estimated_runtime_hours"] = 16.4
+    artifacts["power"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "power_runtime"][0]
+    assert check.ok is False
+    assert "draw=5.0/8.0W" in check.detail
+
+
+def test_production_readiness_rejects_power_runtime_for_other_required_runtime(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["power"].read_text())
+    payload["required_runtime_hours"] = 8
+    artifacts["power"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "power_runtime"][0]
+    assert check.ok is False
+    assert "required=8.0/10.0h" in check.detail
+
+
 def test_production_readiness_fails_when_vehicle_charge_cannot_recover(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     env = _ready_env()
