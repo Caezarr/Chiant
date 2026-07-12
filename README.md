@@ -22,7 +22,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/Status-pre--alpha-orange" alt="Status">
   <img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Tests-254%2F254-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-255%2F255-brightgreen" alt="Tests">
 </p>
 
 ---
@@ -99,7 +99,7 @@ git clone https://github.com/Caezarr/Chiant.git
 cd Chiant
 cp .env.example .env          # → renseigne ASSISTED_IMESSAGE_RECIPIENT au minimum
 make dev                      # uv sync + outils dev
-make test                     # 254 tests doivent passer
+make test                     # 255 tests doivent passer
 make zones                    # télécharge / met à jour les zones Lille
 make scrape-baseline          # images web candidates control_vehicle
 make scrape-negatives         # hard negatives gratuits
@@ -142,7 +142,7 @@ Architecture boîtier : [docs/BOX.md](docs/BOX.md). Déploiement Pi : [deploy/pi
 - Vertical 2 — **`boring.contest`** : génération RAPO automatique + escalade CCSP
 - CLI complète : `capture / detect / run / pay-now / contest-fps`
 - Runtime headless boîtier : `box-run / box-doctor`, config Pi 4 / Pi 5 documentée
-- Tests pytest (254/254), CI GitHub Actions, pre-commit hooks
+- Tests pytest (255/255), CI GitHub Actions, pre-commit hooks
 
 ### Ce qui manque ⏳
 - Modèle custom `control_vehicle` (besoin captation terrain — cf. HUMAN-TODO #1-3)
