@@ -68,6 +68,10 @@ class PaymentProvider(ABC):
 
 Le `PROVIDER_REGISTRY` dans `boring.payment` mappe le nom (`"paybyphone"`,
 `"easypark"`, etc.) à la classe. Sélection au runtime via `PAYMENT_PROVIDER` (.env).
+Les providers héritant de `DryRunParkingProvider` exposent `integration_status="stub"`
+et `production_ready=False`; ils ne doivent pas être vendus comme intégrations
+réelles tant qu'un HAR ou une doc API ne couvre pas login, zone, start, active
+session et stop.
 
 ### StreamTracker (`boring/detect.py`)
 
@@ -158,6 +162,29 @@ quand MEL stabilisera sa nouvelle API geOrchestra.
    └─ Saisit + valide manuellement (~10s)
 ```
 
+## Flow opérateur boîtier
+
+```
+1. Préparer les preuves vision
+   ├─ boring vision-ready
+   ├─ boring vision-eval
+   └─ boring vision-benchmark
+
+2. Préparer les preuves runtime Pi
+   ├─ boring box-runtime-checks
+   ├─ boring box-notify-test
+   ├─ boring autopay-smoke
+   └─ boring box-burn-in
+
+3. Bloquer ou valider la beta voiture
+   ├─ boring box-ready
+   ├─ boring box-evidence-pack
+   └─ boring code-audit
+```
+
+`code-audit` est informatif: il signale les gros fichiers, les providers stub,
+les artefacts terrain manquants et le volume de tests locaux.
+
 ## Points d'extension
 
 - **Nouveau provider** : implémenter `PaymentProvider`, enregistrer dans
@@ -178,7 +205,7 @@ quand MEL stabilisera sa nouvelle API geOrchestra.
 - **Gates terrain simulés** : `tests/test_production_readiness.py`,
   `tests/test_evidence_pack.py`, `tests/test_runtime.py`
 
-437 tests passent en local. CI sur chaque push (ruff + pytest).
+441 tests passent en local. CI sur chaque push (ruff + pytest).
 
 ## Audit maintenabilité
 

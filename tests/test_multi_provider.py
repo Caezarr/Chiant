@@ -10,6 +10,7 @@ from boring.payment.easypark import EasyParkClient
 from boring.payment.flowbird import FlowbirdClient
 from boring.payment.opngo import OPnGOClient
 from boring.payment.paybyphone import PayByPhoneClient
+from boring.payment.stub import DryRunParkingProvider
 
 
 def test_registry_contains_all_providers():
@@ -32,6 +33,15 @@ def test_get_provider_class_case_insensitive():
 def test_get_provider_class_unknown_raises():
     with pytest.raises(KeyError):
         get_provider_class("ghost-provider")
+
+
+@pytest.mark.parametrize("provider_cls", [EasyParkClient, FlowbirdClient, OPnGOClient])
+def test_stub_providers_are_marked_not_production_ready(provider_cls):
+    assert issubclass(provider_cls, DryRunParkingProvider)
+    assert provider_cls.integration_status == "stub"
+    assert provider_cls.production_ready is False
+    assert "login" in provider_cls.required_proof
+    assert "stop session" in provider_cls.required_proof
 
 
 @pytest.mark.parametrize(
