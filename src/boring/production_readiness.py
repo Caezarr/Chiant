@@ -623,6 +623,7 @@ def _check_power_report(
     required_runtime = _json_float(payload.get("required_runtime_hours"))
     expected_required_runtime = _env_float(env, "REQUIRED_RUNTIME_HOURS") or 10.0
     battery_critical = _env_int(env, "BATTERY_CRITICAL_PERCENT", 10)
+    report_battery_critical = _json_int(payload.get("battery_critical_percent"))
     failures = payload.get("failures")
     failures_text = (
         ",".join(str(failure) for failure in failures) if isinstance(failures, list) else "-"
@@ -636,6 +637,7 @@ def _check_power_report(
     required_runtime_ok = (
         required_runtime is not None and abs(required_runtime - expected_required_runtime) <= 0.1
     )
+    critical_threshold_ok = report_battery_critical == battery_critical
     expected_available_wh = (
         capacity_wh * (percent / 100)
         if capacity_wh is not None and percent is not None and 0 <= percent <= 100
@@ -665,6 +667,7 @@ def _check_power_report(
         and capacity_ok
         and draw_ok
         and required_runtime_ok
+        and critical_threshold_ok
         and available_ok
         and runtime_consistent
         and estimated_runtime is not None
@@ -681,6 +684,7 @@ def _check_power_report(
             f"available={available_wh or 0:.1f}/{expected_available_wh or 0:.1f}Wh, "
             f"runtime={estimated_runtime or 0:.1f}/{expected_required_runtime:.1f}h, "
             f"required={required_runtime or 0:.1f}/{expected_required_runtime:.1f}h, "
+            f"critical={report_battery_critical if report_battery_critical is not None else '-'}/{battery_critical}%, "
             f"runtime_consistent={runtime_consistent}, "
             f"failures={failures_text}"
         ),
