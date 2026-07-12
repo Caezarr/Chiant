@@ -145,14 +145,14 @@ Si `BOX_STATE_PATH` devient illisible ou corrompu, l'autopaiement est bloque en 
 
 ## Service systemd
 
-Installer le repo dans `/opt/boring`, copier `deploy/pi/box.env.example` vers `/opt/boring/.env`, synchroniser le runtime Python prod, puis installer l'unit fournie :
+Installer le repo dans `/opt/boring`, copier `deploy/pi/box.env.example` vers `/opt/boring/.env`, synchroniser le runtime Python prod, puis installer l'unit systemd rendue pour les chemins choisis :
 
 ```bash
 DRY_RUN=1 ./deploy/pi/install.sh
 sudo ./deploy/pi/install.sh
 ```
 
-`install.sh` lance `uv sync --no-dev` sous l'utilisateur `boring` et verifie `uv run boring --help` avant l'activation systemd. Utilise `--skip-sync` uniquement pour une repetition de copie ou un runtime deja synchronise.
+`install.sh` lance `uv sync --no-dev` sous l'utilisateur `boring`, verifie `uv run boring --help`, puis rend `boring-box.service` avec `WorkingDirectory`, `EnvironmentFile` et `ReadWritePaths` alignes sur `--install-dir` et `--state-dir`. Utilise `--skip-sync` uniquement pour une repetition de copie ou un runtime deja synchronise.
 
 Commandes :
 
