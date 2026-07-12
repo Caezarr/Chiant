@@ -165,11 +165,21 @@ def audit_production_readiness(
         _check_report_freshness(
             values,
             now=checked_at,
+            systemd_report_path=systemd_report_path,
+            position_report_path=position_report_path,
+            camera_report_path=camera_report_path,
+            network_report_path=network_report_path,
+            power_report_path=power_report_path,
             vision_eval_report_path=vision_eval_report_path,
             benchmark_report_path=benchmark_report_path,
             autopay_smoke_report_path=autopay_smoke_report_path,
             notification_report_path=notification_report_path,
             burn_in_report_path=burn_in_report_path,
+            require_systemd_report=require_systemd_report,
+            require_position_report=require_position_report,
+            require_camera_report=require_camera_report,
+            require_network_report=require_network_report,
+            require_power_report=require_power_report,
             require_autopay_smoke=require_autopay_smoke,
             require_notification_test=require_notification_test,
         ),
@@ -1039,11 +1049,21 @@ def _check_report_freshness(
     env: Mapping[str, str],
     *,
     now: datetime,
+    systemd_report_path: Path,
+    position_report_path: Path,
+    camera_report_path: Path,
+    network_report_path: Path,
+    power_report_path: Path,
     vision_eval_report_path: Path,
     benchmark_report_path: Path,
     autopay_smoke_report_path: Path,
     notification_report_path: Path,
     burn_in_report_path: Path,
+    require_systemd_report: bool,
+    require_position_report: bool,
+    require_camera_report: bool,
+    require_network_report: bool,
+    require_power_report: bool,
     require_autopay_smoke: bool,
     require_notification_test: bool,
 ) -> ProductionCheck:
@@ -1058,6 +1078,16 @@ def _check_report_freshness(
         ("vision_benchmark", benchmark_report_path),
         ("burn_in", burn_in_report_path),
     ]
+    if require_systemd_report:
+        reports.append(("systemd_runtime", systemd_report_path))
+    if require_position_report:
+        reports.append(("position_runtime", position_report_path))
+    if require_camera_report:
+        reports.append(("camera_runtime", camera_report_path))
+    if require_network_report:
+        reports.append(("network_runtime", network_report_path))
+    if require_power_report:
+        reports.append(("power_runtime", power_report_path))
     if require_autopay_smoke:
         reports.append(("autopay_smoke", autopay_smoke_report_path))
     if require_notification_test:
@@ -1101,7 +1131,7 @@ def _check_report_freshness(
 
 
 def _report_timestamp(payload: Mapping[str, object]) -> datetime | None:
-    for key in ("tested_at", "generated_at", "ended_at"):
+    for key in ("checked_at", "tested_at", "generated_at", "ended_at"):
         value = payload.get(key)
         timestamp = _parse_timestamp(value)
         if timestamp is not None:

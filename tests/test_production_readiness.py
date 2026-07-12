@@ -1455,6 +1455,40 @@ def test_production_readiness_rejects_stale_reports(tmp_path: Path):
     assert "96.0h>72.0h" in check.detail
 
 
+def test_production_readiness_rejects_stale_runtime_reports(tmp_path: Path):
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    artifacts = _write_ready_artifacts(tmp_path, report_time=now)
+    payload = json.loads(artifacts["power"].read_text())
+    payload["checked_at"] = (now - timedelta(hours=96)).isoformat()
+    artifacts["power"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        now=now,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "report_freshness"][0]
+    assert check.ok is False
+    assert "power_runtime=96.0h>72.0h" in check.detail
+
+
 def test_production_readiness_rejects_report_without_timestamp(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     payload = json.loads(artifacts["vision_eval"].read_text())
@@ -1485,6 +1519,38 @@ def test_production_readiness_rejects_report_without_timestamp(tmp_path: Path):
     check = [check for check in report.checks if check.name == "report_freshness"][0]
     assert check.ok is False
     assert "vision_eval=missing_timestamp" in check.detail
+
+
+def test_production_readiness_rejects_runtime_report_without_timestamp(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["camera"].read_text())
+    payload.pop("checked_at")
+    artifacts["camera"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "report_freshness"][0]
+    assert check.ok is False
+    assert "camera_runtime=missing_timestamp" in check.detail
 
 
 def test_production_readiness_can_disable_report_freshness_for_rehearsal(tmp_path: Path):
