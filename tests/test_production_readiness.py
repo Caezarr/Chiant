@@ -1047,6 +1047,40 @@ def test_production_readiness_rejects_runtime_log_without_heartbeat(tmp_path: Pa
     assert "heartbeat=False" in check.detail
 
 
+def test_production_readiness_rejects_stale_runtime_heartbeat(tmp_path: Path):
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    artifacts = _write_ready_artifacts(tmp_path, report_time=now)
+    artifacts["events"].write_text(
+        json.dumps(
+            {
+                "ts": (now - timedelta(hours=1)).isoformat(),
+                "event": "heartbeat",
+            }
+        )
+        + "\n"
+    )
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=artifacts["events"],
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    assert check.ok is False
+    assert "heartbeat_gap=3600s/1800s" in check.detail
+
+
 def test_production_readiness_rejects_blocking_runtime_event(tmp_path: Path):
     now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now)
