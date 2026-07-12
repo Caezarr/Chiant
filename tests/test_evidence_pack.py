@@ -137,6 +137,65 @@ def test_evidence_pack_rejects_blocking_runtime_event(tmp_path: Path):
     assert "network_offline@line2" in item.detail
 
 
+def test_evidence_pack_includes_burn_in_samples_jsonl(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    assert item.format == "jsonl"
+    assert item.passed is True
+    assert "battery_samples=1" in item.detail
+    assert "temp_samples=1" in item.detail
+
+
+def test_evidence_pack_rejects_burn_in_sample_camera_failure(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    paths["burn_in_samples"].write_text(
+        json.dumps(
+            {
+                "ts": 1.0,
+                "camera_ok": False,
+                "network_online": True,
+                "battery_percent": 82,
+                "temp_c": 44.0,
+            }
+        )
+        + "\n"
+    )
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "camera_failures=1" in item.detail
+
+
+def test_evidence_pack_rejects_burn_in_samples_without_power_metrics(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    paths["burn_in_samples"].write_text(
+        json.dumps(
+            {
+                "ts": 1.0,
+                "camera_ok": True,
+                "network_online": True,
+                "battery_percent": None,
+                "temp_c": None,
+            }
+        )
+        + "\n"
+    )
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "battery_samples=0" in item.detail
+    assert "temp_samples=0" in item.detail
+
+
 def test_default_evidence_paths_include_box_ready():
     paths = default_evidence_paths()
 
@@ -148,6 +207,7 @@ def test_default_evidence_paths_include_box_ready():
     assert paths["network_runtime"] == Path("reports/network-check.json")
     assert paths["power_runtime"] == Path("reports/power-check.json")
     assert paths["runtime_events"] == Path("/var/lib/boring/events.jsonl")
+    assert paths["burn_in_samples"] == Path("burn-in/samples.jsonl")
 
 
 def _write_evidence(tmp_path: Path) -> dict[str, Path]:
@@ -165,12 +225,25 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
         "autopay_smoke": tmp_path / "reports" / "autopay-smoke.json",
         "notification_test": tmp_path / "reports" / "notification-test.json",
         "burn_in": tmp_path / "burn-in" / "report.json",
+        "burn_in_samples": tmp_path / "burn-in" / "samples.jsonl",
     }
     for path in paths.values():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"passed": True}))
     paths["runtime_events"].write_text(
         json.dumps({"ts": "2026-01-01T00:00:00+00:00", "event": "heartbeat"}) + "\n"
+    )
+    paths["burn_in_samples"].write_text(
+        json.dumps(
+            {
+                "ts": 1.0,
+                "camera_ok": True,
+                "network_online": True,
+                "battery_percent": 82,
+                "temp_c": 44.0,
+            }
+        )
+        + "\n"
     )
     paths["hardware_profile"].write_text(json.dumps({"board": {"model": "raspberry-pi-5"}}))
     return paths

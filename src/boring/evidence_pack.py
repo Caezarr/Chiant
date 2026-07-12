@@ -66,13 +66,14 @@ def default_evidence_paths() -> dict[str, Path]:
         "autopay_smoke": Path("reports/autopay-smoke.json"),
         "notification_test": Path("reports/notification-test.json"),
         "burn_in": Path("burn-in/report.json"),
+        "burn_in_samples": Path("burn-in/samples.jsonl"),
     }
 
 
 def evidence_item_ok(item: EvidenceItem) -> bool:
     if not item.present or not item.valid_json:
         return False
-    if item.name == "runtime_events":
+    if item.name in {"burn_in_samples", "runtime_events"}:
         return item.passed is True
     if item.name == "hardware_profile":
         return item.passed is not False
@@ -85,6 +86,8 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
             name, str(path), False, False, None, None, None, _format(name), "missing"
         )
     raw = path.read_bytes()
+    if name == "burn_in_samples":
+        return _read_burn_in_samples(name, path, raw)
     if name == "runtime_events":
         return _read_runtime_events(name, path, raw)
     try:
@@ -158,6 +161,59 @@ def _read_runtime_events(name: str, path: Path, raw: bytes) -> EvidenceItem:
     )
 
 
+def _read_burn_in_samples(name: str, path: Path, raw: bytes) -> EvidenceItem:
+    invalid_lines = 0
+    scanned = 0
+    camera_failures = 0
+    network_failures = 0
+    battery_samples = 0
+    temp_samples = 0
+    for line_number, line in enumerate(raw.decode("utf-8", errors="replace").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            invalid_lines += 1
+            continue
+        if not isinstance(payload, dict):
+            invalid_lines += 1
+            continue
+        scanned += 1
+        if payload.get("camera_ok") is not True:
+            camera_failures += 1
+        if payload.get("network_online") is not True:
+            network_failures += 1
+        if payload.get("battery_percent") is not None:
+            battery_samples += 1
+        if payload.get("temp_c") is not None:
+            temp_samples += 1
+
+    passed = (
+        invalid_lines == 0
+        and scanned > 0
+        and camera_failures == 0
+        and network_failures == 0
+        and battery_samples > 0
+        and temp_samples > 0
+    )
+    return EvidenceItem(
+        name=name,
+        path=str(path),
+        present=True,
+        valid_json=invalid_lines == 0,
+        passed=passed,
+        size_bytes=len(raw),
+        sha256=hashlib.sha256(raw).hexdigest(),
+        format=_format(name),
+        detail=(
+            f"scanned={scanned}, camera_failures={camera_failures}, "
+            f"network_failures={network_failures}, battery_samples={battery_samples}, "
+            f"temp_samples={temp_samples}, invalid_lines={invalid_lines}"
+        ),
+    )
+
+
 def _detail(payload) -> str:
     if not isinstance(payload, dict):
         return "json is not an object"
@@ -167,6 +223,6 @@ def _detail(payload) -> str:
 
 
 def _format(name: str) -> str:
-    if name == "runtime_events":
+    if name in {"burn_in_samples", "runtime_events"}:
         return "jsonl"
     return "json"
