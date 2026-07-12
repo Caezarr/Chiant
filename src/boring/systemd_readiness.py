@@ -23,6 +23,7 @@ class SystemdCheckReport:
     unit_file_state: str | None
     type: str | None
     watchdog_usec: int | None
+    main_pid: int | None
     exec_start: str | None
     user: str | None
     checked_at: str
@@ -66,7 +67,7 @@ def run_systemd_check(
             "systemctl",
             "show",
             service,
-            "--property=ActiveState,SubState,UnitFileState,Type,WatchdogUSec,ExecStart,User",
+            "--property=ActiveState,SubState,UnitFileState,Type,WatchdogUSec,MainPID,ExecStart,User",
             "--no-pager",
         ]
     )
@@ -77,6 +78,7 @@ def run_systemd_check(
 
     active_state = properties.get("ActiveState") or active_state
     watchdog_usec = _int_or_none(properties.get("WatchdogUSec"))
+    main_pid = _int_or_none(properties.get("MainPID"))
     failures = _systemd_failures(
         enabled_state=enabled_state,
         active_state=active_state,
@@ -84,6 +86,7 @@ def run_systemd_check(
         unit_file_state=properties.get("UnitFileState"),
         service_type=properties.get("Type"),
         watchdog_usec=watchdog_usec,
+        main_pid=main_pid,
         exec_start=properties.get("ExecStart"),
         user=properties.get("User"),
     )
@@ -97,6 +100,7 @@ def run_systemd_check(
         unit_file_state=properties.get("UnitFileState"),
         type=properties.get("Type"),
         watchdog_usec=watchdog_usec,
+        main_pid=main_pid,
         exec_start=properties.get("ExecStart"),
         user=properties.get("User"),
         checked_at=checked_at,
@@ -131,6 +135,7 @@ def _systemd_failures(
     unit_file_state: str | None,
     service_type: str | None,
     watchdog_usec: int | None,
+    main_pid: int | None,
     exec_start: str | None,
     user: str | None,
 ) -> list[str]:
@@ -147,6 +152,8 @@ def _systemd_failures(
         failures.append(f"type={service_type or '-'}")
     if watchdog_usec is None or watchdog_usec <= 0:
         failures.append(f"watchdog_usec={watchdog_usec or 0}")
+    if main_pid is None or main_pid <= 0:
+        failures.append(f"main_pid={main_pid or 0}")
     if "boring box-run" not in (exec_start or ""):
         failures.append("exec_start")
     if user != "boring":

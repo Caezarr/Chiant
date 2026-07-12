@@ -16,6 +16,7 @@ def test_systemd_check_passes_for_installed_running_service():
     assert report.active_state == "active"
     assert report.sub_state == "running"
     assert report.watchdog_usec == 30_000_000
+    assert report.main_pid == 1234
     assert report.failures == []
 
 
@@ -36,6 +37,13 @@ def test_systemd_check_records_command_errors():
     assert "enabled=disabled" in report.failures
 
 
+def test_systemd_check_fails_without_main_pid():
+    report = run_systemd_check(runner=_fake_runner(main_pid=0))
+
+    assert report.passed is False
+    assert "main_pid=0" in report.failures
+
+
 def test_write_systemd_report_includes_passed(tmp_path: Path):
     report = run_systemd_check(runner=_fake_runner(), now=_now())
     output = tmp_path / "reports" / "systemd-check.json"
@@ -50,6 +58,7 @@ def _fake_runner(
     enabled: str = "enabled",
     active: str = "active",
     sub: str = "running",
+    main_pid: int = 1234,
     enabled_error: bool = False,
 ):
     def run(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
@@ -76,6 +85,7 @@ def _fake_runner(
                         f"UnitFileState={enabled}",
                         "Type=notify",
                         "WatchdogUSec=30000000",
+                        f"MainPID={main_pid}",
                         "ExecStart={ path=/opt/boring/.venv/bin/boring ; argv[]=/opt/boring/.venv/bin/boring box-run ; }",
                         "User=boring",
                     ]
