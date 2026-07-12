@@ -13,14 +13,8 @@ zones historiquement Flowbird.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta
 
-import httpx
-from rich.console import Console
-
-from boring.payment.base import ParkingSession, PaymentProvider
-
-console = Console()
+from boring.payment.stub import DryRunParkingProvider
 
 DEFAULT_BASE_URL = os.getenv("EASYPARK_API_BASE", "https://api.easypark.com")
 
@@ -29,50 +23,14 @@ class EasyParkAPIError(RuntimeError):
     pass
 
 
-class EasyParkClient(PaymentProvider):
+class EasyParkClient(DryRunParkingProvider):
     name = "easypark"
+    display_name = "EasyPark"
+    stub_zone_id = "EASYPARK-STUB-ZONE"
+    stub_session_prefix = "EP-STUB-"
+    stub_amount_cents = 35
+    reverse_login_error = "EasyPark reverse à faire : HAR depuis m.easypark.fr"
+    reverse_zone_error = "EasyPark reverse à faire : mapper les zones depuis le HAR"
 
     def __init__(self, dry_run: bool = True, base_url: str = DEFAULT_BASE_URL) -> None:
-        self.dry_run = dry_run
-        self.base_url = base_url.rstrip("/")
-        self._token: str | None = None
-        self._client = httpx.Client(timeout=15.0)
-
-    def login(self, username: str, password: str) -> None:
-        if self.dry_run:
-            console.print(f"[yellow][DRY-RUN] EasyPark login as {username or '<empty>'}[/yellow]")
-            self._token = "STUB"
-            return
-        raise NotImplementedError("EasyPark reverse à faire : HAR depuis m.easypark.fr")
-
-    def get_zone_id(self, lat: float, lon: float) -> str:
-        if self.dry_run:
-            return "EASYPARK-STUB-ZONE"
-        raise NotImplementedError
-
-    def start_session(
-        self, vehicle_plate: str, location_id: str, duration_minutes: int
-    ) -> ParkingSession:
-        if self.dry_run:
-            now = datetime.now()
-            session = ParkingSession(
-                provider=self.name,
-                session_id=f"EP-STUB-{int(now.timestamp())}",
-                vehicle_plate=vehicle_plate,
-                location_id=location_id,
-                start=now,
-                end=now + timedelta(minutes=duration_minutes),
-                amount_cents=35,
-            )
-            console.print(
-                f"[yellow][DRY-RUN][/yellow] EasyPark {duration_minutes}min "
-                f"plaque={vehicle_plate} → {session.session_id}"
-            )
-            return session
-        raise NotImplementedError
-
-    def get_active_session(self, vehicle_plate: str) -> ParkingSession | None:
-        return None
-
-    def stop_session(self, session_id: str) -> None:
-        raise NotImplementedError("stop_session non implémenté pour ce provider")
+        super().__init__(dry_run=dry_run, base_url=base_url)
