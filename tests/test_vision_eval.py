@@ -29,6 +29,9 @@ def test_vision_eval_report_passes_with_required_metrics(tmp_path: Path):
         false_positive_per_hour=0.5,
         evaluated_hours=3.0,
         frames_evaluated=10_800,
+        positive_frames_evaluated=800,
+        negative_frames_evaluated=10_000,
+        negative_evaluated_hours=2.0,
         true_positives=93,
         dataset_path="datasets/control_vehicle_v1",
     )
@@ -52,6 +55,11 @@ def test_vision_eval_report_fails_when_false_positive_rate_is_high():
         precision=0.90,
         false_positive_per_hour=2.0,
         evaluated_hours=3.0,
+        frames_evaluated=10_800,
+        positive_frames_evaluated=800,
+        negative_frames_evaluated=10_000,
+        negative_evaluated_hours=2.0,
+        true_positives=95,
     )
 
     assert report.passed is False
@@ -66,7 +74,28 @@ def test_vision_eval_report_fails_without_true_positives():
         false_positive_per_hour=0.5,
         evaluated_hours=3.0,
         frames_evaluated=10_800,
+        positive_frames_evaluated=800,
+        negative_frames_evaluated=10_000,
+        negative_evaluated_hours=2.0,
         true_positives=0,
+    )
+
+    assert report.passed is False
+
+
+def test_vision_eval_report_fails_without_negative_coverage():
+    report = build_report(
+        model_path="models/best.pt",
+        dataset_id="field-pi5-daylight-v1",
+        recall=0.93,
+        precision=0.98,
+        false_positive_per_hour=0.0,
+        evaluated_hours=3.0,
+        frames_evaluated=10_800,
+        positive_frames_evaluated=10_800,
+        negative_frames_evaluated=0,
+        negative_evaluated_hours=0.0,
+        true_positives=93,
     )
 
     assert report.passed is False
@@ -88,12 +117,15 @@ def test_evaluate_yolo_dataset_computes_metrics_from_labels(tmp_path: Path):
     )
 
     assert report.frames_evaluated == 4
+    assert report.positive_frames_evaluated == 2
+    assert report.negative_frames_evaluated == 2
+    assert report.negative_evaluated_hours == 0.5
     assert report.true_positives == 1
     assert report.false_negatives == 1
     assert report.false_positives == 1
     assert report.recall == 0.5
     assert report.precision == 0.5
-    assert report.false_positive_per_hour == 1.0
+    assert report.false_positive_per_hour == 2.0
     assert report.evaluated_hours == 1.0
     assert report.dataset_path == str(dataset)
     assert report.passed is True
@@ -115,7 +147,7 @@ def test_evaluate_yolo_dataset_fails_when_false_positives_exceed_hourly_limit(tm
     )
 
     assert report.false_positives == 2
-    assert report.false_positive_per_hour == 2.0
+    assert report.false_positive_per_hour == 4.0
     assert report.passed is False
 
 

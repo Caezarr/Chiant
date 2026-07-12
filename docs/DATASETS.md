@@ -116,7 +116,7 @@ uv run boring vision-eval --dataset datasets/control_vehicle_v1 --model models/b
 uv run boring vision-benchmark --model models/best.pt --device cpu --frames 120 --min-fps 2.0
 ```
 
-Dans ce mode, le check exige aussi `models/best.onnx` ou `models/best.tflite`. `vision-ready` refuse un dataset qui contient seulement des images: les splits `train` et `valid` doivent contenir assez d'annotations YOLO positives de la classe `control_vehicle`, pas seulement quelques labels symboliques dans un gros dossier. Les fichiers label YOLO doivent avoir exactement 5 champs, une classe entiere declaree dans `data.yaml`, et des coordonnees normalisees entre 0 et 1. `vision-eval` lit le split YOLO, lance le modele, calcule recall, precision, faux positifs par heure, nombre de frames evaluees et images invalides, puis ecrit `reports/vision-eval.json` avec `generated_at` et `dataset_path`. `vision-benchmark` mesure ensuite le FPS reel d'inference sur le hardware cible et ecrit `reports/vision-benchmark.json` avec `generated_at`; ce benchmark doit voir au moins une detection positive, sinon `box-ready` et `box-evidence-pack` refusent la preuve. Les rapports doivent pointer vers le meme `model_path` que `DETECTION_MODEL`, et `vision-eval` doit aussi pointer vers le meme dataset que `--dataset`, sinon `box-ready` refuse la preuve. Sur Pi 4, viser au moins 1 FPS; sur Pi 5, viser 2 FPS ou plus avant beta terrain.
+Dans ce mode, le check exige aussi `models/best.onnx` ou `models/best.tflite`. `vision-ready` refuse un dataset qui contient seulement des images: les splits `train` et `valid` doivent contenir assez d'annotations YOLO positives de la classe `control_vehicle`, pas seulement quelques labels symboliques dans un gros dossier. Les fichiers label YOLO doivent avoir exactement 5 champs, une classe entiere declaree dans `data.yaml`, et des coordonnees normalisees entre 0 et 1. `vision-eval` lit le split YOLO, lance le modele, calcule recall, precision, faux positifs par heure, nombre de frames positives/negatives evaluees et images invalides, puis ecrit `reports/vision-eval.json` avec `generated_at` et `dataset_path`. Le taux de faux positifs est calcule sur `negative_evaluated_hours`; un split sans frames negatives n'est pas une preuve terrain. `vision-benchmark` mesure ensuite le FPS reel d'inference sur le hardware cible et ecrit `reports/vision-benchmark.json` avec `generated_at`; ce benchmark doit voir au moins une detection positive, sinon `box-ready` et `box-evidence-pack` refusent la preuve. Les rapports doivent pointer vers le meme `model_path` que `DETECTION_MODEL`, et `vision-eval` doit aussi pointer vers le meme dataset que `--dataset`, sinon `box-ready` refuse la preuve. Sur Pi 4, viser au moins 1 FPS; sur Pi 5, viser 2 FPS ou plus avant beta terrain.
 
 ### Phase 2 — terrain minimum
 
@@ -136,7 +136,7 @@ Metriques minimales avant demo publique :
 - False positive < 1 par heure garee en rue passante
 - Aucun autopaiement sur vehicule normal dans un test continu de 10h
 - `vision-ready --require-edge-export` passe avant installation Pi.
-- `vision-eval` produit un rapport avec `dataset_path` egal au dataset configure, `frames_evaluated > 0`, `true_positives > 0`, `invalid_images=0`, recall >= 90%, faux positifs <= 1/h.
+- `vision-eval` produit un rapport avec `dataset_path` egal au dataset configure, `frames_evaluated > 0`, `positive_frames_evaluated > 0`, `negative_frames_evaluated > 0`, `negative_evaluated_hours > 0`, `true_positives > 0`, `invalid_images=0`, recall >= 90%, faux positifs <= 1/h sur les heures negatives.
 - `vision-benchmark` passe sur le Pi cible.
 - `reports/vision-eval.json` passe avant `box-ready`.
 
@@ -151,6 +151,9 @@ Format attendu par le gate final :
   "false_positive_per_hour": 0.333,
   "evaluated_hours": 3.0,
   "frames_evaluated": 10800,
+  "positive_frames_evaluated": 800,
+  "negative_frames_evaluated": 10000,
+  "negative_evaluated_hours": 3.0,
   "true_positives": 93,
   "false_positives": 1,
   "false_negatives": 7,
