@@ -78,6 +78,32 @@ def test_audit_vision_readiness_fails_without_positive_labels(tmp_path: Path):
     assert "valid_positive_labels=0" in check.detail
 
 
+def test_audit_vision_readiness_fails_with_invalid_yolo_labels(tmp_path: Path):
+    manifest = _write_manifest(tmp_path, positives=2, negatives=3)
+    dataset = _write_dataset(tmp_path, train=2, valid=1, names="names: ['control_vehicle']")
+    (dataset / "train" / "labels" / "train-0.txt").write_text("0 1.2 0.5 0.2 0.2\n")
+    (dataset / "train" / "labels" / "train-1.txt").write_text("3 0.5 0.5 0.2 0.2\n")
+    (dataset / "valid" / "labels" / "valid-0.txt").write_text("0.5 0.5 0.5 0.2 0.2\n")
+    model = tmp_path / "models" / "best.pt"
+    model.parent.mkdir()
+    model.write_bytes(b"model")
+
+    report = audit_vision_readiness(
+        dataset_path=dataset,
+        model_path=model,
+        baseline_manifest=manifest,
+        min_positive_candidates=2,
+        min_negative_candidates=3,
+        min_train_images=2,
+        min_valid_images=1,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "yolo_dataset"][0]
+    assert check.ok is False
+    assert "invalid_labels=3" in check.detail
+
+
 def test_audit_vision_readiness_fails_with_unreviewed_sources(tmp_path: Path):
     manifest = _write_manifest(tmp_path, positives=2, negatives=3, license_reviewed=False)
     dataset = _write_dataset(tmp_path, train=2, valid=1, names="names: ['control_vehicle']")

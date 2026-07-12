@@ -252,12 +252,16 @@ def _check_yolo_dataset(
     valid_positive_labels = (
         _count_positive_labels(dataset / "valid", class_index) if class_index is not None else 0
     )
+    train_invalid_labels = _count_invalid_labels(dataset / "train", class_map)
+    valid_invalid_labels = _count_invalid_labels(dataset / "valid", class_map)
     labels_ok = train_positive_labels > 0 and valid_positive_labels > 0
+    label_format_ok = train_invalid_labels == 0 and valid_invalid_labels == 0
     ok = (
         train_images >= min_train_images
         and valid_images >= min_valid_images
         and has_class
         and labels_ok
+        and label_format_ok
     )
     return VisionCheck(
         "yolo_dataset",
@@ -267,7 +271,8 @@ def _check_yolo_dataset(
             f"valid_images={valid_images}/{min_valid_images}, "
             f"class={required_class if has_class else 'missing'}, "
             f"train_positive_labels={train_positive_labels}, "
-            f"valid_positive_labels={valid_positive_labels}"
+            f"valid_positive_labels={valid_positive_labels}, "
+            f"invalid_labels={train_invalid_labels + valid_invalid_labels}"
         ),
     )
 
@@ -375,3 +380,33 @@ def _label_has_class(label_path: Path, class_index: int) -> bool:
         except ValueError:
             continue
     return False
+
+
+def _count_invalid_labels(split_root: Path, class_map: dict[int, str]) -> int:
+    label_dir = split_root / "labels"
+    if not label_dir.exists():
+        return 0
+    invalid = 0
+    for label_path in label_dir.glob("**/*.txt"):
+        for raw_line in label_path.read_text().splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if not _valid_yolo_label_line(line, class_map):
+                invalid += 1
+    return invalid
+
+
+def _valid_yolo_label_line(line: str, class_map: dict[int, str]) -> bool:
+    parts = line.split()
+    if len(parts) != 5:
+        return False
+    try:
+        raw_class_index = float(parts[0])
+        if not raw_class_index.is_integer():
+            return False
+        class_index = int(raw_class_index)
+        values = [float(value) for value in parts[1:]]
+    except ValueError:
+        return False
+    return class_index in class_map and all(0.0 <= value <= 1.0 for value in values)
