@@ -118,6 +118,11 @@ def audit_production_readiness(
             storage_path,
             burn_in_report_path,
             require_runtime_event_log=require_runtime_event_log,
+            max_heartbeat_gap_seconds=_env_float(
+                values,
+                "BOX_READY_MAX_HEARTBEAT_GAP_SECONDS",
+            )
+            or 1800.0,
         ),
         _check_report_freshness(
             values,
@@ -577,6 +582,7 @@ def _check_runtime_event_log(
     burn_in_report_path: Path,
     *,
     require_runtime_event_log: bool,
+    max_heartbeat_gap_seconds: float,
 ) -> ProductionCheck:
     event_log_path = _event_log_path(event_log_path)
     if not event_log_path.exists():
@@ -591,10 +597,11 @@ def _check_runtime_event_log(
             not require_runtime_event_log,
             f"not a file: {event_log_path}",
         )
-    started_at = _burn_in_started_at(burn_in_report_path)
+    started_at, ended_at = _burn_in_window(burn_in_report_path)
     failures: list[str] = []
     scanned = 0
     heartbeat_seen = False
+    latest_heartbeat: datetime | None = None
     for line_number, raw_line in enumerate(event_log_path.read_text().splitlines(), start=1):
         if not raw_line.strip():
             continue
@@ -614,17 +621,30 @@ def _check_runtime_event_log(
         scanned += 1
         if name == "heartbeat":
             heartbeat_seen = True
+            if timestamp is not None:
+                timestamp = timestamp.astimezone(timezone.utc)
+                if latest_heartbeat is None or timestamp > latest_heartbeat:
+                    latest_heartbeat = timestamp
         if name in _BLOCKING_RUNTIME_EVENTS:
             failures.append(f"{name}@line{line_number}")
         elif name == "network_recovery_attempted" and event.get("ok") is False:
             failures.append(f"network_recovery_failed@line{line_number}")
 
+    heartbeat_gap_seconds = (
+        (ended_at - latest_heartbeat).total_seconds()
+        if ended_at is not None and latest_heartbeat is not None
+        else None
+    )
+    heartbeat_recent = (
+        heartbeat_gap_seconds is not None and heartbeat_gap_seconds <= max_heartbeat_gap_seconds
+    )
     return ProductionCheck(
         "runtime_event_log",
-        scanned > 0 and heartbeat_seen and not failures,
+        scanned > 0 and heartbeat_seen and heartbeat_recent and not failures,
         (
             f"scanned={scanned}, since={started_at.isoformat() if started_at else '-'}, "
             f"heartbeat={heartbeat_seen}, "
+            f"heartbeat_gap={_format_seconds(heartbeat_gap_seconds)}/{max_heartbeat_gap_seconds:.0f}s, "
             f"failures={', '.join(failures) if failures else '-'}"
         ),
     )
@@ -636,14 +656,14 @@ def _event_log_path(path: Path) -> Path:
     return path
 
 
-def _burn_in_started_at(path: Path) -> datetime | None:
+def _burn_in_window(path: Path) -> tuple[datetime | None, datetime | None]:
     try:
         payload = json.loads(path.read_text())
     except (FileNotFoundError, json.JSONDecodeError):
-        return None
+        return None, None
     if not isinstance(payload, dict):
-        return None
-    return _parse_timestamp(payload.get("started_at"))
+        return None, None
+    return _parse_timestamp(payload.get("started_at")), _parse_timestamp(payload.get("ended_at"))
 
 
 def _check_report_freshness(
@@ -776,6 +796,12 @@ def _format_battery(
     if start is None or end is None or minimum is None or delta is None:
         return "-"
     return f"start={start:.0f}%, end={end:.0f}%, min={minimum:.0f}%, delta={delta:.0f}%"
+
+
+def _format_seconds(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.0f}s"
 
 
 def _same_path(reported: str, expected: Path) -> bool:
