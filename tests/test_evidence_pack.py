@@ -152,6 +152,51 @@ def test_evidence_pack_requires_complete_runtime_reports(tmp_path: Path):
         assert "failures=-" in item.detail
 
 
+def test_evidence_pack_recomputes_report_freshness(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    now = datetime(2026, 1, 2, tzinfo=timezone.utc)
+
+    pack = build_evidence_pack(paths, max_report_age_hours=72, now=now)
+
+    item = [item for item in pack.items if item.name == "report_freshness"][0]
+    assert pack.passed is True
+    assert item.passed is True
+    assert "max_age=72.0h" in item.detail
+    assert "autopay_smoke=24.0h" in item.detail
+    assert "burn_in=14.0h" in item.detail
+    assert "failures=-" in item.detail
+
+
+def test_evidence_pack_rejects_stale_report_freshness(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    now = datetime(2026, 1, 6, tzinfo=timezone.utc)
+
+    pack = build_evidence_pack(paths, max_report_age_hours=72, now=now)
+
+    item = [item for item in pack.items if item.name == "report_freshness"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "autopay_smoke=120.0h>72.0h" in item.detail
+
+
+def test_evidence_pack_rejects_report_freshness_without_timestamp(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["autopay_smoke"].read_text())
+    payload.pop("tested_at")
+    paths["autopay_smoke"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(
+        paths,
+        max_report_age_hours=72,
+        now=datetime(2026, 1, 2, tzinfo=timezone.utc),
+    )
+
+    item = [item for item in pack.items if item.name == "report_freshness"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "autopay_smoke=missing_timestamp" in item.detail
+
+
 def test_evidence_pack_rejects_power_report_using_full_capacity_runtime(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["power_runtime"].read_text())

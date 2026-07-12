@@ -625,9 +625,16 @@ def box_ready(
 @app.command("box-evidence-pack")
 def box_evidence_pack(
     output: Path = typer.Option(Path("reports/evidence-pack.json"), help="Pack JSON."),
+    max_report_age_hours: float = typer.Option(
+        72.0,
+        help="Age maximal des rapports terrain; <=0 desactive le gate.",
+    ),
 ) -> None:
     """Regroupe les rapports terrain de la box dans un pack auditable."""
-    pack = build_evidence_pack(default_evidence_paths())
+    pack = build_evidence_pack(
+        default_evidence_paths(),
+        max_report_age_hours=max_report_age_hours,
+    )
     write_pack(pack, output)
     table = Table(title="Boring Box — evidence pack")
     table.add_column("Evidence", style="bold")
