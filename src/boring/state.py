@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -54,7 +55,7 @@ class BoxStateStore:
             payload["last_payment_at"] = state.last_payment_at.isoformat()
         if state.daily_paid_on is not None:
             payload["daily_paid_on"] = state.daily_paid_on.isoformat()
-        self.path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+        _atomic_write_text(self.path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
     def record_session(self, session: ParkingSession) -> None:
         current = self.load()
@@ -99,3 +100,31 @@ def _parse_date(value: str | None) -> date | None:
         return date.fromisoformat(value)
     except ValueError:
         return None
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    try:
+        with tmp_path.open("w") as fp:
+            fp.write(content)
+            fp.flush()
+            os.fsync(fp.fileno())
+        os.replace(tmp_path, path)
+        _fsync_directory(path.parent)
+    except Exception:
+        try:
+            tmp_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def _fsync_directory(path: Path) -> None:
+    try:
+        fd = os.open(path, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)

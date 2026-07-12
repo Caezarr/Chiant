@@ -138,6 +138,7 @@ Par defaut, `PAYMENT_DRY_RUN=true`. C'est volontaire : un clone du repo ne doit 
 Avant de lancer un smoke paiement ou un burn-in prod, produire `reports/position-check.json` avec `box-position-check`. Le gate final refuse une position absente, hors bornes, issue d'une source differente du mode configure, ou une position `static` qui ne correspond plus a `BOX_LAT/BOX_LON`.
 
 `BOX_STATE_PATH` persiste le dernier paiement. Si systemd redemarre la box, le cooldown reste actif et evite un second paiement immediat.
+L'ecriture de ce fichier est atomique: la box ecrit un fichier temporaire, force le flush disque, puis remplace `state.json` en une operation pour reduire le risque de corruption lors d'une coupure batterie.
 Si `BOX_STATE_PATH` devient illisible ou corrompu, l'autopaiement est bloque en fail-closed avec `payment_skipped_state_corrupt` pour eviter de perdre le cooldown et le plafond journalier apres reboot.
 `BOX_EVENT_LOG_PATH` garde une trace locale JSONL des evenements critiques : demarrage, reseau offline/recovered, batterie faible, temperature elevee/revenue, disque faible, paiement bloque, paiement reussi, crash. La rotation est bornee par `BOX_EVENT_LOG_MAX_BYTES` et `BOX_EVENT_LOG_BACKUPS` pour ne pas remplir la carte SD.
 `BOX_DISK_MIN_FREE_MB` declenche une alerte si la partition qui porte le journal/etat persistant descend trop bas.
