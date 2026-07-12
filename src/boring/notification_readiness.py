@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -16,6 +17,7 @@ import httpx
 class NotificationTestReport:
     passed: bool
     webhook_host: str
+    webhook_hash: str
     status_code: int | None
     title: str
     message: str
@@ -36,10 +38,12 @@ def run_notification_test(
     post: Callable | None = None,
 ) -> NotificationTestReport:
     tested_at = datetime.now(timezone.utc).isoformat()
+    url_hash = _webhook_hash(webhook_url)
     if not webhook_url:
         return NotificationTestReport(
             passed=False,
             webhook_host="",
+            webhook_hash=url_hash,
             status_code=None,
             title=title,
             message=message,
@@ -61,6 +65,7 @@ def run_notification_test(
         return NotificationTestReport(
             passed=False,
             webhook_host=webhook_host,
+            webhook_hash=url_hash,
             status_code=None,
             title=title,
             message=message,
@@ -71,6 +76,7 @@ def run_notification_test(
     return NotificationTestReport(
         passed=200 <= status_code < 300,
         webhook_host=webhook_host,
+        webhook_hash=url_hash,
         status_code=status_code,
         title=title,
         message=message,
@@ -82,3 +88,10 @@ def run_notification_test(
 def write_report(report: NotificationTestReport, output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
+
+
+def _webhook_hash(webhook_url: str | None) -> str:
+    value = (webhook_url or "").strip()
+    if not value:
+        return ""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()

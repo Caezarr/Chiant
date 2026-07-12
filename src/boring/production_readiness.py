@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import configparser
+import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass
@@ -146,6 +147,7 @@ def audit_production_readiness(
         _check_notification_report(
             notification_report_path,
             expected_webhook_host=_notification_webhook_host(values),
+            expected_webhook_hash=_notification_webhook_hash(values),
             require_notification_test=require_notification_test,
         ),
         _check_state_path(values, state_path),
@@ -749,10 +751,18 @@ def _notification_webhook_host(env: Mapping[str, str]) -> str | None:
     return urlparse(webhook).netloc or None
 
 
+def _notification_webhook_hash(env: Mapping[str, str]) -> str | None:
+    webhook = (env.get("BORING_NOTIFY_WEBHOOK_URL") or env.get("NTFY_WEBHOOK_URL") or "").strip()
+    if not webhook:
+        return None
+    return hashlib.sha256(webhook.encode("utf-8")).hexdigest()
+
+
 def _check_notification_report(
     path: Path,
     *,
     expected_webhook_host: str | None = None,
+    expected_webhook_hash: str | None = None,
     require_notification_test: bool,
 ) -> ProductionCheck:
     if not require_notification_test:
@@ -771,16 +781,19 @@ def _check_notification_report(
     passed = bool(payload.get("passed"))
     status_code = payload.get("status_code")
     host = str(payload.get("webhook_host") or "unknown")
+    webhook_hash = str(payload.get("webhook_hash") or "")
     title = str(payload.get("title") or "")
     message = str(payload.get("message") or "")
     error = payload.get("error")
     host_ok = expected_webhook_host is None or host == expected_webhook_host
+    hash_ok = expected_webhook_hash is None or webhook_hash == expected_webhook_hash
     battery_message_ok = _is_battery_notification_text(f"{title} {message}")
     ok = (
         passed
         and isinstance(status_code, int)
         and 200 <= status_code < 300
         and host_ok
+        and hash_ok
         and battery_message_ok
     )
     return ProductionCheck(
@@ -789,9 +802,16 @@ def _check_notification_report(
         (
             f"passed={passed}, status={status_code}, host={host}, "
             f"expected_host={expected_webhook_host or '-'}, "
+            f"hash={_hash_status(webhook_hash, hash_ok)}, "
             f"battery_message={battery_message_ok}, error={error or '-'}"
         ),
     )
+
+
+def _hash_status(value: str, ok: bool) -> str:
+    if not value:
+        return "missing"
+    return "ok" if ok else "mismatch"
 
 
 def _is_battery_notification_text(value: str) -> bool:
