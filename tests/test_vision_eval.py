@@ -28,6 +28,8 @@ def test_vision_eval_report_passes_with_required_metrics(tmp_path: Path):
         precision=0.98,
         false_positive_per_hour=0.5,
         evaluated_hours=3.0,
+        frames_evaluated=10_800,
+        true_positives=93,
         dataset_path="datasets/control_vehicle_v1",
     )
 
@@ -49,6 +51,21 @@ def test_vision_eval_report_fails_when_false_positive_rate_is_high():
         precision=0.90,
         false_positive_per_hour=2.0,
         evaluated_hours=3.0,
+    )
+
+    assert report.passed is False
+
+
+def test_vision_eval_report_fails_without_true_positives():
+    report = build_report(
+        model_path="models/best.pt",
+        dataset_id="field-pi5-daylight-v1",
+        recall=0.93,
+        precision=0.98,
+        false_positive_per_hour=0.5,
+        evaluated_hours=3.0,
+        frames_evaluated=10_800,
+        true_positives=0,
     )
 
     assert report.passed is False

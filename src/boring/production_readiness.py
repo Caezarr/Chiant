@@ -904,6 +904,7 @@ def _check_vision_eval_report(
     max_false_positive_per_hour = _json_float(payload.get("max_false_positive_per_hour")) or 1.0
     evaluated_hours = _json_float(payload.get("evaluated_hours")) or 0.0
     frames_evaluated = int(payload.get("frames_evaluated") or 0)
+    true_positives = int(payload.get("true_positives") or 0)
     invalid_images = int(payload.get("invalid_images") or 0)
     report_model = str(payload.get("model_path") or "")
     model_ok = expected_model_path is None or _same_path(report_model, expected_model_path)
@@ -918,6 +919,7 @@ def _check_vision_eval_report(
         and false_positive_per_hour <= max_false_positive_per_hour
         and evaluated_hours > 0
         and frames_evaluated > 0
+        and true_positives > 0
         and invalid_images == 0
         and model_ok
         and dataset_ok
@@ -929,7 +931,7 @@ def _check_vision_eval_report(
             f"passed={passed}, recall={recall:.3f}/{min_recall:.3f}, "
             f"fp_per_hour={false_positive_per_hour:.2f}/{max_false_positive_per_hour:.2f}, "
             f"hours={evaluated_hours:.1f}, frames={frames_evaluated}, "
-            f"invalid={invalid_images}, "
+            f"true_positives={true_positives}, invalid={invalid_images}, "
             f"model={report_model or '-'}/{expected_model_path or '-'}, "
             f"dataset={report_dataset or '-'}/{expected_dataset_path or '-'}"
         ),

@@ -300,6 +300,20 @@ def test_evidence_pack_rejects_vision_eval_with_invalid_images(tmp_path: Path):
     assert "invalid=1" in item.detail
 
 
+def test_evidence_pack_rejects_vision_eval_without_true_positives(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_eval"].read_text())
+    payload["true_positives"] = 0
+    paths["vision_eval"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "true_positives=0" in item.detail
+
+
 def test_evidence_pack_requires_complete_vision_benchmark(tmp_path: Path):
     paths = _write_evidence(tmp_path)
 
