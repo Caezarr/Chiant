@@ -13,6 +13,7 @@ from typing import Mapping
 from urllib.parse import urlparse
 
 from boring.autopay_readiness import audit_autopay_readiness
+from boring.config import BoxConfig
 from boring.hardware_profile import audit_hardware_profile
 from boring.power_budget import build_power_budget
 from boring.runtime_events import BLOCKING_RUNTIME_EVENTS
@@ -94,6 +95,7 @@ def audit_production_readiness(
     )
     hardware = audit_hardware_profile(hardware_profile_path)
     checks = [
+        _check_runtime_config(values),
         _summary_check("vision", vision.passed, _failed_names(vision.checks)),
         _summary_check("autopay", autopay.passed, _failed_names(autopay.checks)),
         _check_autopay_smoke_report(
@@ -209,6 +211,53 @@ def _summary_check(name: str, ok: bool, failures: str) -> ProductionCheck:
 def _failed_names(checks) -> str:
     names = [check.name for check in checks if not check.ok]
     return ", ".join(names) if names else "none"
+
+
+def _check_runtime_config(env: Mapping[str, str]) -> ProductionCheck:
+    previous: dict[str, str | None] = {}
+    names = {
+        "DETECTION_CONFIDENCE_THRESHOLD",
+        "DETECTION_FPS",
+        "LOW_POWER_DETECTION_FPS",
+        "DETECTION_CONSECUTIVE_FRAMES",
+        "DEFAULT_DURATION_MINUTES",
+        "COOLDOWN_MINUTES",
+        "MAX_SESSION_AMOUNT_CENTS",
+        "MAX_DAILY_AMOUNT_CENTS",
+        "BATTERY_LOW_PERCENT",
+        "BATTERY_CRITICAL_PERCENT",
+        "BATTERY_RECOVERED_PERCENT",
+        "ESTIMATED_DRAW_WATTS",
+        "REQUIRED_RUNTIME_HOURS",
+        "POWER_CHECK_SECONDS",
+        "THERMAL_WARNING_C",
+        "THERMAL_CRITICAL_C",
+        "THERMAL_CHECK_SECONDS",
+        "NETWORK_CHECK_SECONDS",
+        "BOX_HEARTBEAT_SECONDS",
+    }
+    for name in names:
+        previous[name] = os.environ.get(name)
+        value = env.get(name)
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+    try:
+        failures = BoxConfig.from_env().validation_failures()
+    except ValueError as exc:
+        failures = [str(exc)]
+    finally:
+        for name, value in previous.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+    return ProductionCheck(
+        "runtime_config",
+        not failures,
+        "ok" if not failures else ", ".join(failures),
+    )
 
 
 def _check_power_budget(env: Mapping[str, str]) -> ProductionCheck:

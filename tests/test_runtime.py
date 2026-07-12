@@ -75,6 +75,37 @@ def test_box_doctor_accepts_minimal_real_config(tmp_path: Path, monkeypatch):
     assert box_doctor(config) == 0
 
 
+def test_box_doctor_fails_for_invalid_runtime_config(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(
+        "boring.runtime.probe_camera",
+        lambda _: CameraProbeResult(True, 0, width=640, height=480),
+    )
+    zones = tmp_path / "zones.geojson"
+    zones.write_text('{"type":"FeatureCollection","features":[]}')
+    model = tmp_path / "best.pt"
+    model.write_text("stub")
+    config = BoxConfig(
+        vehicle_plate="AB-123-CD",
+        model_path=str(model),
+        lat=50.6371,
+        lon=3.0633,
+        zones_path=zones,
+        state_path=tmp_path / "state.json",
+        event_log_path=tmp_path / "events.jsonl",
+        payment_dry_run=False,
+        battery_capacity_wh=100,
+        estimated_draw_watts=8,
+        required_runtime_hours=10,
+        vehicle_charge_watts=30,
+        notify_webhook_url="https://notify.example.test/boring",
+        network_recovery_command="systemctl restart NetworkManager",
+        battery_low_percent=25,
+        battery_critical_percent=30,
+    )
+
+    assert box_doctor(config) == 1
+
+
 def test_handle_trigger_skips_payment_when_offline(tmp_path, monkeypatch):
     calls = []
 

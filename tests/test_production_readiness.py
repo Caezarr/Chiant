@@ -3454,6 +3454,41 @@ def test_write_report_includes_passed(tmp_path: Path):
     assert payload["passed"] is True
 
 
+def test_production_readiness_rejects_invalid_runtime_config(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    env = _ready_env()
+    env["LOW_POWER_DETECTION_FPS"] = "3.0"
+    env["DETECTION_FPS"] = "2.0"
+    env["BATTERY_CRITICAL_PERCENT"] = "30"
+    env["BATTERY_LOW_PERCENT"] = "25"
+
+    report = audit_production_readiness(
+        env=env,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "runtime_config"][0]
+    assert check.ok is False
+    assert "LOW_POWER_DETECTION_FPS=3.0>2.0" in check.detail
+    assert "battery_thresholds=30/25" in check.detail
+
+
 def _ready_env() -> dict[str, str]:
     return {
         "PAYMENT_MODE": "auto",
