@@ -2,11 +2,24 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+
+
+_BLOCKING_RUNTIME_EVENTS = {
+    "battery_critical",
+    "disk_low",
+    "network_offline",
+    "notification_failed",
+    "payment_skipped_battery_critical",
+    "payment_skipped_no_position",
+    "payment_skipped_offline",
+    "service_crashed",
+    "thermal_critical",
+}
 
 
 @dataclass(frozen=True)
@@ -18,6 +31,7 @@ class EvidenceItem:
     passed: bool | None
     size_bytes: int | None
     sha256: str | None
+    format: str
     detail: str
 
 
@@ -57,6 +71,7 @@ def default_evidence_paths() -> dict[str, Path]:
         "camera_runtime": Path("reports/camera-check.json"),
         "network_runtime": Path("reports/network-check.json"),
         "power_runtime": Path("reports/power-check.json"),
+        "runtime_events": Path("/var/lib/boring/events.jsonl"),
         "vision_eval": Path("reports/vision-eval.json"),
         "vision_benchmark": Path("reports/vision-benchmark.json"),
         "autopay_smoke": Path("reports/autopay-smoke.json"),
@@ -68,6 +83,8 @@ def default_evidence_paths() -> dict[str, Path]:
 def evidence_item_ok(item: EvidenceItem) -> bool:
     if not item.present or not item.valid_json:
         return False
+    if item.name == "runtime_events":
+        return item.passed is True
     if item.name == "hardware_profile":
         return item.passed is not False
     return item.passed is True
@@ -75,8 +92,12 @@ def evidence_item_ok(item: EvidenceItem) -> bool:
 
 def _read_item(name: str, path: Path) -> EvidenceItem:
     if not path.exists():
-        return EvidenceItem(name, str(path), False, False, None, None, None, "missing")
+        return EvidenceItem(
+            name, str(path), False, False, None, None, None, _format(name), "missing"
+        )
     raw = path.read_bytes()
+    if name == "runtime_events":
+        return _read_runtime_events(name, path, raw)
     try:
         payload = json.loads(raw.decode("utf-8"))
     except json.JSONDecodeError:
@@ -88,6 +109,7 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
             None,
             len(raw),
             hashlib.sha256(raw).hexdigest(),
+            _format(name),
             "invalid json",
         )
     passed = payload.get("passed") if isinstance(payload, dict) else None
@@ -99,7 +121,51 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
         passed=passed if isinstance(passed, bool) else None,
         size_bytes=len(raw),
         sha256=hashlib.sha256(raw).hexdigest(),
+        format=_format(name),
         detail=_detail(payload),
+    )
+
+
+def _read_runtime_events(name: str, path: Path, raw: bytes) -> EvidenceItem:
+    invalid_lines = 0
+    scanned = 0
+    heartbeat_seen = False
+    blocking: list[str] = []
+    for line_number, line in enumerate(raw.decode("utf-8", errors="replace").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            invalid_lines += 1
+            continue
+        if not isinstance(payload, dict):
+            invalid_lines += 1
+            continue
+        scanned += 1
+        event = payload.get("event")
+        if event == "heartbeat":
+            heartbeat_seen = True
+        if event in _BLOCKING_RUNTIME_EVENTS:
+            blocking.append(f"{event}@line{line_number}")
+        if event == "network_recovery_attempted" and payload.get("ok") is False:
+            blocking.append(f"network_recovery_failed@line{line_number}")
+
+    passed = invalid_lines == 0 and scanned > 0 and heartbeat_seen and not blocking
+    blocking_detail = ",".join(blocking) if blocking else "-"
+    return EvidenceItem(
+        name=name,
+        path=str(path),
+        present=True,
+        valid_json=invalid_lines == 0,
+        passed=passed,
+        size_bytes=len(raw),
+        sha256=hashlib.sha256(raw).hexdigest(),
+        format=_format(name),
+        detail=(
+            f"scanned={scanned}, heartbeat={heartbeat_seen}, "
+            f"invalid_lines={invalid_lines}, blocking={blocking_detail}"
+        ),
     )
 
 
@@ -109,3 +175,9 @@ def _detail(payload) -> str:
     if "passed" in payload:
         return f"passed={payload.get('passed')}"
     return "json present"
+
+
+def _format(name: str) -> str:
+    if name == "runtime_events":
+        return "jsonl"
+    return "json"
