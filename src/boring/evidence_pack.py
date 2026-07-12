@@ -767,7 +767,15 @@ def _read_box_ready(name: str, path: Path, raw: bytes) -> EvidenceItem:
 
     missing = sorted(REQUIRED_BOX_READY_CHECKS - set(check_status))
     failed = sorted(name for name in REQUIRED_BOX_READY_CHECKS if check_status.get(name) is False)
-    passed = payload.get("passed") is True and not missing and not failed and malformed == 0
+    generated_at = _parse_evidence_timestamp(payload.get("generated_at"))
+    timestamp_ok = generated_at is not None
+    passed = (
+        payload.get("passed") is True
+        and timestamp_ok
+        and not missing
+        and not failed
+        and malformed == 0
+    )
     return EvidenceItem(
         name=name,
         path=str(path),
@@ -779,6 +787,7 @@ def _read_box_ready(name: str, path: Path, raw: bytes) -> EvidenceItem:
         format=_format(name),
         detail=(
             f"passed={payload.get('passed') is True}, checks={len(check_status)}, "
+            f"generated_at={'ok' if timestamp_ok else 'missing'}, "
             f"missing={','.join(missing) if missing else '-'}, "
             f"failed={','.join(failed) if failed else '-'}, malformed={malformed}"
         ),
