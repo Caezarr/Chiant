@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from typer.testing import CliRunner
 
 from boring.camera_readiness import CameraCheckReport
 from boring.cli import app
 from boring.network_readiness import NetworkCheckReport
+from boring.payment.base import ParkingSession, PaymentProvider
 from boring.position_readiness import PositionCheckReport
 from boring.power_readiness import PowerCheckReport
 from boring.systemd_readiness import SystemdCheckReport
@@ -39,6 +40,100 @@ def test_box_runtime_checks_can_include_systemd(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert json.loads((tmp_path / "systemd-check.json").read_text())["passed"] is True
+
+
+def test_autopay_smoke_cli_uses_env_credentials_and_duration(tmp_path, monkeypatch):
+    provider = _CliPaymentProvider()
+    monkeypatch.setattr("boring.cli.make_payment_provider", lambda: provider)
+    monkeypatch.setenv("PAYBYPHONE_USERNAME", "user@example.test")
+    monkeypatch.setenv("PAYBYPHONE_PASSWORD", "secret")
+    monkeypatch.setenv("DEFAULT_DURATION_MINUTES", "7")
+
+    result = runner.invoke(
+        app,
+        [
+            "autopay-smoke",
+            "--yes",
+            "--plate",
+            "AB-123-CD",
+            "--lat",
+            "50.6371",
+            "--lon",
+            "3.0633",
+            "--output",
+            str(tmp_path / "autopay-smoke.json"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert provider.login_args == ("user@example.test", "secret")
+    payload = json.loads((tmp_path / "autopay-smoke.json").read_text())
+    assert payload["passed"] is True
+    assert payload["duration_minutes"] == 7
+
+
+def test_pay_now_cli_uses_env_credentials(monkeypatch):
+    provider = _CliPaymentProvider()
+    monkeypatch.setattr("boring.cli.make_payment_provider", lambda: provider)
+    monkeypatch.setenv("PAYBYPHONE_USERNAME", "user@example.test")
+    monkeypatch.setenv("PAYBYPHONE_PASSWORD", "secret")
+
+    result = runner.invoke(
+        app,
+        [
+            "pay-now",
+            "--plate",
+            "AB-123-CD",
+            "--duration",
+            "5",
+            "--lat",
+            "50.6371",
+            "--lon",
+            "3.0633",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert provider.login_args == ("user@example.test", "secret")
+
+
+class _CliPaymentProvider(PaymentProvider):
+    name = "paybyphone"
+
+    def __init__(self) -> None:
+        self.dry_run = False
+        self.login_args: tuple[str, str] | None = None
+        self.session: ParkingSession | None = None
+
+    def login(self, username: str, password: str) -> None:
+        self.login_args = (username, password)
+
+    def get_zone_id(self, lat: float, lon: float) -> str:
+        return "zone-1"
+
+    def start_session(
+        self,
+        vehicle_plate: str,
+        location_id: str,
+        duration_minutes: int,
+    ) -> ParkingSession:
+        self.session = ParkingSession(
+            provider=self.name,
+            session_id="session-1",
+            vehicle_plate=vehicle_plate,
+            location_id=location_id,
+            start=datetime(2026, 7, 9, 12, 0, tzinfo=timezone.utc),
+            end=datetime(2026, 7, 9, 12, 0, tzinfo=timezone.utc)
+            + timedelta(minutes=duration_minutes),
+            amount_cents=120,
+        )
+        return self.session
+
+    def get_active_session(self, vehicle_plate: str) -> ParkingSession | None:
+        return self.session
+
+    def stop_session(self, session_id: str) -> None:
+        self.session = None
 
 
 def _patch_runtime_reports(monkeypatch) -> None:

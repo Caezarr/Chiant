@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -36,6 +37,7 @@ from boring.notification_readiness import run_notification_test
 from boring.notification_readiness import write_report as write_notification_report
 from boring.network_readiness import run_network_check
 from boring.network_readiness import write_report as write_network_report
+from boring.payment.base import PaymentProvider
 from boring.position import make_position_provider
 from boring.position_readiness import run_position_check
 from boring.position_readiness import write_report as write_position_report
@@ -118,6 +120,13 @@ def box_run() -> None:
 def box_doctor_cmd() -> None:
     """Vérifie la config minimale avant de laisser tourner la box."""
     raise typer.Exit(box_doctor())
+
+
+def _login_payment_provider(provider: PaymentProvider) -> None:
+    provider.login(
+        os.getenv("PAYBYPHONE_USERNAME", ""),
+        os.getenv("PAYBYPHONE_PASSWORD", ""),
+    )
 
 
 @app.command("box-burn-in")
@@ -668,7 +677,7 @@ def status(
     """Vérifie s'il y a une session de stationnement active."""
     try:
         provider = make_payment_provider()
-        provider.login("", "")
+        _login_payment_provider(provider)
         session = provider.get_active_session(plate or "")
         if session is None:
             console.print("[yellow]Aucune session active.[/yellow]")
@@ -930,7 +939,11 @@ def autopay_ready(
 def autopay_smoke(
     output: Path = typer.Option(Path("reports/autopay-smoke.json"), help="Rapport JSON."),
     plate: str = typer.Option(None, envvar="DEFAULT_VEHICLE_PLATE", help="Plaque a tester."),
-    duration: int = typer.Option(15, help="Duree minimale de session."),
+    duration: int = typer.Option(
+        15,
+        envvar="DEFAULT_DURATION_MINUTES",
+        help="Duree minimale de session.",
+    ),
     lat: float = typer.Option(None, envvar="BOX_LAT", help="Latitude test."),
     lon: float = typer.Option(None, envvar="BOX_LON", help="Longitude test."),
     stop_after: bool = typer.Option(True, help="Arreter la session apres verification."),
@@ -944,7 +957,7 @@ def autopay_smoke(
         console.print("[red]Plaque, BOX_LAT et BOX_LON requis.[/red]")
         raise typer.Exit(1)
     provider = make_payment_provider()
-    provider.login("", "")
+    _login_payment_provider(provider)
     report = run_autopay_smoke(
         provider=provider,
         plate=plate,
@@ -982,7 +995,7 @@ def pay_now(
 ) -> None:
     """Déclenche un paiement immédiat sans détection (test du flow paiement)."""
     provider = make_payment_provider()
-    provider.login("", "")
+    _login_payment_provider(provider)
     zone_id = provider.get_zone_id(lat, lon)
     session = provider.start_session(plate, zone_id, duration)
     console.print(f"[green]✓ Session déclenchée[/green] : {session.session_id}")
