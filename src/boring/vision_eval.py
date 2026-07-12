@@ -28,6 +28,7 @@ class VisionEvalReport:
     false_positives: int = 0
     false_negatives: int = 0
     invalid_images: int = 0
+    dataset_path: str = ""
     generated_at: str = ""
 
     def to_dict(self) -> dict:
@@ -49,6 +50,7 @@ def build_report(
     false_positives: int = 0,
     false_negatives: int = 0,
     invalid_images: int = 0,
+    dataset_path: str = "",
 ) -> VisionEvalReport:
     passed = (
         recall >= min_recall
@@ -72,6 +74,7 @@ def build_report(
         false_positives=false_positives,
         false_negatives=false_negatives,
         invalid_images=invalid_images,
+        dataset_path=dataset_path,
         generated_at=datetime.now(timezone.utc).isoformat(),
     )
 
@@ -127,6 +130,7 @@ def evaluate_yolo_dataset(
     return build_report(
         model_path=model_path,
         dataset_id=dataset_id,
+        dataset_path=str(dataset_path),
         recall=recall,
         precision=precision,
         false_positive_per_hour=false_positive_per_hour,
