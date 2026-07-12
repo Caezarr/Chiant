@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from dotenv import load_dotenv
 from rich.console import Console
@@ -16,6 +17,7 @@ from boring.notify import notify
 from boring.payment import get_provider_class
 from boring.payment.assisted import AssistedPayByPhone
 from boring.payment.base import ParkingSession, PaymentProvider
+from boring.state import BoxStateStore
 
 
 def make_payment_provider(dry_run: bool | None = None) -> PaymentProvider:
@@ -86,7 +88,19 @@ def run_pipeline(
     )
     duration = int(os.getenv("DEFAULT_DURATION_MINUTES", "15"))
     cooldown_min = int(os.getenv("COOLDOWN_MINUTES", "10"))
+    max_session_amount_cents = int(os.getenv("MAX_SESSION_AMOUNT_CENTS", "500"))
+    max_daily_amount_cents = int(os.getenv("MAX_DAILY_AMOUNT_CENTS", "1500"))
     plate = os.getenv("DEFAULT_VEHICLE_PLATE", "AA-000-AA")
+    state_store = _state_store_from_env()
+    try:
+        cooldown = _cooldown_from_state(state_store, cooldown_min)
+    except RuntimeError as exc:
+        notify(
+            "Boring — paiement bloque",
+            f"Etat local illisible: {exc}",
+            sound=True,
+        )
+        return
 
     detector = Detector(
         model_path=model_path,
@@ -95,7 +109,6 @@ def run_pipeline(
         device=device,
     )
     tracker = StreamTracker(required_consecutive=consecutive)
-    cooldown = PaymentCooldown(cooldown_minutes=cooldown_min)
 
     payment = make_payment_provider()
     payment.login(
@@ -122,6 +135,19 @@ def run_pipeline(
 
     for detections in run_live_detection(detector=detector, fps=fps, tracker=tracker):
         console.print(f"[red bold]⚡ TRIGGER[/red bold] — {len(detections)} véhicule(s)")
+        try:
+            payment_limits = _payment_limits_from_state(
+                state_store,
+                max_session_amount_cents=max_session_amount_cents,
+                max_daily_amount_cents=max_daily_amount_cents,
+            )
+        except RuntimeError as exc:
+            notify(
+                "Boring — paiement bloque",
+                f"Etat local illisible: {exc}",
+                sound=True,
+            )
+            continue
         process_trigger(
             payment=payment,
             cooldown=cooldown,
@@ -130,6 +156,8 @@ def run_pipeline(
             duration_minutes=duration,
             lat=current_lat or 50.6292,
             lon=current_lon or 3.0573,
+            on_success=state_store.record_session,
+            payment_limits=payment_limits,
         )
 
 
@@ -221,4 +249,31 @@ def _exceeds_payment_limits(
     return (
         limits.max_daily_amount_cents is not None
         and limits.already_paid_today_cents + session.amount_cents > limits.max_daily_amount_cents
+    )
+
+
+def _state_store_from_env() -> BoxStateStore:
+    return BoxStateStore(Path(os.getenv("BOX_STATE_PATH", "/var/lib/boring/state.json")))
+
+
+def _cooldown_from_state(store: BoxStateStore, cooldown_minutes: int) -> PaymentCooldown:
+    state = store.load()
+    if state.load_error is not None:
+        raise RuntimeError(state.load_error)
+    return PaymentCooldown(
+        cooldown_minutes=cooldown_minutes,
+        last_payment=state.last_payment_at,
+    )
+
+
+def _payment_limits_from_state(
+    store: BoxStateStore,
+    *,
+    max_session_amount_cents: int,
+    max_daily_amount_cents: int,
+) -> PaymentLimits:
+    return PaymentLimits(
+        max_session_amount_cents=max_session_amount_cents,
+        max_daily_amount_cents=max_daily_amount_cents,
+        already_paid_today_cents=store.paid_today_cents(),
     )
