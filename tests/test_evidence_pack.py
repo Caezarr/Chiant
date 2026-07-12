@@ -351,6 +351,7 @@ def test_evidence_pack_requires_complete_vision_benchmark(tmp_path: Path):
     assert item.passed is True
     assert "fps=2.00/2.00" in item.detail
     assert "frames=120" in item.detail
+    assert "detections=12" in item.detail
     assert "device=ok" in item.detail
 
 
@@ -366,6 +367,21 @@ def test_evidence_pack_rejects_slow_vision_benchmark(tmp_path: Path):
     assert pack.passed is False
     assert item.passed is False
     assert "fps=1.00/2.00" in item.detail
+
+
+def test_evidence_pack_rejects_vision_benchmark_without_detections(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_benchmark"].read_text())
+    payload["detections_seen"] = 0
+    payload["passed"] = True
+    paths["vision_benchmark"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_benchmark"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "detections=0" in item.detail
 
 
 def test_write_pack_includes_passed(tmp_path: Path):
@@ -760,7 +776,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
                 "model_path": "models/best.pt",
                 "device": "cpu",
                 "frames_processed": 120,
-                "detections_seen": 0,
+                "detections_seen": 12,
                 "duration_seconds": 60.0,
                 "measured_fps": 2.0,
                 "min_fps": 2.0,
