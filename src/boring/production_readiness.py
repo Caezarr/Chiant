@@ -338,6 +338,18 @@ def _check_autopay_smoke_report(
     duration_minutes = payload.get("duration_minutes")
     expected_duration = int(_env_float(env, "DEFAULT_DURATION_MINUTES") or 15)
     duration_ok = isinstance(duration_minutes, int) and duration_minutes == expected_duration
+    smoke_lat = _json_float(payload.get("lat"))
+    smoke_lon = _json_float(payload.get("lon"))
+    expected_lat = _env_float(env, "BOX_LAT")
+    expected_lon = _env_float(env, "BOX_LON")
+    position_ok = (
+        smoke_lat is not None
+        and smoke_lon is not None
+        and expected_lat is not None
+        and expected_lon is not None
+        and abs(smoke_lat - expected_lat) <= 0.0005
+        and abs(smoke_lon - expected_lon) <= 0.0005
+    )
     provider = str(payload.get("provider") or "unknown")
     expected_provider = (env.get("PAYMENT_PROVIDER") or "paybyphone").strip().lower()
     provider_ok = provider.lower() == expected_provider
@@ -357,6 +369,7 @@ def _check_autopay_smoke_report(
         and amount_ok
         and max_session_ok
         and duration_ok
+        and position_ok
         and provider_ok
         and plate_ok
         and zone_ok
@@ -369,6 +382,7 @@ def _check_autopay_smoke_report(
             f"stopped={stopped}, stop_verified={stop_verified}, "
             f"amount={amount_cents}/{max_session_amount}, "
             f"duration={duration_minutes}/{expected_duration}, "
+            f"position={_format_coord(smoke_lat, smoke_lon)}/{_format_coord(expected_lat, expected_lon)}, "
             f"provider={provider}/{expected_provider}, "
             f"plate={plate or '-'}/{expected_plate}, "
             f"zone={zone_id or '-'}/{expected_zone_id or '-'}, "
@@ -670,3 +684,9 @@ def _json_float(value) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _format_coord(lat: float | None, lon: float | None) -> str:
+    if lat is None or lon is None:
+        return "-"
+    return f"{lat:.5f},{lon:.5f}"

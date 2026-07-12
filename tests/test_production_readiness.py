@@ -629,6 +629,36 @@ def test_production_readiness_rejects_autopay_smoke_for_other_duration(
     assert "duration=5/15" in check.detail
 
 
+def test_production_readiness_rejects_autopay_smoke_for_other_position(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["autopay_smoke"].read_text())
+    payload["lat"] = 48.8566
+    payload["lon"] = 2.3522
+    artifacts["autopay_smoke"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    assert check.ok is False
+    assert "position=48.85660,2.35220/50.63710,3.06330" in check.detail
+
+
 def test_production_readiness_rejects_stale_reports(tmp_path: Path):
     now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now - timedelta(hours=96))
@@ -1047,6 +1077,8 @@ def _write_ready_artifacts(
                 "session_id": "session-1",
                 "amount_cents": 120 if autopay_smoke_passed else 0,
                 "duration_minutes": 15,
+                "lat": 50.6371,
+                "lon": 3.0633,
                 "active_session_verified": autopay_smoke_passed,
                 "stopped": autopay_smoke_passed,
                 "stop_verified": autopay_smoke_passed,
