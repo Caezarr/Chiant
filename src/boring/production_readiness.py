@@ -1111,7 +1111,10 @@ def _check_burn_in_report(
         return ProductionCheck("burn_in", False, f"invalid json {path}")
 
     passed = bool(payload.get("passed"))
+    requested_duration_seconds = _json_float(payload.get("requested_duration_seconds"))
     duration_hours = float(payload.get("duration_seconds") or 0) / 3600
+    interval_seconds = _json_float(payload.get("interval_seconds"))
+    max_sample_gap_seconds = _json_float(payload.get("max_sample_gap_seconds"))
     sample_count = int(payload.get("sample_count") or 0)
     camera_failures = int(payload.get("camera_failures") or 0)
     network_failures = int(payload.get("network_failures") or 0)
@@ -1134,6 +1137,17 @@ def _check_burn_in_report(
         and report_battery_low_percent == battery_low_percent
         and report_battery_critical_percent == battery_critical_percent
     )
+    requested_duration_ok = (
+        requested_duration_seconds is not None
+        and requested_duration_seconds > 0
+        and duration_hours * 3600 + 1.0 >= requested_duration_seconds
+    )
+    cadence_config_ok = (
+        interval_seconds is not None
+        and interval_seconds > 0
+        and max_sample_gap_seconds is not None
+        and max_sample_gap_seconds >= interval_seconds
+    )
     battery_low = bool(payload.get("battery_low_seen"))
     battery_critical = bool(payload.get("battery_critical_seen"))
     thermal_critical = bool(payload.get("thermal_critical_seen"))
@@ -1145,7 +1159,9 @@ def _check_burn_in_report(
     discharging_ok = discharging_seen if require_charging_seen else True
     ok = (
         passed
+        and requested_duration_ok
         and duration_hours >= min_burn_in_hours
+        and cadence_config_ok
         and sample_count > 0
         and camera_failures == 0
         and network_failures == 0
@@ -1169,6 +1185,9 @@ def _check_burn_in_report(
         ok,
         (
             f"passed={passed}, duration={duration_hours:.1f}h/{min_burn_in_hours:.1f}h, "
+            f"requested_duration={_format_seconds(requested_duration_seconds)}, "
+            f"interval={_format_seconds(interval_seconds)}, "
+            f"max_sample_gap={_format_seconds(max_sample_gap_seconds)}, "
             f"samples={sample_count}, "
             f"camera_failures={camera_failures}, network_failures={network_failures}, "
             f"battery={_format_battery(start_battery, end_battery, min_battery, battery_delta)}, "
@@ -1208,6 +1227,7 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
     expected_charging_seen = bool(report.get("charging_seen"))
     expected_discharging_seen = bool(report.get("discharging_seen"))
     expected_max_temp = _json_float(report.get("max_temp_c"))
+    expected_max_sample_gap = _json_float(report.get("max_sample_gap_seconds"))
     started_at = _parse_timestamp(report.get("started_at"))
     ended_at = _parse_timestamp(report.get("ended_at"))
     invalid_lines = 0
@@ -1263,11 +1283,17 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
     timestamps_monotonic = all(
         previous <= current for previous, current in zip(timestamps, timestamps[1:])
     )
+    max_observed_gap = _max_timestamp_gap_seconds(timestamps)
     timestamps_in_window = (
         started_at is not None
         and ended_at is not None
         and len(timestamps) == scanned
         and all(started_at <= timestamp <= ended_at for timestamp in timestamps)
+    )
+    cadence_ok = (
+        expected_max_sample_gap is not None
+        and max_observed_gap is not None
+        and max_observed_gap <= expected_max_sample_gap
     )
     sample_count_ok = scanned == expected_sample_count
     camera_ok = camera_failures == expected_camera_failures == 0
@@ -1295,6 +1321,7 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
         and temp_ok
         and timestamps_monotonic
         and timestamps_in_window
+        and cadence_ok
     )
     return ProductionCheck(
         "burn_in_samples",
@@ -1310,10 +1337,23 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
             f"charging_seen={charging_seen}/{expected_charging_seen}, "
             f"discharging_seen={discharging_seen}/{expected_discharging_seen}, "
             f"max_temp={_format_temp(max_temp)}/{_format_temp(expected_max_temp)}, "
+            f"max_sample_gap={_format_seconds(max_observed_gap)}/{_format_seconds(expected_max_sample_gap)}, "
             f"timestamps_monotonic={timestamps_monotonic}, "
             f"timestamps_in_window={timestamps_in_window}, "
+            f"cadence_ok={cadence_ok}, "
             f"invalid_lines={invalid_lines}"
         ),
+    )
+
+
+def _max_timestamp_gap_seconds(timestamps: list[datetime]) -> float | None:
+    if not timestamps:
+        return None
+    if len(timestamps) == 1:
+        return 0.0
+    return max(
+        (current - previous).total_seconds()
+        for previous, current in zip(timestamps, timestamps[1:])
     )
 
 

@@ -438,6 +438,45 @@ def test_production_readiness_rejects_burn_in_samples_outside_report_window(
     assert "timestamps_in_window=False" in check.detail
 
 
+def test_production_readiness_rejects_sparse_burn_in_samples(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    sample_lines = []
+    report_payload = json.loads(artifacts["burn_in"].read_text())
+    for line_number, raw_line in enumerate(artifacts["burn_in_samples"].read_text().splitlines()):
+        payload = json.loads(raw_line)
+        if line_number == 300:
+            payload["ts"] = report_payload["started_at"] + 8 * 3600
+        sample_lines.append(json.dumps(payload))
+    artifacts["burn_in_samples"].write_text("\n".join(sample_lines) + "\n")
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "burn_in_samples"][0]
+    assert check.ok is False
+    assert "cadence_ok=False" in check.detail
+
+
 def test_production_readiness_rejects_non_monotonic_burn_in_samples(
     tmp_path: Path,
 ):
@@ -3267,7 +3306,10 @@ def _write_ready_artifacts(
                 "passed": True,
                 "started_at": report_time.timestamp() - burn_in_hours * 3600,
                 "ended_at": report_time.timestamp(),
+                "requested_duration_seconds": burn_in_hours * 3600,
                 "duration_seconds": burn_in_hours * 3600,
+                "interval_seconds": 60,
+                "max_sample_gap_seconds": 90,
                 "sample_count": int(burn_in_hours * 60),
                 "camera_failures": 0,
                 "network_failures": 0,

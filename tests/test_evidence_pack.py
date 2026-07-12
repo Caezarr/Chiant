@@ -1083,6 +1083,24 @@ def test_evidence_pack_rejects_burn_in_samples_outside_report_window(tmp_path: P
     assert "timestamps_in_window=False" in item.detail
 
 
+def test_evidence_pack_rejects_sparse_burn_in_samples(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    sample_lines = []
+    for line_number, raw_line in enumerate(paths["burn_in_samples"].read_text().splitlines()):
+        payload = json.loads(raw_line)
+        if line_number == 300:
+            payload["ts"] = "2026-01-01T08:00:00+00:00"
+        sample_lines.append(json.dumps(payload))
+    paths["burn_in_samples"].write_text("\n".join(sample_lines) + "\n")
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "cadence_ok=False" in item.detail
+
+
 def test_evidence_pack_rejects_non_monotonic_burn_in_samples(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     sample_lines = []
@@ -1470,7 +1488,10 @@ def _burn_in_payload() -> dict:
         "passed": True,
         "started_at": "2026-01-01T00:00:00+00:00",
         "ended_at": "2026-01-01T10:00:00+00:00",
+        "requested_duration_seconds": 36_000,
         "duration_seconds": 36_000,
+        "interval_seconds": 60,
+        "max_sample_gap_seconds": 90,
         "sample_count": 600,
         "camera_failures": 0,
         "network_failures": 0,

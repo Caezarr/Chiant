@@ -61,7 +61,10 @@ def test_build_report_passes_with_healthy_samples():
     )
 
     assert report.passed is True
+    assert report.requested_duration_seconds is None
     assert report.sample_count == 2
+    assert report.interval_seconds is None
+    assert report.max_sample_gap_seconds is None
     assert report.start_battery_percent == 80
     assert report.end_battery_percent == 84
     assert report.min_battery_percent == 80
@@ -116,11 +119,14 @@ def test_runner_writes_samples_and_report(tmp_path: Path):
 
     report = runner.run(duration_seconds=0, interval_seconds=60, output_dir=tmp_path)
 
-    assert report.passed is True
+    assert report.passed is False
     assert (tmp_path / "samples.jsonl").exists()
     assert (tmp_path / "report.json").exists()
     saved = json.loads((tmp_path / "report.json").read_text())
-    assert saved["passed"] is True
+    assert saved["passed"] is False
+    assert saved["requested_duration_seconds"] == 0
+    assert saved["interval_seconds"] == 60
+    assert saved["max_sample_gap_seconds"] == 90
     assert saved["sample_count"] == 1
     assert saved["charging_seen"] is False
 

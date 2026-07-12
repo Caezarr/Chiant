@@ -760,9 +760,22 @@ def _runtime_report_failures(name: str, payload: dict) -> list[str]:
 def _burn_in_report_failures(payload: dict) -> list[str]:
     failures = []
     duration = _number(payload.get("duration_seconds"))
+    requested_duration = _number(payload.get("requested_duration_seconds"))
+    interval_seconds = _number(payload.get("interval_seconds"))
+    max_sample_gap_seconds = _number(payload.get("max_sample_gap_seconds"))
     sample_count = _integer(payload.get("sample_count"))
+    if requested_duration is None or requested_duration <= 0:
+        failures.append("requested_duration")
     if duration is None or duration <= 0:
         failures.append("duration")
+    elif requested_duration is not None and duration + 1.0 < requested_duration:
+        failures.append("duration_short")
+    if interval_seconds is None or interval_seconds <= 0:
+        failures.append("interval")
+    if max_sample_gap_seconds is None or max_sample_gap_seconds <= 0:
+        failures.append("max_sample_gap")
+    elif interval_seconds is not None and max_sample_gap_seconds < interval_seconds:
+        failures.append("max_sample_gap_lt_interval")
     if sample_count is None or sample_count <= 0:
         failures.append("sample_count")
     if payload.get("camera_failures") != 0:
@@ -1205,6 +1218,7 @@ def _read_burn_in_samples(
     expected_charging_seen = report.get("charging_seen") if report else None
     expected_discharging_seen = report.get("discharging_seen") if report else None
     expected_max_temp = _number(report.get("max_temp_c")) if report else None
+    expected_max_sample_gap = _number(report.get("max_sample_gap_seconds")) if report else None
     started_at = _parse_evidence_timestamp(report.get("started_at")) if report else None
     ended_at = _parse_evidence_timestamp(report.get("ended_at")) if report else None
 
@@ -1222,11 +1236,17 @@ def _read_burn_in_samples(
     timestamps_monotonic = all(
         previous <= current for previous, current in zip(timestamps, timestamps[1:])
     )
+    max_observed_gap = _max_timestamp_gap_seconds(timestamps)
     timestamps_in_window = (
         started_at is not None
         and ended_at is not None
         and len(timestamps) == scanned
         and all(started_at <= timestamp <= ended_at for timestamp in timestamps)
+    )
+    cadence_ok = (
+        expected_max_sample_gap is not None
+        and max_observed_gap is not None
+        and max_observed_gap <= expected_max_sample_gap
     )
 
     report_ok = report is not None
@@ -1264,6 +1284,7 @@ def _read_burn_in_samples(
         and temp_ok
         and timestamps_monotonic
         and timestamps_in_window
+        and cadence_ok
     )
     return EvidenceItem(
         name=name,
@@ -1286,10 +1307,23 @@ def _read_burn_in_samples(
             f"charging_seen={charging_seen}/{expected_charging_seen if expected_charging_seen is not None else '-'}, "
             f"discharging_seen={discharging_seen}/{expected_discharging_seen if expected_discharging_seen is not None else '-'}, "
             f"max_temp={_fmt(max_temp)}/{_fmt(expected_max_temp)}, "
+            f"max_sample_gap={_fmt_seconds(max_observed_gap)}/{_fmt_seconds(expected_max_sample_gap)}, "
             f"timestamps_monotonic={timestamps_monotonic}, "
             f"timestamps_in_window={timestamps_in_window}, "
+            f"cadence_ok={cadence_ok}, "
             f"invalid_lines={invalid_lines}"
         ),
+    )
+
+
+def _max_timestamp_gap_seconds(timestamps: list[datetime]) -> float | None:
+    if not timestamps:
+        return None
+    if len(timestamps) == 1:
+        return 0.0
+    return max(
+        (current - previous).total_seconds()
+        for previous, current in zip(timestamps, timestamps[1:])
     )
 
 
