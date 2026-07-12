@@ -56,7 +56,8 @@ def build_report(
         recall >= min_recall
         and false_positive_per_hour <= max_false_positive_per_hour
         and evaluated_hours > 0
-        and frames_evaluated >= 0
+        and frames_evaluated > 0
+        and true_positives > 0
         and invalid_images == 0
     )
     return VisionEvalReport(

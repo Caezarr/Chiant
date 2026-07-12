@@ -135,7 +135,7 @@ Metriques minimales avant demo publique :
 - False positive < 1 par heure garee en rue passante
 - Aucun autopaiement sur vehicule normal dans un test continu de 10h
 - `vision-ready --require-edge-export` passe avant installation Pi.
-- `vision-eval` produit un rapport avec `dataset_path` egal au dataset configure, `frames_evaluated > 0`, `invalid_images=0`, recall >= 90%, faux positifs <= 1/h.
+- `vision-eval` produit un rapport avec `dataset_path` egal au dataset configure, `frames_evaluated > 0`, `true_positives > 0`, `invalid_images=0`, recall >= 90%, faux positifs <= 1/h.
 - `vision-benchmark` passe sur le Pi cible.
 - `reports/vision-eval.json` passe avant `box-ready`.
 

@@ -914,6 +914,7 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
     frames_evaluated = (
         _integer(payload.get("frames_evaluated")) if isinstance(payload, dict) else None
     )
+    true_positives = _integer(payload.get("true_positives")) if isinstance(payload, dict) else None
     invalid_images = _integer(payload.get("invalid_images")) if isinstance(payload, dict) else None
     model_path = str(payload.get("model_path") or "") if isinstance(payload, dict) else ""
     dataset_path = str(payload.get("dataset_path") or "") if isinstance(payload, dict) else ""
@@ -929,6 +930,8 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
         and evaluated_hours > 0
         and frames_evaluated is not None
         and frames_evaluated > 0
+        and true_positives is not None
+        and true_positives > 0
         and invalid_images == 0
         and bool(model_path)
         and bool(dataset_path)
@@ -946,7 +949,8 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
             f"passed={passed}, recall={_fmt(recall)}/{_fmt(min_recall)}, "
             f"fp_per_hour={_fmt(false_positive_per_hour)}/{_fmt(max_false_positive_per_hour)}, "
             f"hours={_fmt(evaluated_hours)}, frames={frames_evaluated}, "
-            f"invalid={invalid_images}, model={'ok' if model_path else 'missing'}, "
+            f"true_positives={true_positives}, invalid={invalid_images}, "
+            f"model={'ok' if model_path else 'missing'}, "
             f"dataset={'ok' if dataset_path else 'missing'}"
         ),
     )
