@@ -20,6 +20,7 @@ def test_production_readiness_passes_with_all_artifacts(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -45,6 +46,7 @@ def test_production_readiness_fails_when_burn_in_too_short(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -72,6 +74,7 @@ def test_production_readiness_can_run_rehearsal_without_edge_or_real_payment(tmp
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -97,6 +100,7 @@ def test_production_readiness_fails_without_charge_validation(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -113,6 +117,7 @@ def test_production_readiness_fails_without_charge_validation(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -139,6 +144,7 @@ def test_production_readiness_fails_without_discharge_validation(tmp_path: Path)
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -155,6 +161,7 @@ def test_production_readiness_fails_without_discharge_validation(tmp_path: Path)
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -190,6 +197,7 @@ def test_production_readiness_fails_without_burn_in_battery_metrics(tmp_path: Pa
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -220,6 +228,7 @@ def test_production_readiness_fails_without_burn_in_thermal_metrics(tmp_path: Pa
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -251,6 +260,7 @@ def test_production_readiness_recomputes_burn_in_thermal_threshold(tmp_path: Pat
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -288,6 +298,7 @@ def test_production_readiness_fails_when_disk_space_is_low(tmp_path: Path, monke
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -334,6 +345,7 @@ def test_production_readiness_fails_without_systemd_service(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         service_unit_path=tmp_path / "missing.service",
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
@@ -377,6 +389,7 @@ def test_production_readiness_rejects_unsafe_systemd_service(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         service_unit_path=bad_service,
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
@@ -437,6 +450,7 @@ def test_production_readiness_rejects_inactive_systemd_runtime(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -494,6 +508,7 @@ def test_production_readiness_rejects_wrong_position_runtime(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -506,6 +521,66 @@ def test_production_readiness_rejects_wrong_position_runtime(tmp_path: Path):
     check = [check for check in report.checks if check.name == "position_runtime"][0]
     assert check.ok is False
     assert "lat_delta=0.362900" in check.detail
+
+
+def test_production_readiness_fails_without_camera_runtime_report(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=tmp_path / "reports" / "missing-camera-check.json",
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "camera_runtime"][0]
+    assert check.ok is False
+    assert "missing" in check.detail
+
+
+def test_production_readiness_rejects_low_resolution_camera_runtime(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["camera"].read_text())
+    payload["passed"] = False
+    payload["width"] = 320
+    payload["height"] = 240
+    payload["failures"] = ["width=320/640", "height=240/480"]
+    artifacts["camera"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "camera_runtime"][0]
+    assert check.ok is False
+    assert "resolution=320x240" in check.detail
 
 
 def test_production_readiness_fails_when_vehicle_charge_cannot_recover(tmp_path: Path):
@@ -522,6 +597,7 @@ def test_production_readiness_fails_when_vehicle_charge_cannot_recover(tmp_path:
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -546,6 +622,7 @@ def test_production_readiness_fails_when_hardware_and_env_power_disagree(tmp_pat
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -570,6 +647,7 @@ def test_production_readiness_fails_when_vision_eval_fails(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -597,6 +675,7 @@ def test_production_readiness_fails_when_vision_eval_has_no_frames(tmp_path: Pat
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -624,6 +703,7 @@ def test_production_readiness_fails_when_vision_eval_uses_other_model(tmp_path: 
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -654,6 +734,7 @@ def test_production_readiness_fails_when_vision_eval_uses_other_dataset(tmp_path
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -680,6 +761,7 @@ def test_production_readiness_fails_when_benchmark_fails(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -707,6 +789,7 @@ def test_production_readiness_fails_when_benchmark_uses_other_model(tmp_path: Pa
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -733,6 +816,7 @@ def test_production_readiness_requires_benchmark_threshold_from_hardware_preset(
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -760,6 +844,7 @@ def test_production_readiness_fails_without_notification_webhook(tmp_path: Path)
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -776,6 +861,7 @@ def test_production_readiness_fails_without_notification_webhook(tmp_path: Path)
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -804,6 +890,7 @@ def test_production_readiness_fails_without_network_recovery(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -820,6 +907,7 @@ def test_production_readiness_fails_without_network_recovery(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -846,6 +934,7 @@ def test_production_readiness_fails_when_notification_test_fails(tmp_path: Path)
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -873,6 +962,7 @@ def test_production_readiness_requires_notification_test_for_configured_webhook(
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -898,6 +988,7 @@ def test_production_readiness_fails_when_autopay_smoke_fails(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -925,6 +1016,7 @@ def test_production_readiness_requires_autopay_stop_verification(tmp_path: Path)
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -952,6 +1044,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_plate(tmp_path: Pa
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -981,6 +1074,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_provider(tmp_path:
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1011,6 +1105,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_forced_zone(
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1044,6 +1139,7 @@ def test_production_readiness_rejects_autopay_smoke_above_session_limit(
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1077,6 +1173,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_duration(
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1109,6 +1206,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_position(
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1137,6 +1235,7 @@ def test_production_readiness_rejects_stale_reports(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1166,6 +1265,7 @@ def test_production_readiness_rejects_report_without_timestamp(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1196,6 +1296,7 @@ def test_production_readiness_can_disable_report_freshness_for_rehearsal(tmp_pat
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1222,6 +1323,7 @@ def test_production_readiness_requires_runtime_event_log(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1251,6 +1353,7 @@ def test_production_readiness_can_allow_missing_runtime_event_log_for_rehearsal(
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1279,6 +1382,7 @@ def test_production_readiness_rejects_empty_runtime_event_log(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1330,6 +1434,7 @@ def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Pa
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1366,6 +1471,7 @@ def test_production_readiness_rejects_runtime_log_without_heartbeat(tmp_path: Pa
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1402,6 +1508,7 @@ def test_production_readiness_rejects_stale_runtime_heartbeat(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1440,6 +1547,7 @@ def test_production_readiness_rejects_runtime_heartbeat_missing_start_coverage(
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1478,6 +1586,7 @@ def test_production_readiness_rejects_runtime_heartbeat_missing_end_coverage(
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1516,6 +1625,7 @@ def test_production_readiness_rejects_blocking_runtime_event(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1541,6 +1651,7 @@ def test_write_report_includes_passed(tmp_path: Path):
         hardware_profile_path=artifacts["hardware"],
         systemd_report_path=artifacts["systemd"],
         position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1864,6 +1975,23 @@ def _write_ready_artifacts(
         )
     )
 
+    camera = tmp_path / "reports" / "camera-check.json"
+    camera.write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "device_index": 0,
+                "width": 1280,
+                "height": 720,
+                "min_width": 640,
+                "min_height": 480,
+                "checked_at": report_time_iso,
+                "failures": [],
+                "error": None,
+            }
+        )
+    )
+
     return {
         "manifest": manifest,
         "dataset": dataset,
@@ -1878,4 +2006,5 @@ def _write_ready_artifacts(
         "events": events,
         "systemd": systemd,
         "position": position,
+        "camera": camera,
     }

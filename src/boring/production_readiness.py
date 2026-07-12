@@ -50,6 +50,7 @@ def audit_production_readiness(
     service_unit_path: Path = Path("deploy/systemd/boring-box.service"),
     systemd_report_path: Path = Path("reports/systemd-check.json"),
     position_report_path: Path = Path("reports/position-check.json"),
+    camera_report_path: Path = Path("reports/camera-check.json"),
     vision_eval_report_path: Path = Path("reports/vision-eval.json"),
     benchmark_report_path: Path = Path("reports/vision-benchmark.json"),
     autopay_smoke_report_path: Path = Path("reports/autopay-smoke.json"),
@@ -66,6 +67,7 @@ def audit_production_readiness(
     require_runtime_event_log: bool = True,
     require_systemd_report: bool = True,
     require_position_report: bool = True,
+    require_camera_report: bool = True,
     min_burn_in_hours: float = 10.0,
     now: datetime | None = None,
 ) -> ProductionReadinessReport:
@@ -102,6 +104,11 @@ def audit_production_readiness(
             position_report_path,
             values,
             require_position_report=require_position_report,
+        ),
+        _check_camera_report(
+            camera_report_path,
+            values,
+            require_camera_report=require_camera_report,
         ),
         _check_vision_eval_report(
             vision_eval_report_path,
@@ -397,6 +404,55 @@ def _check_position_report(
             f"passed={passed}, mode={mode or '-'}/{expected_mode}, "
             f"source={source or '-'}, position={_format_coord(lat, lon)}, "
             f"expected={_format_coord(expected_lat, expected_lon)}, failures={failures_text}"
+        ),
+    )
+
+
+def _check_camera_report(
+    path: Path,
+    env: Mapping[str, str],
+    *,
+    require_camera_report: bool,
+) -> ProductionCheck:
+    if not require_camera_report:
+        return ProductionCheck(
+            "camera_runtime",
+            True,
+            "required=false" if not path.exists() else str(path),
+        )
+    if not path.exists():
+        return ProductionCheck("camera_runtime", False, f"missing {path}")
+    try:
+        payload = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return ProductionCheck("camera_runtime", False, f"invalid json {path}")
+
+    passed = bool(payload.get("passed"))
+    device_index = _json_int(payload.get("device_index"))
+    expected_device = _env_int(env, "CAMERA_DEVICE", 0)
+    width = _json_int(payload.get("width"))
+    height = _json_int(payload.get("height"))
+    min_width = _json_int(payload.get("min_width")) or 640
+    min_height = _json_int(payload.get("min_height")) or 480
+    failures = payload.get("failures")
+    failures_text = (
+        ",".join(str(failure) for failure in failures) if isinstance(failures, list) else "-"
+    )
+    ok = (
+        passed
+        and device_index == expected_device
+        and width is not None
+        and height is not None
+        and width >= min_width
+        and height >= min_height
+    )
+    return ProductionCheck(
+        "camera_runtime",
+        ok,
+        (
+            f"passed={passed}, device={device_index}/{expected_device}, "
+            f"resolution={_format_resolution(width, height)}, "
+            f"minimum={min_width}x{min_height}, failures={failures_text}"
         ),
     )
 
@@ -969,11 +1025,30 @@ def _env_float(env: Mapping[str, str], name: str) -> float | None:
         return None
 
 
+def _env_int(env: Mapping[str, str], name: str, default: int) -> int:
+    value = env.get(name)
+    if value is None or value.strip() == "":
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
 def _json_float(value) -> float | None:
     if value is None:
         return None
     try:
         return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _json_int(value) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
     except (TypeError, ValueError):
         return None
 
@@ -998,6 +1073,12 @@ def _format_coord(lat: float | None, lon: float | None) -> str:
     if lat is None or lon is None:
         return "-"
     return f"{lat:.5f},{lon:.5f}"
+
+
+def _format_resolution(width: int | None, height: int | None) -> str:
+    if width is None or height is None:
+        return "-"
+    return f"{width}x{height}"
 
 
 def _format_temp(value: float | None) -> str:

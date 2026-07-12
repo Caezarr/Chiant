@@ -19,6 +19,8 @@ from boring.autopay_smoke import write_report as write_autopay_smoke_report
 from boring.benchmark import run_vision_benchmark
 from boring.benchmark import write_report as write_benchmark_report
 from boring.burn_in import BoxBurnInRunner
+from boring.camera_readiness import run_camera_check
+from boring.camera_readiness import write_report as write_camera_report
 from boring.capture import capture_auto, capture_interactive, iter_frames
 from boring.config import BoxConfig
 from boring.contest.rapo import RAPOContestClient
@@ -255,6 +257,40 @@ def box_position_check(
     raise typer.Exit(0 if report.passed else 1)
 
 
+@app.command("box-camera-check")
+def box_camera_check(
+    output: Path = typer.Option(
+        Path("reports/camera-check.json"),
+        help="Rapport JSON de camera runtime.",
+    ),
+    min_width: int = typer.Option(640, help="Largeur minimale attendue."),
+    min_height: int = typer.Option(480, help="Hauteur minimale attendue."),
+) -> None:
+    """Verifie que la camera runtime retourne une frame exploitable."""
+    config = BoxConfig.from_env()
+    report = run_camera_check(
+        device_index=config.camera_device,
+        min_width=min_width,
+        min_height=min_height,
+    )
+    write_camera_report(report, output)
+    table = Table(title="Boring Box — camera runtime")
+    table.add_column("Signal", style="bold")
+    table.add_column("Valeur")
+    table.add_row("Device", str(report.device_index))
+    table.add_row(
+        "Resolution",
+        "-" if report.width is None or report.height is None else f"{report.width}x{report.height}",
+    )
+    table.add_row("Minimum", f"{report.min_width}x{report.min_height}")
+    table.add_row("Failures", ", ".join(report.failures) if report.failures else "-")
+    table.add_row("Error", report.error or "-")
+    table.add_row("Passed", "yes" if report.passed else "no")
+    console.print(table)
+    console.print(f"[dim]Rapport: {output}[/dim]")
+    raise typer.Exit(0 if report.passed else 1)
+
+
 @app.command("box-ready")
 def box_ready(
     dataset: Path = typer.Option(Path("datasets/control_vehicle_v1"), help="Dataset YOLOv8."),
@@ -282,6 +318,10 @@ def box_ready(
     position_report: Path = typer.Option(
         Path("reports/position-check.json"),
         help="Rapport produit par box-position-check.",
+    ),
+    camera_report: Path = typer.Option(
+        Path("reports/camera-check.json"),
+        help="Rapport produit par box-camera-check.",
     ),
     vision_eval_report: Path = typer.Option(
         Path("reports/vision-eval.json"),
@@ -346,6 +386,10 @@ def box_ready(
         False,
         help="Ne pas exiger le rapport box-position-check.",
     ),
+    allow_missing_camera_report: bool = typer.Option(
+        False,
+        help="Ne pas exiger le rapport box-camera-check.",
+    ),
 ) -> None:
     """Gate final avant installation voiture / systemd."""
     report = audit_production_readiness(
@@ -357,6 +401,7 @@ def box_ready(
         service_unit_path=service_unit,
         systemd_report_path=systemd_report,
         position_report_path=position_report,
+        camera_report_path=camera_report,
         vision_eval_report_path=vision_eval_report,
         benchmark_report_path=benchmark_report,
         autopay_smoke_report_path=autopay_smoke_report,
@@ -373,6 +418,7 @@ def box_ready(
         require_runtime_event_log=not allow_missing_runtime_event_log,
         require_systemd_report=not allow_missing_systemd_report,
         require_position_report=not allow_missing_position_report,
+        require_camera_report=not allow_missing_camera_report,
         min_burn_in_hours=min_burn_in_hours,
     )
     write_production_report(report, output)
