@@ -77,6 +77,7 @@ def evidence_item_ok(item: EvidenceItem) -> bool:
     if item.name in {
         "autopay_smoke",
         "burn_in_samples",
+        "notification_test",
         "paybyphone_endpoints",
         "runtime_events",
     }:
@@ -96,6 +97,8 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
         return _read_autopay_smoke(name, path, raw)
     if name == "burn_in_samples":
         return _read_burn_in_samples(name, path, raw)
+    if name == "notification_test":
+        return _read_notification_test(name, path, raw)
     if name == "paybyphone_endpoints":
         return _read_paybyphone_endpoints(name, path, raw)
     if name == "runtime_events":
@@ -328,6 +331,45 @@ def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
             f"active={active_verified}, stopped={stopped}, stop_verified={stop_verified}, "
             f"provider={'ok' if provider else 'missing'}, "
             f"session={'ok' if session_id else 'missing'}, zone={'ok' if zone_id else 'missing'}"
+        ),
+    )
+
+
+def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        return EvidenceItem(
+            name,
+            str(path),
+            True,
+            False,
+            None,
+            len(raw),
+            hashlib.sha256(raw).hexdigest(),
+            _format(name),
+            "invalid json",
+        )
+    passed = payload.get("passed") is True if isinstance(payload, dict) else False
+    status_code = payload.get("status_code") if isinstance(payload, dict) else None
+    webhook_host = str(payload.get("webhook_host") or "") if isinstance(payload, dict) else ""
+    title = str(payload.get("title") or "") if isinstance(payload, dict) else ""
+    message = str(payload.get("message") or "") if isinstance(payload, dict) else ""
+    status_ok = isinstance(status_code, int) and 200 <= status_code < 300
+    complete = passed and status_ok and bool(webhook_host) and bool(title) and bool(message)
+    return EvidenceItem(
+        name=name,
+        path=str(path),
+        present=True,
+        valid_json=True,
+        passed=complete,
+        size_bytes=len(raw),
+        sha256=hashlib.sha256(raw).hexdigest(),
+        format=_format(name),
+        detail=(
+            f"passed={passed}, status={status_code}, "
+            f"host={'ok' if webhook_host else 'missing'}, "
+            f"title={'ok' if title else 'missing'}, message={'ok' if message else 'missing'}"
         ),
     )
 
