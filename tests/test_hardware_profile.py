@@ -51,12 +51,23 @@ def test_hardware_profile_fails_when_benchmark_target_is_below_preset(tmp_path: 
     assert "min_benchmark_fps=1/2" in preset.detail
 
 
+def test_hardware_profile_rejects_invalid_camera_resolution(tmp_path: Path):
+    profile = _write_profile(tmp_path, camera_resolution="wide")
+
+    report = audit_hardware_profile(profile)
+
+    assert report.passed is False
+    camera = [check for check in report.checks if check.name == "camera"][0]
+    assert "resolution=wide" in camera.detail
+
+
 def _write_profile(
     tmp_path: Path,
     *,
     battery_capacity_wh: float = 100,
     vehicle_charge_watts: float = 30,
     min_benchmark_fps: float = 2.0,
+    camera_resolution: str | None = None,
 ) -> Path:
     profile = tmp_path / "hardware-profile.json"
     profile.write_text(
@@ -64,7 +75,11 @@ def _write_profile(
             {
                 "board": {"model": "raspberry-pi-5", "ram_gb": 8},
                 "preset_id": "pi5-production",
-                "camera": {"type": "usb-uvc", "device": "/dev/video0"},
+                "camera": {
+                    "type": "usb-uvc",
+                    "device": "/dev/video0",
+                    **({"resolution": camera_resolution} if camera_resolution is not None else {}),
+                },
                 "storage": {"capacity_gb": 64, "endurance": True},
                 "power": {
                     "ups_power_supply": True,

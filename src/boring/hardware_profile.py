@@ -124,11 +124,16 @@ def _check_camera(payload: dict) -> HardwareCheck:
     camera = payload.get("camera") or {}
     camera_type = str(camera.get("type") or "")
     device = str(camera.get("device") or "")
-    ok = camera_type in SUPPORTED_CAMERA_TYPES and bool(device)
+    resolution = str(camera.get("resolution") or "")
+    resolution_ok = not resolution or _parse_resolution(resolution) is not None
+    ok = camera_type in SUPPORTED_CAMERA_TYPES and bool(device) and resolution_ok
     return HardwareCheck(
         "camera",
         ok,
-        f"type={camera_type or 'missing'}, device={device or 'missing'}",
+        (
+            f"type={camera_type or 'missing'}, device={device or 'missing'}, "
+            f"resolution={resolution or '-'}"
+        ),
     )
 
 
@@ -181,3 +186,17 @@ def _float(value) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _parse_resolution(value: str) -> tuple[int, int] | None:
+    if "x" not in value:
+        return None
+    width, height = value.lower().split("x", 1)
+    try:
+        parsed_width = int(width.strip())
+        parsed_height = int(height.strip())
+    except ValueError:
+        return None
+    if parsed_width <= 0 or parsed_height <= 0:
+        return None
+    return parsed_width, parsed_height
