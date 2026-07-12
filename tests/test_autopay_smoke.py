@@ -17,12 +17,14 @@ class FakeProvider(PaymentProvider):
         stop_clears_session: bool = True,
         amount_cents: int = 120,
         fail_active_after_start: bool = False,
+        session_location_id: str = "zone-1",
     ) -> None:
         self.dry_run = dry_run
         self.active_before = active_before
         self.stop_clears_session = stop_clears_session
         self.amount_cents = amount_cents
         self.fail_active_after_start = fail_active_after_start
+        self.session_location_id = session_location_id
         self.session: ParkingSession | None = None
         self.stopped_session_id: str | None = None
 
@@ -42,7 +44,7 @@ class FakeProvider(PaymentProvider):
             provider=self.name,
             session_id="session-1",
             vehicle_plate=vehicle_plate,
-            location_id=location_id,
+            location_id=self.session_location_id,
             start=datetime(2026, 7, 9, 12, 0, 0),
             end=datetime(2026, 7, 9, 12, 0, 0) + timedelta(minutes=duration_minutes),
             amount_cents=self.amount_cents,
@@ -84,6 +86,7 @@ def test_autopay_smoke_starts_verifies_and_stops_real_session():
     assert report.passed is True
     assert report.dry_run is False
     assert report.zone_id == "zone-1"
+    assert report.session_location_id == "zone-1"
     assert report.session_id == "session-1"
     assert report.amount_cents == 120
     assert report.duration_minutes == 15
@@ -92,6 +95,24 @@ def test_autopay_smoke_starts_verifies_and_stops_real_session():
     assert report.active_session_verified is True
     assert report.stopped is True
     assert report.stop_verified is True
+    assert provider.stopped_session_id == "session-1"
+
+
+def test_autopay_smoke_fails_when_session_uses_other_zone():
+    provider = FakeProvider(session_location_id="zone-other")
+
+    report = run_autopay_smoke(
+        provider=provider,
+        plate="AB-123-CD",
+        lat=50.6371,
+        lon=3.0633,
+        duration_minutes=15,
+    )
+
+    assert report.passed is False
+    assert report.zone_id == "zone-1"
+    assert report.session_location_id == "zone-other"
+    assert "session location mismatch" in str(report.error)
     assert provider.stopped_session_id == "session-1"
 
 
