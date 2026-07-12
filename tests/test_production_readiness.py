@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from boring.production_readiness import audit_production_readiness, write_report
@@ -566,6 +567,86 @@ def test_production_readiness_rejects_autopay_smoke_for_other_forced_zone(
     assert "zone=zone-1/zone-expected" in check.detail
 
 
+def test_production_readiness_rejects_stale_reports(tmp_path: Path):
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    artifacts = _write_ready_artifacts(tmp_path, report_time=now - timedelta(hours=96))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        now=now,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "report_freshness"][0]
+    assert check.ok is False
+    assert "96.0h>72.0h" in check.detail
+
+
+def test_production_readiness_rejects_report_without_timestamp(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["vision_eval"].read_text())
+    payload.pop("generated_at")
+    artifacts["vision_eval"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "report_freshness"][0]
+    assert check.ok is False
+    assert "vision_eval=missing_timestamp" in check.detail
+
+
+def test_production_readiness_can_disable_report_freshness_for_rehearsal(tmp_path: Path):
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    artifacts = _write_ready_artifacts(tmp_path, report_time=now - timedelta(hours=720))
+    env = _ready_env()
+    env["BOX_READINESS_MAX_REPORT_AGE_HOURS"] = "0"
+
+    report = audit_production_readiness(
+        env=env,
+        now=now,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is True
+    check = [check for check in report.checks if check.name == "report_freshness"][0]
+    assert check.detail == "disabled"
+
+
 def test_write_report_includes_passed(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     report = audit_production_readiness(
@@ -626,6 +707,7 @@ def _ready_env() -> dict[str, str]:
 def _write_ready_artifacts(
     tmp_path: Path,
     *,
+    report_time: datetime | None = None,
     burn_in_hours: float = 10,
     include_edge: bool = True,
     charging_seen: bool = True,
@@ -640,6 +722,8 @@ def _write_ready_artifacts(
     vision_recall: float = 0.93,
     vision_false_positive_per_hour: float = 0.5,
 ) -> dict[str, Path]:
+    report_time = report_time or datetime.now(timezone.utc)
+    report_time_iso = report_time.isoformat()
     manifest = tmp_path / "datasets" / "baseline" / "manifest.jsonl"
     manifest.parent.mkdir(parents=True)
     lines = []
@@ -746,6 +830,7 @@ def _write_ready_artifacts(
                 "false_positives": 1,
                 "false_negatives": 7,
                 "invalid_images": 0,
+                "generated_at": report_time_iso,
                 "min_recall": 0.90,
                 "max_false_positive_per_hour": 1.0,
                 "passed": vision_eval_passed,
@@ -759,6 +844,8 @@ def _write_ready_artifacts(
         json.dumps(
             {
                 "passed": True,
+                "started_at": report_time.timestamp() - burn_in_hours * 3600,
+                "ended_at": report_time.timestamp(),
                 "duration_seconds": burn_in_hours * 3600,
                 "camera_failures": 0,
                 "network_failures": 0,
@@ -786,6 +873,7 @@ def _write_ready_artifacts(
                 "measured_fps": benchmark_fps,
                 "min_fps": benchmark_min_fps,
                 "passed": benchmark_passed,
+                "generated_at": report_time_iso,
             }
         )
     )
@@ -804,7 +892,7 @@ def _write_ready_artifacts(
                 "active_session_verified": autopay_smoke_passed,
                 "stopped": autopay_smoke_passed,
                 "stop_verified": autopay_smoke_passed,
-                "tested_at": "2026-07-09T12:00:00+00:00",
+                "tested_at": report_time_iso,
                 "error": None if autopay_smoke_passed else "smoke failed",
             }
         )
@@ -819,7 +907,7 @@ def _write_ready_artifacts(
                 "status_code": 204 if notification_passed else 500,
                 "title": "Boring Box - test notification",
                 "message": "Canal notification pret pour batterie faible.",
-                "tested_at": "2026-07-09T12:00:00+00:00",
+                "tested_at": report_time_iso,
                 "error": None if notification_passed else "HTTP 500",
             }
         )

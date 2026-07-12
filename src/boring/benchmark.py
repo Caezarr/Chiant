@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -19,6 +20,7 @@ class VisionBenchmarkReport:
     measured_fps: float
     min_fps: float
     passed: bool
+    generated_at: str = ""
 
 
 def run_vision_benchmark(
@@ -52,6 +54,7 @@ def run_vision_benchmark(
         measured_fps=measured_fps,
         min_fps=min_fps,
         passed=frames_processed > 0 and measured_fps >= min_fps,
+        generated_at=datetime.now(timezone.utc).isoformat(),
     )
 
 

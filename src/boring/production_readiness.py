@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Mapping
 from urllib.parse import urlparse
@@ -59,8 +60,10 @@ def audit_production_readiness(
     require_notification_webhook: bool = True,
     require_notification_test: bool = True,
     min_burn_in_hours: float = 10.0,
+    now: datetime | None = None,
 ) -> ProductionReadinessReport:
     values = env or os.environ
+    checked_at = now or datetime.now(timezone.utc)
     vision = audit_vision_readiness(
         dataset_path=dataset_path,
         model_path=model_path,
@@ -104,6 +107,17 @@ def audit_production_readiness(
             burn_in_report_path,
             min_burn_in_hours=min_burn_in_hours,
             require_charging_seen=require_charging_seen,
+        ),
+        _check_report_freshness(
+            values,
+            now=checked_at,
+            vision_eval_report_path=vision_eval_report_path,
+            benchmark_report_path=benchmark_report_path,
+            autopay_smoke_report_path=autopay_smoke_report_path,
+            notification_report_path=notification_report_path,
+            burn_in_report_path=burn_in_report_path,
+            require_autopay_smoke=require_autopay_smoke,
+            require_notification_test=require_notification_test,
         ),
     ]
     return ProductionReadinessReport(checks)
@@ -468,6 +482,102 @@ def _check_burn_in_report(
             f"charging_seen={charging_seen}, discharging_seen={discharging_seen}"
         ),
     )
+
+
+def _check_report_freshness(
+    env: Mapping[str, str],
+    *,
+    now: datetime,
+    vision_eval_report_path: Path,
+    benchmark_report_path: Path,
+    autopay_smoke_report_path: Path,
+    notification_report_path: Path,
+    burn_in_report_path: Path,
+    require_autopay_smoke: bool,
+    require_notification_test: bool,
+) -> ProductionCheck:
+    max_age_hours = _env_float(env, "BOX_READINESS_MAX_REPORT_AGE_HOURS")
+    if max_age_hours is None:
+        max_age_hours = 72.0
+    if max_age_hours <= 0:
+        return ProductionCheck("report_freshness", True, "disabled")
+
+    reports: list[tuple[str, Path]] = [
+        ("vision_eval", vision_eval_report_path),
+        ("vision_benchmark", benchmark_report_path),
+        ("burn_in", burn_in_report_path),
+    ]
+    if require_autopay_smoke:
+        reports.append(("autopay_smoke", autopay_smoke_report_path))
+    if require_notification_test:
+        reports.append(("notification_test", notification_report_path))
+
+    failures: list[str] = []
+    ages: list[str] = []
+    for name, path in reports:
+        try:
+            payload = json.loads(path.read_text())
+        except FileNotFoundError:
+            failures.append(f"{name}=missing")
+            continue
+        except json.JSONDecodeError:
+            failures.append(f"{name}=invalid_json")
+            continue
+        if not isinstance(payload, dict):
+            failures.append(f"{name}=invalid_payload")
+            continue
+        timestamp = _report_timestamp(payload)
+        if timestamp is None:
+            failures.append(f"{name}=missing_timestamp")
+            continue
+        timestamp = timestamp.astimezone(timezone.utc)
+        age_hours = (now.astimezone(timezone.utc) - timestamp).total_seconds() / 3600
+        ages.append(f"{name}={age_hours:.1f}h")
+        if age_hours < -0.1:
+            failures.append(f"{name}=future_timestamp")
+        elif age_hours > max_age_hours:
+            failures.append(f"{name}={age_hours:.1f}h>{max_age_hours:.1f}h")
+
+    return ProductionCheck(
+        "report_freshness",
+        not failures,
+        (
+            f"max_age={max_age_hours:.1f}h, "
+            f"ages={', '.join(ages) if ages else '-'}, "
+            f"failures={', '.join(failures) if failures else '-'}"
+        ),
+    )
+
+
+def _report_timestamp(payload: Mapping[str, object]) -> datetime | None:
+    for key in ("tested_at", "generated_at", "ended_at"):
+        value = payload.get(key)
+        timestamp = _parse_timestamp(value)
+        if timestamp is not None:
+            return timestamp
+    return None
+
+
+def _parse_timestamp(value: object) -> datetime | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(float(value), tz=timezone.utc)
+    if not isinstance(value, str) or not value.strip():
+        return None
+    raw = value.strip()
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        try:
+            return datetime.fromtimestamp(float(raw), tz=timezone.utc)
+        except ValueError:
+            return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def _env_float(env: Mapping[str, str], name: str) -> float | None:
