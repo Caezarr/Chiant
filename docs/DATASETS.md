@@ -97,6 +97,7 @@ La commande verifie :
 - `data/vision_free_sources.json` : au moins deux sources positives candidates et deux sources negatives candidates gratuites, sans compter les sources reservees a la validation interne.
 - `datasets/baseline/manifest.jsonl` : volume minimal de positifs probables et hard negatives gratuits.
 - revue licence : toutes les lignes du manifest doivent etre approuvees avant un gate prod.
+- tracabilite source : chaque ligne du manifest doit garder une `source` et au moins un localisateur (`url`, `source_url`, `source_page`, `image_id` ou `path`).
 - `datasets/control_vehicle_v1/data.yaml` : export YOLOv8 present, classe `control_vehicle`, images train/valid suffisantes.
 - `models/best.pt` : modele fine-tune present et non vide.
 

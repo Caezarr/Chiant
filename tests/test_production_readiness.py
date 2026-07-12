@@ -2193,6 +2193,8 @@ def _write_ready_artifacts(
                 {
                     "profile": "positives",
                     "path": f"p{index}.jpg",
+                    "url": f"https://example.test/control-vehicle/{index}.jpg",
+                    "source": "web-search-candidates",
                     "license_reviewed": True,
                     "license_status": "cc-by",
                 }
@@ -2204,6 +2206,8 @@ def _write_ready_artifacts(
                 {
                     "profile": "negatives",
                     "path": f"n{index}.jpg",
+                    "image_id": f"openimages-{index}",
+                    "source": "open-images",
                     "license_reviewed": True,
                     "license_status": "open-images",
                 }

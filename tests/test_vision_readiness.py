@@ -80,6 +80,30 @@ def test_audit_vision_readiness_fails_with_unreviewed_sources(tmp_path: Path):
     assert rehearsal.passed is True
 
 
+def test_audit_vision_readiness_fails_without_manifest_source_trace(tmp_path: Path):
+    manifest = _write_manifest(tmp_path, positives=2, negatives=3, include_trace=False)
+    dataset = _write_dataset(tmp_path, train=2, valid=1, names="names: ['control_vehicle']")
+    model = tmp_path / "models" / "best.pt"
+    model.parent.mkdir()
+    model.write_bytes(b"model")
+
+    report = audit_vision_readiness(
+        dataset_path=dataset,
+        model_path=model,
+        baseline_manifest=manifest,
+        min_positive_candidates=2,
+        min_negative_candidates=3,
+        min_train_images=2,
+        min_valid_images=1,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "baseline_source_trace"][0]
+    assert check.ok is False
+    assert "missing_source=5" in check.detail
+    assert "missing_locator=5" in check.detail
+
+
 def test_audit_vision_readiness_fails_without_enough_free_sources(tmp_path: Path):
     manifest = _write_manifest(tmp_path, positives=2, negatives=3)
     dataset = _write_dataset(tmp_path, train=2, valid=1, names="names: ['control_vehicle']")
@@ -184,32 +208,41 @@ def _write_manifest(
     positives: int,
     negatives: int,
     license_reviewed: bool = True,
+    include_trace: bool = True,
 ) -> Path:
     manifest = tmp_path / "datasets" / "baseline" / "manifest.jsonl"
     manifest.parent.mkdir(parents=True)
     lines = []
     for index in range(positives):
-        lines.append(
-            json.dumps(
+        payload = {
+            "profile": "positives",
+            "license_reviewed": license_reviewed,
+            "license_status": "cc-by" if license_reviewed else "unknown",
+        }
+        if include_trace:
+            payload.update(
                 {
-                    "profile": "positives",
                     "path": f"p{index}.jpg",
-                    "license_reviewed": license_reviewed,
-                    "license_status": "cc-by" if license_reviewed else "unknown",
+                    "url": f"https://example.test/p{index}.jpg",
+                    "source": "web-search-candidates",
                 }
             )
-        )
+        lines.append(json.dumps(payload))
     for index in range(negatives):
-        lines.append(
-            json.dumps(
+        payload = {
+            "profile": "negatives",
+            "license_reviewed": license_reviewed,
+            "license_status": "open-images" if license_reviewed else "unknown",
+        }
+        if include_trace:
+            payload.update(
                 {
-                    "profile": "negatives",
                     "path": f"n{index}.jpg",
-                    "license_reviewed": license_reviewed,
-                    "license_status": "open-images" if license_reviewed else "unknown",
+                    "image_id": f"img-{index}",
+                    "source": "open-images",
                 }
             )
-        )
+        lines.append(json.dumps(payload))
     manifest.write_text("\n".join(lines) + "\n")
     return manifest
 
