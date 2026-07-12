@@ -235,7 +235,7 @@ def box_ready(
     ),
     allow_missing_charge_validation: bool = typer.Option(
         False,
-        help="Ne pas exiger que le burn-in ait vu la batterie en charge.",
+        help="Ne pas exiger que le burn-in ait vu charge et decharge batterie.",
     ),
     allow_missing_network_recovery: bool = typer.Option(
         False,
