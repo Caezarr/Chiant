@@ -36,6 +36,15 @@ REQUIRED_BOX_READY_CHECKS = {
     "vision_eval",
 }
 
+RUNTIME_REPORTS = {
+    "burn_in",
+    "camera_runtime",
+    "network_runtime",
+    "position_runtime",
+    "power_runtime",
+    "systemd_runtime",
+}
+
 
 @dataclass(frozen=True)
 class EvidenceItem:
@@ -135,6 +144,8 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
         return _read_paybyphone_endpoints(name, path, raw)
     if name == "runtime_events":
         return _read_runtime_events(name, path, raw)
+    if name in RUNTIME_REPORTS:
+        return _read_runtime_report(name, path, raw)
     if name == "vision_benchmark":
         return _read_vision_benchmark(name, path, raw)
     if name == "vision_eval":
@@ -165,6 +176,195 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
         format=_format(name),
         detail=_detail(payload),
     )
+
+
+def _read_runtime_report(name: str, path: Path, raw: bytes) -> EvidenceItem:
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        return EvidenceItem(
+            name,
+            str(path),
+            True,
+            False,
+            None,
+            len(raw),
+            hashlib.sha256(raw).hexdigest(),
+            _format(name),
+            "invalid json",
+        )
+    if not isinstance(payload, dict):
+        return EvidenceItem(
+            name=name,
+            path=str(path),
+            present=True,
+            valid_json=True,
+            passed=False,
+            size_bytes=len(raw),
+            sha256=hashlib.sha256(raw).hexdigest(),
+            format=_format(name),
+            detail="json is not an object",
+        )
+
+    failures = _runtime_report_failures(name, payload)
+    return EvidenceItem(
+        name=name,
+        path=str(path),
+        present=True,
+        valid_json=True,
+        passed=not failures,
+        size_bytes=len(raw),
+        sha256=hashlib.sha256(raw).hexdigest(),
+        format=_format(name),
+        detail=(
+            f"passed={payload.get('passed') is True}, "
+            f"failures={','.join(failures) if failures else '-'}"
+        ),
+    )
+
+
+def _runtime_report_failures(name: str, payload: dict) -> list[str]:
+    failures = []
+    if payload.get("passed") is not True:
+        failures.append("passed")
+    if name != "burn_in" and payload.get("failures") != []:
+        failures.append("failures")
+
+    if name == "burn_in":
+        return failures + _burn_in_report_failures(payload)
+    if name == "camera_runtime":
+        return failures + _camera_report_failures(payload)
+    if name == "network_runtime":
+        return failures + _network_report_failures(payload)
+    if name == "position_runtime":
+        return failures + _position_report_failures(payload)
+    if name == "power_runtime":
+        return failures + _power_report_failures(payload)
+    if name == "systemd_runtime":
+        return failures + _systemd_report_failures(payload)
+    return failures
+
+
+def _burn_in_report_failures(payload: dict) -> list[str]:
+    failures = []
+    duration = _number(payload.get("duration_seconds"))
+    sample_count = _integer(payload.get("sample_count"))
+    if duration is None or duration <= 0:
+        failures.append("duration")
+    if sample_count is None or sample_count <= 0:
+        failures.append("sample_count")
+    if payload.get("camera_failures") != 0:
+        failures.append("camera_failures")
+    if payload.get("network_failures") != 0:
+        failures.append("network_failures")
+    if not isinstance(payload.get("min_battery_percent"), int):
+        failures.append("min_battery")
+    if not isinstance(payload.get("max_temp_c"), (int, float)):
+        failures.append("max_temp")
+    if payload.get("charging_seen") is not True:
+        failures.append("charging_seen")
+    if payload.get("discharging_seen") is not True:
+        failures.append("discharging_seen")
+    if payload.get("battery_critical_seen") is True:
+        failures.append("battery_critical")
+    if payload.get("thermal_critical_seen") is True:
+        failures.append("thermal_critical")
+    return failures
+
+
+def _camera_report_failures(payload: dict) -> list[str]:
+    failures = []
+    width = _integer(payload.get("width"))
+    height = _integer(payload.get("height"))
+    min_width = _integer(payload.get("min_width"))
+    min_height = _integer(payload.get("min_height"))
+    if not _has_text(payload.get("checked_at")):
+        failures.append("checked_at")
+    if width is None or min_width is None or width < min_width:
+        failures.append("width")
+    if height is None or min_height is None or height < min_height:
+        failures.append("height")
+    return failures
+
+
+def _network_report_failures(payload: dict) -> list[str]:
+    failures = []
+    if not _has_text(payload.get("checked_at")):
+        failures.append("checked_at")
+    if not _has_text(payload.get("target")):
+        failures.append("target")
+    if payload.get("online") is not True:
+        failures.append("online")
+    if payload.get("recovery_command_configured") is not True:
+        failures.append("recovery")
+    return failures
+
+
+def _position_report_failures(payload: dict) -> list[str]:
+    failures = []
+    mode = str(payload.get("mode") or "")
+    source = str(payload.get("source") or "")
+    lat = _number(payload.get("lat"))
+    lon = _number(payload.get("lon"))
+    if not _has_text(payload.get("checked_at")):
+        failures.append("checked_at")
+    if mode not in {"static", "gpsd"}:
+        failures.append("mode")
+    if source != mode:
+        failures.append("source")
+    if lat is None or not -90 <= lat <= 90:
+        failures.append("lat")
+    if lon is None or not -180 <= lon <= 180:
+        failures.append("lon")
+    return failures
+
+
+def _power_report_failures(payload: dict) -> list[str]:
+    failures = []
+    battery_percent = _integer(payload.get("battery_percent"))
+    estimated_runtime_hours = _number(payload.get("estimated_runtime_hours"))
+    required_runtime_hours = _number(payload.get("required_runtime_hours"))
+    if not _has_text(payload.get("checked_at")):
+        failures.append("checked_at")
+    if battery_percent is None or battery_percent <= 0:
+        failures.append("battery_percent")
+    if not isinstance(payload.get("charging"), bool):
+        failures.append("charging")
+    if not _has_text(payload.get("source")):
+        failures.append("source")
+    if _number(payload.get("battery_capacity_wh")) is None:
+        failures.append("battery_capacity")
+    if (
+        estimated_runtime_hours is None
+        or required_runtime_hours is None
+        or estimated_runtime_hours < required_runtime_hours
+    ):
+        failures.append("runtime")
+    return failures
+
+
+def _systemd_report_failures(payload: dict) -> list[str]:
+    failures = []
+    if not _has_text(payload.get("checked_at")):
+        failures.append("checked_at")
+    if payload.get("enabled_state") != "enabled":
+        failures.append("enabled")
+    if payload.get("active_state") != "active":
+        failures.append("active")
+    if payload.get("sub_state") != "running":
+        failures.append("sub")
+    if payload.get("unit_file_state") != "enabled":
+        failures.append("unit_file")
+    if payload.get("type") != "notify":
+        failures.append("type")
+    watchdog_usec = _integer(payload.get("watchdog_usec"))
+    if watchdog_usec is None or watchdog_usec <= 0:
+        failures.append("watchdog")
+    if "boring box-run" not in str(payload.get("exec_start") or ""):
+        failures.append("exec_start")
+    if payload.get("user") != "boring":
+        failures.append("user")
+    return failures
 
 
 def _read_box_ready(name: str, path: Path, raw: bytes) -> EvidenceItem:
@@ -680,6 +880,10 @@ def _integer(value: object) -> int | None:
     if isinstance(value, int):
         return value
     return None
+
+
+def _has_text(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
 
 
 def _fmt(value: float | None) -> str:
