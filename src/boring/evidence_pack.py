@@ -30,6 +30,7 @@ REQUIRED_BOX_READY_CHECKS = {
     "power_runtime",
     "report_freshness",
     "runtime_event_log",
+    "state_path",
     "systemd_runtime",
     "systemd_service",
     "vision",
