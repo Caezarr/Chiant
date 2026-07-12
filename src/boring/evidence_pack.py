@@ -75,9 +75,12 @@ class EvidencePack:
 
 
 def build_evidence_pack(paths: dict[str, Path]) -> EvidencePack:
+    items = [_read_item(name, path) for name, path in paths.items()]
+    if "burn_in" in paths and "runtime_events" in paths:
+        items.append(_read_runtime_alignment(paths["burn_in"], paths["runtime_events"]))
     return EvidencePack(
         generated_at=datetime.now(timezone.utc).isoformat(),
-        items=[_read_item(name, path) for name, path in paths.items()],
+        items=items,
     )
 
 
@@ -219,6 +222,137 @@ def _read_runtime_report(name: str, path: Path, raw: bytes) -> EvidenceItem:
         detail=(
             f"passed={payload.get('passed') is True}, "
             f"failures={','.join(failures) if failures else '-'}"
+        ),
+    )
+
+
+def _read_runtime_alignment(
+    burn_in_path: Path,
+    runtime_events_path: Path,
+    *,
+    max_heartbeat_gap_seconds: float = 1800.0,
+) -> EvidenceItem:
+    path = f"{burn_in_path} + {runtime_events_path}"
+    if not burn_in_path.exists() or not runtime_events_path.exists():
+        missing = [
+            str(missing_path)
+            for missing_path in (burn_in_path, runtime_events_path)
+            if not missing_path.exists()
+        ]
+        return EvidenceItem(
+            "runtime_alignment",
+            path,
+            False,
+            False,
+            None,
+            None,
+            None,
+            _format("runtime_alignment"),
+            f"missing {', '.join(missing)}",
+        )
+
+    try:
+        burn_in = json.loads(burn_in_path.read_text())
+    except json.JSONDecodeError:
+        return EvidenceItem(
+            "runtime_alignment",
+            path,
+            True,
+            False,
+            None,
+            None,
+            None,
+            _format("runtime_alignment"),
+            f"invalid json {burn_in_path}",
+        )
+    if not isinstance(burn_in, dict):
+        return EvidenceItem(
+            "runtime_alignment",
+            path,
+            True,
+            True,
+            False,
+            None,
+            None,
+            _format("runtime_alignment"),
+            "burn_in=json is not an object",
+        )
+
+    started_at = _parse_evidence_timestamp(burn_in.get("started_at"))
+    ended_at = _parse_evidence_timestamp(burn_in.get("ended_at"))
+    invalid_lines = 0
+    scanned = 0
+    earliest_heartbeat: datetime | None = None
+    latest_heartbeat: datetime | None = None
+    blocking: list[str] = []
+    for line_number, line in enumerate(
+        runtime_events_path.read_text().splitlines(),
+        start=1,
+    ):
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            invalid_lines += 1
+            continue
+        if not isinstance(event, dict):
+            invalid_lines += 1
+            continue
+        timestamp = _parse_evidence_timestamp(event.get("ts"))
+        if started_at is not None and timestamp is not None and timestamp < started_at:
+            continue
+        scanned += 1
+        name = event.get("event")
+        if name == "heartbeat" and timestamp is not None:
+            if earliest_heartbeat is None or timestamp < earliest_heartbeat:
+                earliest_heartbeat = timestamp
+            if latest_heartbeat is None or timestamp > latest_heartbeat:
+                latest_heartbeat = timestamp
+        if name in BLOCKING_RUNTIME_EVENTS:
+            blocking.append(f"{name}@line{line_number}")
+        elif name == "network_recovery_attempted" and event.get("ok") is False:
+            blocking.append(f"network_recovery_failed@line{line_number}")
+
+    heartbeat_start_gap_seconds = (
+        (earliest_heartbeat - started_at).total_seconds()
+        if started_at is not None and earliest_heartbeat is not None
+        else None
+    )
+    heartbeat_end_gap_seconds = (
+        (ended_at - latest_heartbeat).total_seconds()
+        if ended_at is not None and latest_heartbeat is not None
+        else None
+    )
+    passed = (
+        started_at is not None
+        and ended_at is not None
+        and invalid_lines == 0
+        and scanned > 0
+        and heartbeat_start_gap_seconds is not None
+        and heartbeat_end_gap_seconds is not None
+        and heartbeat_start_gap_seconds <= max_heartbeat_gap_seconds
+        and heartbeat_end_gap_seconds <= max_heartbeat_gap_seconds
+        and not blocking
+    )
+    raw = burn_in_path.read_bytes() + runtime_events_path.read_bytes()
+    return EvidenceItem(
+        "runtime_alignment",
+        path,
+        True,
+        invalid_lines == 0,
+        passed,
+        len(raw),
+        hashlib.sha256(raw).hexdigest(),
+        _format("runtime_alignment"),
+        (
+            f"scanned={scanned}, since={started_at.isoformat() if started_at else '-'}, "
+            f"heartbeat_start_gap={_fmt_seconds(heartbeat_start_gap_seconds)}/"
+            f"{max_heartbeat_gap_seconds:.0f}s, "
+            f"heartbeat_end_gap={_fmt_seconds(heartbeat_end_gap_seconds)}/"
+            f"{max_heartbeat_gap_seconds:.0f}s, "
+            f"blocking={','.join(blocking) if blocking else '-'}, "
+            f"invalid_lines={invalid_lines}"
         ),
     )
 
@@ -861,6 +995,8 @@ def _detail(payload) -> str:
 
 
 def _format(name: str) -> str:
+    if name == "runtime_alignment":
+        return "derived"
     if name in {"burn_in_samples", "runtime_events"}:
         return "jsonl"
     return "json"
@@ -884,6 +1020,34 @@ def _integer(value: object) -> int | None:
 
 def _has_text(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
+
+
+def _parse_evidence_timestamp(value: object) -> datetime | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(float(value), tz=timezone.utc)
+    if not isinstance(value, str):
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        try:
+            return datetime.fromtimestamp(float(raw), tz=timezone.utc)
+        except ValueError:
+            return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _fmt_seconds(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.0f}s"
 
 
 def _fmt(value: float | None) -> str:
