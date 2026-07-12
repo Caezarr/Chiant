@@ -160,6 +160,7 @@ def default_evidence_paths() -> dict[str, Path]:
         "network_runtime": Path("reports/network-check.json"),
         "power_runtime": Path("reports/power-check.json"),
         "runtime_events": Path(os.getenv("BOX_EVENT_LOG_PATH", "/var/lib/boring/events.jsonl")),
+        "edge_export": Path("models/best.pt"),
         "vision_eval": Path("reports/vision-eval.json"),
         "vision_benchmark": Path("reports/vision-benchmark.json"),
         "paybyphone_endpoints": Path("scripts/paybyphone_endpoints.json"),
@@ -194,6 +195,8 @@ def _read_item(
     *,
     burn_in_report_path: Path | None = None,
 ) -> EvidenceItem:
+    if name == "edge_export":
+        return _read_edge_export(name, path)
     if not path.exists():
         return EvidenceItem(
             name, str(path), False, False, None, None, None, _format(name), "missing"
@@ -753,6 +756,48 @@ def _read_vision_artifact_alignment(
             f"dataset={'ok' if dataset_exists else 'missing'}, "
             f"data_yaml={'ok' if data_yaml_exists else 'missing'}"
         ),
+    )
+
+
+def _read_edge_export(name: str, model_path: Path) -> EvidenceItem:
+    candidates = _edge_export_candidates(model_path)
+    existing = [candidate for candidate in candidates if candidate.exists()]
+    non_empty = [candidate for candidate in existing if candidate.stat().st_size > 0]
+    if not existing:
+        return EvidenceItem(
+            name,
+            _edge_export_path_detail(model_path, candidates),
+            False,
+            True,
+            False,
+            None,
+            None,
+            _format(name),
+            "missing best.onnx or best.tflite",
+        )
+    if not non_empty:
+        return EvidenceItem(
+            name,
+            _edge_export_path_detail(model_path, candidates),
+            True,
+            True,
+            False,
+            0,
+            None,
+            _format(name),
+            "empty best.onnx/best.tflite",
+        )
+    raw = b"".join(candidate.read_bytes() for candidate in non_empty)
+    return EvidenceItem(
+        name,
+        " + ".join(str(candidate) for candidate in non_empty),
+        True,
+        True,
+        True,
+        len(raw),
+        hashlib.sha256(raw).hexdigest(),
+        _format(name),
+        f"exports={', '.join(str(candidate) for candidate in non_empty)}",
     )
 
 
@@ -1952,6 +1997,8 @@ def _detail(payload) -> str:
 def _format(name: str) -> str:
     if name == "runtime_alignment":
         return "derived"
+    if name == "edge_export":
+        return "binary"
     if name in {"burn_in_samples", "runtime_events"}:
         return "jsonl"
     return "json"
@@ -2029,6 +2076,22 @@ def _fmt_resolution(width: int | None, height: int | None) -> str:
     if width is None or height is None:
         return "-"
     return f"{width}x{height}"
+
+
+def _edge_export_candidates(model_path: Path) -> list[Path]:
+    if model_path.suffix.lower() in {".onnx", ".tflite"}:
+        return [model_path]
+    candidates = [
+        model_path.with_suffix(".onnx"),
+        model_path.with_suffix(".tflite"),
+        model_path.parent / "best.onnx",
+        model_path.parent / "best.tflite",
+    ]
+    return list(dict.fromkeys(candidates))
+
+
+def _edge_export_path_detail(model_path: Path, candidates: list[Path]) -> str:
+    return f"{model_path} -> {', '.join(str(candidate) for candidate in candidates)}"
 
 
 def _same_path(left: str, right: str) -> bool:

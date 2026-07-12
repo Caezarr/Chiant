@@ -689,6 +689,11 @@ def test_evidence_pack_requires_complete_vision_benchmark(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
+    edge_export = [item for item in pack.items if item.name == "edge_export"][0]
+    assert edge_export.passed is True
+    assert edge_export.format == "binary"
+    assert "best.onnx" in edge_export.detail
+
     item = [item for item in pack.items if item.name == "vision_benchmark"][0]
     assert item.passed is True
     assert "fps=2.00/2.00" in item.detail
@@ -762,6 +767,33 @@ def test_evidence_pack_rejects_vision_eval_without_dataset_yaml(tmp_path: Path):
     assert alignment.passed is False
     assert "dataset=ok" in alignment.detail
     assert "data_yaml=missing" in alignment.detail
+
+
+def test_evidence_pack_rejects_missing_edge_export(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    (tmp_path / "models" / "best.onnx").unlink()
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "edge_export"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert item.present is False
+    assert "missing best.onnx or best.tflite" in item.detail
+
+
+def test_evidence_pack_rejects_empty_edge_export(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    (tmp_path / "models" / "best.onnx").write_bytes(b"")
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "edge_export"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert item.present is True
+    assert item.size_bytes == 0
+    assert "empty best.onnx/best.tflite" in item.detail
 
 
 def test_evidence_pack_rejects_benchmark_below_hardware_profile_target(tmp_path: Path):
@@ -1393,6 +1425,7 @@ def test_default_evidence_paths_include_box_ready():
     assert paths["network_runtime"] == Path("reports/network-check.json")
     assert paths["power_runtime"] == Path("reports/power-check.json")
     assert paths["runtime_events"] == Path("/var/lib/boring/events.jsonl")
+    assert paths["edge_export"] == Path("models/best.pt")
     assert paths["paybyphone_endpoints"] == Path("scripts/paybyphone_endpoints.json")
     assert paths["burn_in_samples"] == Path("burn-in/samples.jsonl")
 
@@ -1415,6 +1448,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
         "network_runtime": tmp_path / "reports" / "network-check.json",
         "power_runtime": tmp_path / "reports" / "power-check.json",
         "runtime_events": tmp_path / "events.jsonl",
+        "edge_export": tmp_path / "models" / "best.pt",
         "vision_eval": tmp_path / "reports" / "vision-eval.json",
         "vision_benchmark": tmp_path / "reports" / "vision-benchmark.json",
         "paybyphone_endpoints": tmp_path / "scripts" / "paybyphone_endpoints.json",
@@ -1434,8 +1468,9 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
     paths["systemd_runtime"].write_text(json.dumps(_systemd_runtime_payload()))
     paths["burn_in"].write_text(json.dumps(_burn_in_payload()))
     model_path = tmp_path / "models" / "best.pt"
-    model_path.parent.mkdir(parents=True)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
     model_path.write_bytes(b"model")
+    (model_path.parent / "best.onnx").write_bytes(b"edge")
     dataset_path = tmp_path / "datasets" / "control_vehicle_v1"
     dataset_path.mkdir(parents=True)
     (dataset_path / "data.yaml").write_text("names: ['control_vehicle']\n")
