@@ -594,6 +594,7 @@ def _check_runtime_event_log(
     started_at = _burn_in_started_at(burn_in_report_path)
     failures: list[str] = []
     scanned = 0
+    heartbeat_seen = False
     for line_number, raw_line in enumerate(event_log_path.read_text().splitlines(), start=1):
         if not raw_line.strip():
             continue
@@ -611,6 +612,8 @@ def _check_runtime_event_log(
                 continue
         name = str(event.get("event") or "")
         scanned += 1
+        if name == "heartbeat":
+            heartbeat_seen = True
         if name in _BLOCKING_RUNTIME_EVENTS:
             failures.append(f"{name}@line{line_number}")
         elif name == "network_recovery_attempted" and event.get("ok") is False:
@@ -618,9 +621,10 @@ def _check_runtime_event_log(
 
     return ProductionCheck(
         "runtime_event_log",
-        scanned > 0 and not failures,
+        scanned > 0 and heartbeat_seen and not failures,
         (
             f"scanned={scanned}, since={started_at.isoformat() if started_at else '-'}, "
+            f"heartbeat={heartbeat_seen}, "
             f"failures={', '.join(failures) if failures else '-'}"
         ),
     )
