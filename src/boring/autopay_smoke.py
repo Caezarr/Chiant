@@ -64,6 +64,17 @@ def run_autopay_smoke(
             tested_at=tested_at,
             error="PAYMENT_DRY_RUN must be false",
         )
+    if not stop_after:
+        return _report(
+            provider=provider,
+            dry_run=dry_run,
+            plate=plate,
+            duration_minutes=duration_minutes,
+            lat=lat,
+            lon=lon,
+            tested_at=tested_at,
+            error="stop_after must be true for production smoke",
+        )
     try:
         active_before = provider.get_active_session(plate)
         if active_before is not None:
