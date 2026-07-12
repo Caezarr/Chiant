@@ -17,6 +17,8 @@ class PositionCheckReport:
     source: str | None
     lat: float | None
     lon: float | None
+    gpsd_host: str | None
+    gpsd_port: int | None
     checked_at: str
     failures: list[str]
 
@@ -30,6 +32,8 @@ def run_position_check(
     mode: str,
     expected_lat: float | None = None,
     expected_lon: float | None = None,
+    gpsd_host: str | None = None,
+    gpsd_port: int | None = None,
     tolerance_degrees: float = 0.0005,
     now: datetime | None = None,
 ) -> PositionCheckReport:
@@ -42,6 +46,8 @@ def run_position_check(
             source=None,
             lat=None,
             lon=None,
+            gpsd_host=_gpsd_host(mode, gpsd_host),
+            gpsd_port=_gpsd_port(mode, gpsd_port),
             checked_at=checked_at,
             failures=["position=missing"],
         )
@@ -61,6 +67,8 @@ def run_position_check(
         source=position.source,
         lat=position.lat,
         lon=position.lon,
+        gpsd_host=_gpsd_host(mode, gpsd_host),
+        gpsd_port=_gpsd_port(mode, gpsd_port),
         checked_at=checked_at,
         failures=failures,
     )
@@ -100,3 +108,15 @@ def _position_failures(
             if abs(lon - expected_lon) > tolerance_degrees:
                 failures.append(f"lon_delta={abs(lon - expected_lon):.6f}")
     return failures
+
+
+def _gpsd_host(mode: str, value: str | None) -> str | None:
+    if mode.strip().lower() != "gpsd":
+        return None
+    return (value or "127.0.0.1").strip() or None
+
+
+def _gpsd_port(mode: str, value: int | None) -> int | None:
+    if mode.strip().lower() != "gpsd":
+        return None
+    return value if value is not None else 2947

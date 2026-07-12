@@ -412,6 +412,10 @@ def _check_position_report(
     source = str(payload.get("source") or "")
     lat = _json_float(payload.get("lat"))
     lon = _json_float(payload.get("lon"))
+    gpsd_host = str(payload.get("gpsd_host") or "")
+    gpsd_port = _json_int(payload.get("gpsd_port"))
+    expected_gpsd_host = (env.get("GPSD_HOST") or "127.0.0.1").strip()
+    expected_gpsd_port = _env_int(env, "GPSD_PORT", 2947)
     expected_lat = _env_float(env, "BOX_LAT")
     expected_lon = _env_float(env, "BOX_LON")
     failures = payload.get("failures")
@@ -430,14 +434,19 @@ def _check_position_report(
             and abs(lat - expected_lat) <= 0.0005
             and abs(lon - expected_lon) <= 0.0005
         )
-    ok = passed and coords_ok and mode_ok and static_ok
+    gpsd_ok = True
+    if expected_mode == "gpsd":
+        gpsd_ok = gpsd_host == expected_gpsd_host and gpsd_port == expected_gpsd_port
+    ok = passed and coords_ok and mode_ok and static_ok and gpsd_ok
     return ProductionCheck(
         "position_runtime",
         ok,
         (
             f"passed={passed}, mode={mode or '-'}/{expected_mode}, "
             f"source={source or '-'}, position={_format_coord(lat, lon)}, "
-            f"expected={_format_coord(expected_lat, expected_lon)}, failures={failures_text}"
+            f"expected={_format_coord(expected_lat, expected_lon)}, "
+            f"gpsd={gpsd_host or '-'}/{expected_gpsd_host}:{gpsd_port or '-'}/{expected_gpsd_port}, "
+            f"failures={failures_text}"
         ),
     )
 

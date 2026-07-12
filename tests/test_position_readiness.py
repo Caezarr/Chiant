@@ -38,6 +38,19 @@ def test_position_check_rejects_wrong_source_for_mode():
     assert "source=static/gpsd" in report.failures
 
 
+def test_position_check_records_gpsd_endpoint():
+    report = run_position_check(
+        _StaticProvider(Position(50.6371, 3.0633, "gpsd")),
+        mode="gpsd",
+        gpsd_host="gps.local",
+        gpsd_port=2948,
+    )
+
+    assert report.passed is True
+    assert report.gpsd_host == "gps.local"
+    assert report.gpsd_port == 2948
+
+
 def test_position_check_rejects_static_coordinate_drift():
     report = run_position_check(
         _StaticProvider(Position(50.6400, 3.0633, "static")),
