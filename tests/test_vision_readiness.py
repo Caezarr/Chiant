@@ -105,6 +105,32 @@ def test_audit_vision_readiness_requires_enough_positive_label_coverage(tmp_path
     assert "valid_positive_labels=1/10" in check.detail
 
 
+def test_audit_vision_readiness_requires_negative_images_per_split(tmp_path: Path):
+    manifest = _write_manifest(tmp_path, positives=2, negatives=3)
+    dataset = _write_dataset(tmp_path, train=2, valid=1, names="names: ['control_vehicle']")
+    model = tmp_path / "models" / "best.pt"
+    model.parent.mkdir()
+    model.write_bytes(b"model")
+
+    report = audit_vision_readiness(
+        dataset_path=dataset,
+        model_path=model,
+        baseline_manifest=manifest,
+        min_positive_candidates=2,
+        min_negative_candidates=3,
+        min_train_images=2,
+        min_valid_images=1,
+        min_train_negative_images=1,
+        min_valid_negative_images=1,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "yolo_dataset"][0]
+    assert check.ok is False
+    assert "train_negative_images=0/1" in check.detail
+    assert "valid_negative_images=0/1" in check.detail
+
+
 def test_audit_vision_readiness_fails_with_invalid_yolo_labels(tmp_path: Path):
     manifest = _write_manifest(tmp_path, positives=2, negatives=3)
     dataset = _write_dataset(tmp_path, train=2, valid=1, names="names: ['control_vehicle']")

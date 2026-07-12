@@ -57,6 +57,8 @@ def audit_vision_readiness(
     min_valid_images: int = 50,
     min_train_positive_labels: int | None = None,
     min_valid_positive_labels: int | None = None,
+    min_train_negative_images: int | None = None,
+    min_valid_negative_images: int | None = None,
     required_class: str = "control_vehicle",
     require_edge_export: bool = False,
     require_license_review: bool = True,
@@ -91,6 +93,16 @@ def audit_vision_readiness(
                     min_valid_positive_labels
                     if min_valid_positive_labels is not None
                     else max(1, min_valid_images // 5)
+                ),
+                min_train_negative_images=(
+                    min_train_negative_images
+                    if min_train_negative_images is not None
+                    else max(0, min_train_images // 5)
+                ),
+                min_valid_negative_images=(
+                    min_valid_negative_images
+                    if min_valid_negative_images is not None
+                    else max(0, min_valid_images // 5)
                 ),
                 required_class=required_class,
             ),
@@ -250,6 +262,8 @@ def _check_yolo_dataset(
     min_valid_images: int,
     min_train_positive_labels: int,
     min_valid_positive_labels: int,
+    min_train_negative_images: int,
+    min_valid_negative_images: int,
     required_class: str,
 ) -> VisionCheck:
     data_yaml = dataset / "data.yaml"
@@ -266,11 +280,21 @@ def _check_yolo_dataset(
     valid_positive_labels = (
         _count_positive_labels(dataset / "valid", class_index) if class_index is not None else 0
     )
+    train_negative_images = (
+        _count_negative_images(dataset / "train", class_index) if class_index is not None else 0
+    )
+    valid_negative_images = (
+        _count_negative_images(dataset / "valid", class_index) if class_index is not None else 0
+    )
     train_invalid_labels = _count_invalid_labels(dataset / "train", class_map)
     valid_invalid_labels = _count_invalid_labels(dataset / "valid", class_map)
     labels_ok = (
         train_positive_labels >= min_train_positive_labels
         and valid_positive_labels >= min_valid_positive_labels
+    )
+    negatives_ok = (
+        train_negative_images >= min_train_negative_images
+        and valid_negative_images >= min_valid_negative_images
     )
     label_format_ok = train_invalid_labels == 0 and valid_invalid_labels == 0
     ok = (
@@ -278,6 +302,7 @@ def _check_yolo_dataset(
         and valid_images >= min_valid_images
         and has_class
         and labels_ok
+        and negatives_ok
         and label_format_ok
     )
     return VisionCheck(
@@ -289,6 +314,8 @@ def _check_yolo_dataset(
             f"class={required_class if has_class else 'missing'}, "
             f"train_positive_labels={train_positive_labels}/{min_train_positive_labels}, "
             f"valid_positive_labels={valid_positive_labels}/{min_valid_positive_labels}, "
+            f"train_negative_images={train_negative_images}/{min_train_negative_images}, "
+            f"valid_negative_images={valid_negative_images}/{min_valid_negative_images}, "
             f"invalid_labels={train_invalid_labels + valid_invalid_labels}"
         ),
     )
@@ -400,6 +427,21 @@ def _label_has_class(label_path: Path, class_index: int) -> bool:
         except ValueError:
             continue
     return False
+
+
+def _count_negative_images(split_root: Path, class_index: int) -> int:
+    image_dir = split_root / "images"
+    label_dir = split_root / "labels"
+    if not image_dir.exists():
+        return 0
+    negatives = 0
+    for image_path in image_dir.glob("**/*"):
+        if image_path.suffix.lower() not in {".jpg", ".jpeg", ".png"}:
+            continue
+        label_path = label_dir / f"{image_path.stem}.txt"
+        if not _label_has_class(label_path, class_index):
+            negatives += 1
+    return negatives
 
 
 def _count_invalid_labels(split_root: Path, class_map: dict[int, str]) -> int:
