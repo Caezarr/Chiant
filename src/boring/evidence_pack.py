@@ -527,10 +527,15 @@ def _power_report_failures(payload: dict) -> list[str]:
     estimated_draw_watts = _number(payload.get("estimated_draw_watts"))
     estimated_runtime_hours = _number(payload.get("estimated_runtime_hours"))
     required_runtime_hours = _number(payload.get("required_runtime_hours"))
+    battery_critical_percent = _integer(payload.get("battery_critical_percent"))
     if not _has_text(payload.get("checked_at")):
         failures.append("checked_at")
     if battery_percent is None or battery_percent <= 0:
         failures.append("battery_percent")
+    if battery_critical_percent is None:
+        failures.append("battery_critical_percent")
+    elif battery_percent is not None and battery_percent <= battery_critical_percent:
+        failures.append("battery_percent_critical")
     if not isinstance(payload.get("charging"), bool):
         failures.append("charging")
     if not _has_text(payload.get("source")):

@@ -26,6 +26,7 @@ class PowerCheckReport:
     estimated_draw_watts: float
     estimated_runtime_hours: float | None
     required_runtime_hours: float
+    battery_critical_percent: int
     checked_at: str
     failures: list[str]
 
@@ -65,6 +66,7 @@ def run_power_check(
         estimated_draw_watts=estimated_draw_watts,
         estimated_runtime_hours=runtime_hours,
         required_runtime_hours=required_runtime_hours,
+        battery_critical_percent=battery_critical_percent,
         checked_at=checked_at,
         failures=failures,
     )

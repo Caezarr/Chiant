@@ -20,6 +20,7 @@ def test_power_check_passes_with_known_battery_and_runtime():
     assert report.battery_percent == 82
     assert report.available_battery_wh == 82
     assert report.estimated_runtime_hours == 10.25
+    assert report.battery_critical_percent == 10
     assert report.failures == []
 
 
@@ -85,6 +86,7 @@ def test_write_power_report_includes_passed(tmp_path: Path):
     write_report(report, output)
 
     assert '"passed": true' in output.read_text()
+    assert '"battery_critical_percent": 10' in output.read_text()
 
 
 class _StaticPower:

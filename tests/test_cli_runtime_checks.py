@@ -218,6 +218,7 @@ def _patch_runtime_reports(monkeypatch) -> None:
             estimated_draw_watts=8,
             estimated_runtime_hours=10.25,
             required_runtime_hours=10,
+            battery_critical_percent=10,
             checked_at=checked_at,
             failures=[],
         ),

@@ -166,6 +166,37 @@ def test_evidence_pack_rejects_power_report_using_full_capacity_runtime(tmp_path
     assert "runtime_consistency" in item.detail
 
 
+def test_evidence_pack_requires_power_runtime_critical_threshold(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["power_runtime"].read_text())
+    payload.pop("battery_critical_percent")
+    paths["power_runtime"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "power_runtime"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "battery_critical_percent" in item.detail
+
+
+def test_evidence_pack_rejects_critical_power_runtime_battery(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["power_runtime"].read_text())
+    payload["battery_percent"] = 10
+    payload["available_battery_wh"] = 10
+    payload["estimated_runtime_hours"] = 1.25
+    payload["passed"] = True
+    paths["power_runtime"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "power_runtime"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "battery_percent_critical" in item.detail
+
+
 def test_evidence_pack_requires_runtime_events_to_cover_burn_in_window(tmp_path: Path):
     paths = _write_evidence(tmp_path)
 
@@ -1153,6 +1184,7 @@ def _power_runtime_payload() -> dict:
         "estimated_draw_watts": 8,
         "estimated_runtime_hours": 10.25,
         "required_runtime_hours": 10,
+        "battery_critical_percent": 10,
         "checked_at": "2026-01-01T00:00:00+00:00",
         "failures": [],
     }
