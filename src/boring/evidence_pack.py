@@ -175,18 +175,6 @@ def default_evidence_paths() -> dict[str, Path]:
 def evidence_item_ok(item: EvidenceItem) -> bool:
     if not item.present or not item.valid_json:
         return False
-    if item.name in {
-        "autopay_smoke",
-        "box_ready",
-        "burn_in_samples",
-        "hardware_profile",
-        "notification_test",
-        "paybyphone_endpoints",
-        "runtime_events",
-        "vision_benchmark",
-        "vision_eval",
-    }:
-        return item.passed is True
     return item.passed is True
 
 
