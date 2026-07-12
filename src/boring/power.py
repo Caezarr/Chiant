@@ -81,6 +81,18 @@ def estimate_runtime_hours(capacity_wh: float | None, draw_watts: float) -> floa
     return capacity_wh / draw_watts
 
 
+def estimate_available_capacity_wh(
+    capacity_wh: float | None,
+    battery_percent: int | None,
+) -> float | None:
+    """Retourne l'energie disponible au pourcentage batterie courant."""
+    if capacity_wh is None or capacity_wh <= 0:
+        return None
+    if battery_percent is None or not 0 <= battery_percent <= 100:
+        return None
+    return capacity_wh * (battery_percent / 100)
+
+
 def _read_text(path: Path) -> str | None:
     try:
         return path.read_text().strip()

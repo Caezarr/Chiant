@@ -150,6 +150,20 @@ def test_evidence_pack_requires_complete_runtime_reports(tmp_path: Path):
         assert "failures=-" in item.detail
 
 
+def test_evidence_pack_rejects_power_report_using_full_capacity_runtime(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["power_runtime"].read_text())
+    payload["estimated_runtime_hours"] = 12.5
+    paths["power_runtime"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "power_runtime"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "runtime_consistency" in item.detail
+
+
 def test_evidence_pack_requires_runtime_events_to_cover_burn_in_window(tmp_path: Path):
     paths = _write_evidence(tmp_path)
 
@@ -902,8 +916,9 @@ def _power_runtime_payload() -> dict:
         "charging": False,
         "source": "/sys/class/power_supply/BAT0",
         "battery_capacity_wh": 100,
+        "available_battery_wh": 82,
         "estimated_draw_watts": 8,
-        "estimated_runtime_hours": 12.5,
+        "estimated_runtime_hours": 10.25,
         "required_runtime_hours": 10,
         "checked_at": "2026-01-01T00:00:00+00:00",
         "failures": [],

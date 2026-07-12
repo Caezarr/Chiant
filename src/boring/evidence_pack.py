@@ -468,6 +468,9 @@ def _position_report_failures(payload: dict) -> list[str]:
 def _power_report_failures(payload: dict) -> list[str]:
     failures = []
     battery_percent = _integer(payload.get("battery_percent"))
+    battery_capacity_wh = _number(payload.get("battery_capacity_wh"))
+    available_battery_wh = _number(payload.get("available_battery_wh"))
+    estimated_draw_watts = _number(payload.get("estimated_draw_watts"))
     estimated_runtime_hours = _number(payload.get("estimated_runtime_hours"))
     required_runtime_hours = _number(payload.get("required_runtime_hours"))
     if not _has_text(payload.get("checked_at")):
@@ -478,14 +481,40 @@ def _power_report_failures(payload: dict) -> list[str]:
         failures.append("charging")
     if not _has_text(payload.get("source")):
         failures.append("source")
-    if _number(payload.get("battery_capacity_wh")) is None:
+    if battery_capacity_wh is None:
         failures.append("battery_capacity")
+    expected_available_wh = (
+        battery_capacity_wh * (battery_percent / 100)
+        if battery_capacity_wh is not None
+        and battery_percent is not None
+        and 0 <= battery_percent <= 100
+        else None
+    )
+    if (
+        available_battery_wh is None
+        or expected_available_wh is None
+        or abs(available_battery_wh - expected_available_wh) > 0.1
+    ):
+        failures.append("available_battery")
+    expected_runtime = (
+        available_battery_wh / estimated_draw_watts
+        if available_battery_wh is not None
+        and estimated_draw_watts is not None
+        and estimated_draw_watts > 0
+        else None
+    )
     if (
         estimated_runtime_hours is None
         or required_runtime_hours is None
         or estimated_runtime_hours < required_runtime_hours
     ):
         failures.append("runtime")
+    if (
+        estimated_runtime_hours is None
+        or expected_runtime is None
+        or abs(estimated_runtime_hours - expected_runtime) > 0.1
+    ):
+        failures.append("runtime_consistency")
     return failures
 
 

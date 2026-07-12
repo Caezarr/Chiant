@@ -18,7 +18,8 @@ def test_power_check_passes_with_known_battery_and_runtime():
 
     assert report.passed is True
     assert report.battery_percent == 82
-    assert report.estimated_runtime_hours == 12.5
+    assert report.available_battery_wh == 82
+    assert report.estimated_runtime_hours == 10.25
     assert report.failures == []
 
 
@@ -54,7 +55,22 @@ def test_power_check_fails_when_runtime_is_short():
     )
 
     assert report.passed is False
-    assert "runtime=5.0/10.0h" in report.failures
+    assert report.available_battery_wh == 32
+    assert "runtime=4.0/10.0h" in report.failures
+
+
+def test_power_check_uses_current_battery_percent_for_runtime():
+    report = run_power_check(
+        monitor=_StaticPower(BatteryStatus(70, False, "bat")),
+        battery_capacity_wh=100,
+        estimated_draw_watts=8,
+        required_runtime_hours=10,
+    )
+
+    assert report.passed is False
+    assert report.available_battery_wh == 70
+    assert report.estimated_runtime_hours == 8.75
+    assert "runtime=8.8/10.0h" in report.failures
 
 
 def test_write_power_report_includes_passed(tmp_path: Path):
