@@ -59,6 +59,7 @@ def audit_production_readiness(
     require_network_recovery: bool = True,
     require_notification_webhook: bool = True,
     require_notification_test: bool = True,
+    require_runtime_event_log: bool = True,
     min_burn_in_hours: float = 10.0,
     now: datetime | None = None,
 ) -> ProductionReadinessReport:
@@ -113,7 +114,11 @@ def audit_production_readiness(
             min_burn_in_hours=min_burn_in_hours,
             require_charging_seen=require_charging_seen,
         ),
-        _check_runtime_event_log(storage_path, burn_in_report_path),
+        _check_runtime_event_log(
+            storage_path,
+            burn_in_report_path,
+            require_runtime_event_log=require_runtime_event_log,
+        ),
         _check_report_freshness(
             values,
             now=checked_at,
@@ -567,11 +572,25 @@ _BLOCKING_RUNTIME_EVENTS = {
 }
 
 
-def _check_runtime_event_log(event_log_path: Path, burn_in_report_path: Path) -> ProductionCheck:
+def _check_runtime_event_log(
+    event_log_path: Path,
+    burn_in_report_path: Path,
+    *,
+    require_runtime_event_log: bool,
+) -> ProductionCheck:
+    event_log_path = _event_log_path(event_log_path)
     if not event_log_path.exists():
-        return ProductionCheck("runtime_event_log", True, f"missing optional {event_log_path}")
+        return ProductionCheck(
+            "runtime_event_log",
+            not require_runtime_event_log,
+            f"missing {'required' if require_runtime_event_log else 'optional'} {event_log_path}",
+        )
     if not event_log_path.is_file():
-        return ProductionCheck("runtime_event_log", True, f"not a file: {event_log_path}")
+        return ProductionCheck(
+            "runtime_event_log",
+            not require_runtime_event_log,
+            f"not a file: {event_log_path}",
+        )
     started_at = _burn_in_started_at(burn_in_report_path)
     failures: list[str] = []
     scanned = 0
@@ -605,6 +624,12 @@ def _check_runtime_event_log(event_log_path: Path, burn_in_report_path: Path) ->
             f"failures={', '.join(failures) if failures else '-'}"
         ),
     )
+
+
+def _event_log_path(path: Path) -> Path:
+    if path.exists() and path.is_dir():
+        return path / "events.jsonl"
+    return path
 
 
 def _burn_in_started_at(path: Path) -> datetime | None:

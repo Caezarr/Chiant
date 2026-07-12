@@ -249,6 +249,10 @@ def box_ready(
         False,
         help="Ne pas exiger le rapport box-notify-test.",
     ),
+    allow_missing_runtime_event_log: bool = typer.Option(
+        False,
+        help="Ne pas exiger le journal runtime events.jsonl.",
+    ),
 ) -> None:
     """Gate final avant installation voiture / systemd."""
     report = audit_production_readiness(
@@ -270,6 +274,7 @@ def box_ready(
         require_network_recovery=not allow_missing_network_recovery,
         require_notification_webhook=not allow_missing_notification_webhook,
         require_notification_test=not allow_missing_notification_test,
+        require_runtime_event_log=not allow_missing_runtime_event_log,
         min_burn_in_hours=min_burn_in_hours,
     )
     write_production_report(report, output)
