@@ -2672,6 +2672,61 @@ def test_production_readiness_requires_runtime_event_log(tmp_path: Path):
     assert "missing required" in check.detail
 
 
+def test_production_readiness_uses_configured_event_log_path(tmp_path: Path):
+    report_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    artifacts = _write_ready_artifacts(tmp_path, report_time=report_time)
+    artifacts["events"].unlink()
+    configured_events = tmp_path / "custom" / "events.jsonl"
+    configured_events.parent.mkdir()
+    configured_events.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "ts": "2025-12-31T14:00:10+00:00",
+                        "event": "heartbeat",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "ts": "2026-01-01T00:00:00+00:00",
+                        "event": "heartbeat",
+                    }
+                ),
+            ]
+        )
+        + "\n"
+    )
+    env = _ready_env()
+    env["BOX_EVENT_LOG_PATH"] = str(configured_events)
+    env["BOX_READINESS_MAX_REPORT_AGE_HOURS"] = "0"
+
+    report = audit_production_readiness(
+        env=env,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path / "events.jsonl",
+    )
+
+    assert report.passed is True
+    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    assert check.ok is True
+    assert "scanned=2" in check.detail
+
+
 def test_production_readiness_can_allow_missing_runtime_event_log_for_rehearsal(
     tmp_path: Path,
 ):

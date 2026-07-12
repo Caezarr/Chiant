@@ -162,6 +162,7 @@ def audit_production_readiness(
         ),
         _check_burn_in_samples(burn_in_report_path),
         _check_runtime_event_log(
+            values,
             storage_path,
             burn_in_report_path,
             require_runtime_event_log=require_runtime_event_log,
@@ -694,6 +695,7 @@ def _check_power_report(
 
 def _check_disk_space(env: Mapping[str, str], path: Path) -> ProductionCheck:
     min_free_mb = _env_float(env, "BOX_DISK_MIN_FREE_MB") or 512
+    path = _configured_event_log_path(env, path)
     status = DiskSpaceMonitor(path).check()
     if status is None:
         return ProductionCheck("disk_space", False, f"cannot inspect {path}")
@@ -1316,12 +1318,14 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
 
 
 def _check_runtime_event_log(
+    env: Mapping[str, str],
     event_log_path: Path,
     burn_in_report_path: Path,
     *,
     require_runtime_event_log: bool,
     max_heartbeat_gap_seconds: float,
 ) -> ProductionCheck:
+    event_log_path = _configured_event_log_path(env, event_log_path)
     event_log_path = _event_log_path(event_log_path)
     if not event_log_path.exists():
         return ProductionCheck(
@@ -1404,6 +1408,10 @@ def _event_log_path(path: Path) -> Path:
     if path.exists() and path.is_dir():
         return path / "events.jsonl"
     return path
+
+
+def _configured_event_log_path(env: Mapping[str, str], path: Path) -> Path:
+    return Path(env.get("BOX_EVENT_LOG_PATH") or path)
 
 
 def _burn_in_window(path: Path) -> tuple[datetime | None, datetime | None]:
