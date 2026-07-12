@@ -48,6 +48,10 @@ class BurnInReport:
     battery_delta_percent: int | None
     charging_seen: bool
     discharging_seen: bool
+    battery_low_percent: int
+    battery_critical_percent: int
+    thermal_warning_c: float
+    thermal_critical_c: float
     max_temp_c: float | None
     thermal_warning_seen: bool
     thermal_critical_seen: bool
@@ -199,6 +203,10 @@ def build_report(
         battery_delta_percent=battery_delta,
         charging_seen=charging_seen,
         discharging_seen=discharging_seen,
+        battery_low_percent=config.battery_low_percent,
+        battery_critical_percent=config.battery_critical_percent,
+        thermal_warning_c=config.thermal_warning_c,
+        thermal_critical_c=config.thermal_critical_c,
         max_temp_c=max_temp,
         thermal_warning_seen=thermal_warning_seen,
         thermal_critical_seen=thermal_critical_seen,

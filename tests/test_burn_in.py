@@ -68,6 +68,10 @@ def test_build_report_passes_with_healthy_samples():
     assert report.battery_delta_percent == 4
     assert report.charging_seen is True
     assert report.discharging_seen is True
+    assert report.battery_low_percent == 25
+    assert report.battery_critical_percent == 10
+    assert report.thermal_warning_c == 75
+    assert report.thermal_critical_c == 85
     assert report.max_temp_c == 56
 
 

@@ -347,6 +347,37 @@ def test_evidence_pack_recomputes_low_battery_from_burn_in_minimum(tmp_path: Pat
     assert "min_battery_low" in item.detail
 
 
+def test_evidence_pack_requires_burn_in_threshold_provenance(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["burn_in"].read_text())
+    payload.pop("battery_low_percent")
+    payload.pop("thermal_critical_c")
+    paths["burn_in"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "burn_in"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "battery_low_percent" in item.detail
+    assert "thermal_critical_c" in item.detail
+
+
+def test_evidence_pack_recomputes_burn_in_threshold_flags(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["burn_in"].read_text())
+    payload["max_temp_c"] = 80.0
+    payload["thermal_warning_seen"] = False
+    paths["burn_in"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "burn_in"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "thermal_warning_threshold_mismatch" in item.detail
+
+
 def test_evidence_pack_rejects_hardware_profile_without_preset(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["hardware_profile"].read_text())
@@ -1161,6 +1192,10 @@ def _burn_in_payload() -> dict:
         "battery_delta_percent": -22,
         "charging_seen": True,
         "discharging_seen": True,
+        "battery_low_percent": 25,
+        "battery_critical_percent": 10,
+        "thermal_warning_c": 75.0,
+        "thermal_critical_c": 85.0,
         "max_temp_c": 56.0,
         "thermal_warning_seen": False,
         "thermal_critical_seen": False,
