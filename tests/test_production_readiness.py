@@ -1203,6 +1203,40 @@ def test_production_readiness_fails_when_vision_eval_has_no_true_positives(tmp_p
     assert "true_positives=0" in check.detail
 
 
+def test_production_readiness_recomputes_vision_eval_metrics_from_counts(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["vision_eval"].read_text())
+    payload["recall"] = 0.93
+    payload["true_positives"] = 93
+    payload["false_negatives"] = 93
+    artifacts["vision_eval"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "vision_eval"][0]
+    assert check.ok is False
+    assert "metrics_consistent=False" in check.detail
+
+
 def test_production_readiness_fails_when_vision_eval_uses_other_model(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     payload = json.loads(artifacts["vision_eval"].read_text())
@@ -2462,7 +2496,7 @@ def _write_ready_artifacts(
     hardware_charge_watts: float = 30,
     vision_eval_passed: bool = True,
     vision_recall: float = 0.93,
-    vision_false_positive_per_hour: float = 0.5,
+    vision_false_positive_per_hour: float = 1 / 3,
 ) -> dict[str, Path]:
     report_time = report_time or datetime.now(timezone.utc)
     report_time_iso = report_time.isoformat()
@@ -2575,7 +2609,7 @@ def _write_ready_artifacts(
                 "dataset_path": str(dataset),
                 "dataset_id": "field-pi5-daylight-v1",
                 "recall": vision_recall,
-                "precision": 0.98,
+                "precision": 93 / 94,
                 "false_positive_per_hour": vision_false_positive_per_hour,
                 "evaluated_hours": 3.0,
                 "frames_evaluated": 10_800,

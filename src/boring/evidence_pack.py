@@ -1050,9 +1050,34 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
         _integer(payload.get("frames_evaluated")) if isinstance(payload, dict) else None
     )
     true_positives = _integer(payload.get("true_positives")) if isinstance(payload, dict) else None
+    false_positives = (
+        _integer(payload.get("false_positives")) if isinstance(payload, dict) else None
+    )
+    false_negatives = (
+        _integer(payload.get("false_negatives")) if isinstance(payload, dict) else None
+    )
     invalid_images = _integer(payload.get("invalid_images")) if isinstance(payload, dict) else None
     model_path = str(payload.get("model_path") or "") if isinstance(payload, dict) else ""
     dataset_path = str(payload.get("dataset_path") or "") if isinstance(payload, dict) else ""
+    precision = _number(payload.get("precision")) if isinstance(payload, dict) else None
+    expected_recall = _metric_ratio(true_positives, true_positives, false_negatives)
+    expected_precision = _metric_ratio(true_positives, true_positives, false_positives)
+    expected_fp_per_hour = (
+        false_positives / evaluated_hours
+        if false_positives is not None and evaluated_hours is not None and evaluated_hours > 0
+        else None
+    )
+    metrics_consistent = (
+        recall is not None
+        and expected_recall is not None
+        and abs(recall - expected_recall) <= 0.001
+        and precision is not None
+        and expected_precision is not None
+        and abs(precision - expected_precision) <= 0.001
+        and false_positive_per_hour is not None
+        and expected_fp_per_hour is not None
+        and abs(false_positive_per_hour - expected_fp_per_hour) <= 0.001
+    )
     ok = (
         passed
         and recall is not None
@@ -1067,7 +1092,10 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
         and frames_evaluated > 0
         and true_positives is not None
         and true_positives > 0
+        and false_positives is not None
+        and false_negatives is not None
         and invalid_images == 0
+        and metrics_consistent
         and bool(model_path)
         and bool(dataset_path)
     )
@@ -1084,7 +1112,9 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
             f"passed={passed}, recall={_fmt(recall)}/{_fmt(min_recall)}, "
             f"fp_per_hour={_fmt(false_positive_per_hour)}/{_fmt(max_false_positive_per_hour)}, "
             f"hours={_fmt(evaluated_hours)}, frames={frames_evaluated}, "
-            f"true_positives={true_positives}, invalid={invalid_images}, "
+            f"true_positives={true_positives}, false_positives={false_positives}, "
+            f"false_negatives={false_negatives}, invalid={invalid_images}, "
+            f"metrics_consistent={metrics_consistent}, "
             f"model={'ok' if model_path else 'missing'}, "
             f"dataset={'ok' if dataset_path else 'missing'}"
         ),
@@ -1221,3 +1251,16 @@ def _fmt_delta(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value:+.2f}"
+
+
+def _metric_ratio(
+    numerator: int | None,
+    denominator_left: int | None,
+    denominator_right: int | None,
+) -> float | None:
+    if numerator is None or denominator_left is None or denominator_right is None:
+        return None
+    denominator = denominator_left + denominator_right
+    if denominator <= 0:
+        return None
+    return numerator / denominator

@@ -372,6 +372,22 @@ def test_evidence_pack_rejects_vision_eval_without_true_positives(tmp_path: Path
     assert "true_positives=0" in item.detail
 
 
+def test_evidence_pack_recomputes_vision_eval_metrics_from_counts(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_eval"].read_text())
+    payload["recall"] = 0.93
+    payload["true_positives"] = 93
+    payload["false_negatives"] = 93
+    paths["vision_eval"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "metrics_consistent=False" in item.detail
+
+
 def test_evidence_pack_requires_complete_vision_benchmark(tmp_path: Path):
     paths = _write_evidence(tmp_path)
 
@@ -803,8 +819,8 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
                 "dataset_id": "field-pi5-daylight-v1",
                 "recall": 0.93,
                 "min_recall": 0.9,
-                "precision": 0.98,
-                "false_positive_per_hour": 0.5,
+                "precision": 93 / 94,
+                "false_positive_per_hour": 1 / 3,
                 "max_false_positive_per_hour": 1.0,
                 "evaluated_hours": 3.0,
                 "frames_evaluated": 10_800,
