@@ -247,6 +247,54 @@ def test_handle_trigger_skips_payment_when_state_file_is_corrupt(tmp_path, monke
     assert "payment_skipped_state_corrupt" in (tmp_path / "events.jsonl").read_text()
 
 
+def test_handle_trigger_logs_state_persist_failure_after_payment_started(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr("boring.runtime.notify", lambda *_, **__: True)
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    class StateStoreFailsOnRecord:
+        def paid_today_cents(self):
+            return 0
+
+        def record_session(self, session):
+            raise RuntimeError("disk read-only")
+
+    class PaymentStartsSession:
+        def get_active_session(self, plate):
+            return None
+
+        def get_zone_id(self, lat, lon):
+            return "ZONE"
+
+        def start_session(self, plate, zone_id, duration_minutes):
+            return SimpleNamespace(
+                provider="mock",
+                session_id="S1",
+                vehicle_plate=plate,
+                location_id=zone_id,
+                amount_cents=120,
+            )
+
+    result = _handle_trigger(
+        payment=PaymentStartsSession(),
+        cooldown=SimpleNamespace(allow=lambda: True, record=lambda: None),
+        state_store=StateStoreFailsOnRecord(),
+        event_log=event_log,
+        state=RuntimeState(network_online=True),
+        config=BoxConfig(vehicle_plate="AB-123-CD", require_geofence=False),
+        position_provider=StaticPositionProvider(50.6371, 3.0633),
+        zones=None,
+        detection_count=1,
+    )
+
+    assert result is not None
+    events = (tmp_path / "events.jsonl").read_text()
+    assert "payment_state_persist_failed" in events
+    assert "payment_success" not in events
+
+
 def test_handle_trigger_logs_notification_failure_when_payment_is_blocked(
     tmp_path,
     monkeypatch,

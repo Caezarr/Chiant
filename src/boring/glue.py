@@ -224,7 +224,19 @@ def process_trigger(
             return None
         cooldown.record()
         if on_success is not None:
-            on_success(session)
+            try:
+                on_success(session)
+            except Exception as state_error:
+                on_notify(
+                    "Boring — etat paiement non persiste",
+                    (
+                        f"Session {session.session_id} demarree, mais etat local non "
+                        f"persiste: {state_error}. Verifier BOX_STATE_PATH avant "
+                        "un nouveau trajet."
+                    ),
+                    sound=True,
+                )
+                return session
         on_notify(
             "Boring — stationnement payé",
             f"{duration_minutes} min sur plaque {plate}. Session {session.session_id}.",

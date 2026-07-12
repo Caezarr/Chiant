@@ -302,6 +302,34 @@ def test_trigger_stops_session_when_amount_exceeds_limit():
     assert "annule" in notif.notifs[0][0].lower()
 
 
+def test_trigger_reports_state_persistence_failure_after_payment_started():
+    provider = MockProvider()
+    cooldown = PaymentCooldown(cooldown_minutes=10)
+    notif = NotifyCollector()
+
+    def fail_persist(session: ParkingSession) -> None:
+        raise RuntimeError("disk read-only")
+
+    result = process_trigger(
+        payment=provider,
+        cooldown=cooldown,
+        in_paid_zone=True,
+        plate="AB-123-CD",
+        duration_minutes=15,
+        lat=50.6371,
+        lon=3.0633,
+        on_notify=notif,
+        on_success=fail_persist,
+    )
+
+    assert result is not None
+    assert provider.calls[-1][0] == "start_session"
+    assert cooldown.allow() is False
+    assert len(notif.notifs) == 1
+    assert "etat paiement non persiste" in notif.notifs[0][0].lower()
+    assert "disk read-only" in notif.notifs[0][1]
+
+
 def test_trigger_failure_then_success_allowed():
     """Après un échec, on peut retenter immédiatement (cooldown pas marqué)."""
     provider = MockProvider(fail=True)
