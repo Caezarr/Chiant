@@ -149,6 +149,47 @@ def test_evidence_pack_rejects_autopay_smoke_without_session_id(tmp_path: Path):
     assert "session=missing" in item.detail
 
 
+def test_evidence_pack_requires_complete_notification_test(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "notification_test"][0]
+    assert item.passed is True
+    assert "status=204" in item.detail
+    assert "host=ok" in item.detail
+
+
+def test_evidence_pack_rejects_notification_test_non_2xx(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["notification_test"].read_text())
+    payload["passed"] = False
+    payload["status_code"] = 500
+    payload["error"] = "HTTP 500"
+    paths["notification_test"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "notification_test"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "status=500" in item.detail
+
+
+def test_evidence_pack_rejects_notification_test_without_host(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["notification_test"].read_text())
+    payload["webhook_host"] = ""
+    paths["notification_test"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "notification_test"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "host=missing" in item.detail
+
+
 def test_evidence_pack_includes_runtime_events_jsonl(tmp_path: Path):
     paths = _write_evidence(tmp_path)
 
@@ -344,6 +385,19 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
                 "active_session_verified": True,
                 "stopped": True,
                 "stop_verified": True,
+                "tested_at": "2026-01-01T00:00:00+00:00",
+                "error": None,
+            }
+        )
+    )
+    paths["notification_test"].write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "webhook_host": "notify.example.test",
+                "status_code": 204,
+                "title": "Boring Box - test notification",
+                "message": "Canal notification pret pour batterie faible.",
                 "tested_at": "2026-01-01T00:00:00+00:00",
                 "error": None,
             }
