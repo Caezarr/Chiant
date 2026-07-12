@@ -86,10 +86,11 @@ def audit_production_readiness(
         ),
         _summary_check("hardware", hardware.passed, _failed_names(hardware.checks)),
         _check_hardware_env_consistency(values, hardware_profile_path),
-        _check_vision_eval_report(vision_eval_report_path),
+        _check_vision_eval_report(vision_eval_report_path, expected_model_path=model_path),
         _check_benchmark_report(
             benchmark_report_path,
             required_min_fps=_hardware_required_benchmark_fps(hardware_profile_path),
+            expected_model_path=model_path,
         ),
         _check_power_budget(values),
         _check_network_recovery(values, require_network_recovery=require_network_recovery),
@@ -401,7 +402,10 @@ def _hardware_required_benchmark_fps(path: Path) -> float | None:
 
 
 def _check_benchmark_report(
-    path: Path, *, required_min_fps: float | None = None
+    path: Path,
+    *,
+    required_min_fps: float | None = None,
+    expected_model_path: Path | None = None,
 ) -> ProductionCheck:
     if not path.exists():
         return ProductionCheck("vision_benchmark", False, f"missing {path}")
@@ -416,8 +420,14 @@ def _check_benchmark_report(
     min_fps = float(payload.get("min_fps") or 0)
     required_fps = required_min_fps if required_min_fps is not None else min_fps
     device = str(payload.get("device") or "unknown")
+    report_model = str(payload.get("model_path") or "")
+    model_ok = expected_model_path is None or _same_path(report_model, expected_model_path)
     ok = (
-        passed and frames_processed > 0 and min_fps >= required_fps and measured_fps >= required_fps
+        passed
+        and frames_processed > 0
+        and min_fps >= required_fps
+        and measured_fps >= required_fps
+        and model_ok
     )
     return ProductionCheck(
         "vision_benchmark",
@@ -425,12 +435,17 @@ def _check_benchmark_report(
         (
             f"passed={passed}, fps={measured_fps:.2f}/{min_fps:.2f}, "
             f"required={required_fps:.2f}, "
-            f"frames={frames_processed}, device={device}"
+            f"frames={frames_processed}, device={device}, "
+            f"model={report_model or '-'}/{expected_model_path or '-'}"
         ),
     )
 
 
-def _check_vision_eval_report(path: Path) -> ProductionCheck:
+def _check_vision_eval_report(
+    path: Path,
+    *,
+    expected_model_path: Path | None = None,
+) -> ProductionCheck:
     if not path.exists():
         return ProductionCheck("vision_eval", False, f"missing {path}")
     try:
@@ -446,6 +461,8 @@ def _check_vision_eval_report(path: Path) -> ProductionCheck:
     evaluated_hours = _json_float(payload.get("evaluated_hours")) or 0.0
     frames_evaluated = int(payload.get("frames_evaluated") or 0)
     invalid_images = int(payload.get("invalid_images") or 0)
+    report_model = str(payload.get("model_path") or "")
+    model_ok = expected_model_path is None or _same_path(report_model, expected_model_path)
     ok = (
         passed
         and recall >= min_recall
@@ -453,6 +470,7 @@ def _check_vision_eval_report(path: Path) -> ProductionCheck:
         and evaluated_hours > 0
         and frames_evaluated > 0
         and invalid_images == 0
+        and model_ok
     )
     return ProductionCheck(
         "vision_eval",
@@ -460,7 +478,8 @@ def _check_vision_eval_report(path: Path) -> ProductionCheck:
         (
             f"passed={passed}, recall={recall:.3f}/{min_recall:.3f}, "
             f"fp_per_hour={false_positive_per_hour:.2f}/{max_false_positive_per_hour:.2f}, "
-            f"hours={evaluated_hours:.1f}, frames={frames_evaluated}, invalid={invalid_images}"
+            f"hours={evaluated_hours:.1f}, frames={frames_evaluated}, "
+            f"invalid={invalid_images}, model={report_model or '-'}/{expected_model_path or '-'}"
         ),
     )
 
@@ -690,3 +709,14 @@ def _format_coord(lat: float | None, lon: float | None) -> str:
     if lat is None or lon is None:
         return "-"
     return f"{lat:.5f},{lon:.5f}"
+
+
+def _same_path(reported: str, expected: Path) -> bool:
+    if not reported.strip():
+        return False
+    try:
+        return Path(reported).expanduser().resolve(strict=False) == expected.expanduser().resolve(
+            strict=False
+        )
+    except OSError:
+        return False
