@@ -278,7 +278,10 @@ def box_doctor(config: BoxConfig | None = None) -> int:
             "recharge voiture",
             (
                 f"{config.vehicle_charge_watts or 0:.1f}W input, "
-                f"{budget.charge_surplus_watts:.1f}W surplus"
+                f"{budget.charge_surplus_watts:.1f}W surplus, "
+                f"{budget.daily_recovered_wh:.1f}Wh/j, "
+                f"{_format_optional_hours(budget.required_drive_recharge_hours)} "
+                "roulage pour recuperer la journee"
             ),
         )
     check(
@@ -539,6 +542,12 @@ def _current_inference_fps(state: RuntimeState, config: BoxConfig) -> float:
     if state.battery_saver_active or state.thermal_saver_active:
         return max(0.1, config.low_power_inference_fps)
     return max(0.1, config.inference_fps)
+
+
+def _format_optional_hours(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.1f}h"
 
 
 def _check_network(

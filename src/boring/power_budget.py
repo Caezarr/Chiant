@@ -37,6 +37,24 @@ class PowerBudget:
         return self.charge_surplus_watts * self.daily_drive_recharge_hours * self.charge_efficiency
 
     @property
+    def required_runtime_energy_wh(self) -> float:
+        return self.draw_watts * self.required_runtime_hours
+
+    @property
+    def daily_recharge_coverage_ratio(self) -> float:
+        required = self.required_runtime_energy_wh
+        if required <= 0:
+            return 0.0
+        return self.daily_recovered_wh / required
+
+    @property
+    def required_drive_recharge_hours(self) -> float | None:
+        recovered_per_hour = self.charge_surplus_watts * self.charge_efficiency
+        if recovered_per_hour <= 0:
+            return None
+        return self.required_runtime_energy_wh / recovered_per_hour
+
+    @property
     def daily_supported_runtime_hours(self) -> float:
         if self.draw_watts <= 0:
             return 0.0

@@ -239,7 +239,9 @@ def _check_power_budget(env: Mapping[str, str]) -> ProductionCheck:
             f"reserve={reserve_percent:.0f}%, charge={vehicle_charge_watts or 0:.1f}W, "
             f"surplus={budget.charge_surplus_watts:.1f}W, "
             f"daily_recovered={budget.daily_recovered_wh:.1f}Wh, "
-            f"daily_supported={budget.daily_supported_runtime_hours:.1f}h"
+            f"daily_supported={budget.daily_supported_runtime_hours:.1f}h, "
+            f"required_recharge={_format_hours(budget.required_drive_recharge_hours)}, "
+            f"daily_recharge_coverage={budget.daily_recharge_coverage_ratio:.0%}"
         ),
     )
 
@@ -1685,6 +1687,12 @@ def _format_seconds(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value:.0f}s"
+
+
+def _format_hours(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.1f}h"
 
 
 def _same_path(reported: str, expected: Path) -> bool:
