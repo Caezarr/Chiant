@@ -101,6 +101,7 @@ def test_default_evidence_paths_include_box_ready():
     assert paths["box_ready"] == Path("reports/box-readiness.json")
     assert paths["autopay_smoke"] == Path("reports/autopay-smoke.json")
     assert paths["systemd_runtime"] == Path("reports/systemd-check.json")
+    assert paths["position_runtime"] == Path("reports/position-check.json")
 
 
 def _write_evidence(tmp_path: Path) -> dict[str, Path]:
@@ -108,6 +109,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
         "box_ready": tmp_path / "reports" / "box-readiness.json",
         "hardware_profile": tmp_path / "deploy" / "pi" / "hardware-profile.json",
         "systemd_runtime": tmp_path / "reports" / "systemd-check.json",
+        "position_runtime": tmp_path / "reports" / "position-check.json",
         "vision_eval": tmp_path / "reports" / "vision-eval.json",
         "vision_benchmark": tmp_path / "reports" / "vision-benchmark.json",
         "autopay_smoke": tmp_path / "reports" / "autopay-smoke.json",
