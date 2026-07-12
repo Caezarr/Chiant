@@ -24,6 +24,7 @@ def test_run_vision_benchmark_passes_when_fps_is_high_enough():
     assert report.frames_processed == 4
     assert report.detections_seen == 4
     assert report.measured_fps == 2.0
+    assert report.target_labels == ("control_vehicle",)
 
 
 def test_run_vision_benchmark_fails_without_frames():
@@ -89,6 +90,7 @@ def test_write_report(tmp_path: Path):
 
     payload = json.loads(output.read_text())
     assert payload["frames_processed"] == 1
+    assert payload["target_labels"] == ["control_vehicle"]
 
 
 class _FakeDetector:

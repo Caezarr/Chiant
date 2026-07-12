@@ -990,6 +990,8 @@ def _check_benchmark_report(
     required_fps = required_min_fps if required_min_fps is not None else min_fps
     device = str(payload.get("device") or "unknown")
     report_model = str(payload.get("model_path") or "")
+    target_labels = payload.get("target_labels")
+    target_ok = isinstance(target_labels, list) and "control_vehicle" in target_labels
     model_ok = expected_model_path is None or _same_path(report_model, expected_model_path)
     ok = (
         passed
@@ -997,6 +999,7 @@ def _check_benchmark_report(
         and detections_seen > 0
         and min_fps >= required_fps
         and measured_fps >= required_fps
+        and target_ok
         and model_ok
     )
     return ProductionCheck(
@@ -1006,6 +1009,7 @@ def _check_benchmark_report(
             f"passed={passed}, fps={measured_fps:.2f}/{min_fps:.2f}, "
             f"required={required_fps:.2f}, "
             f"frames={frames_processed}, detections={detections_seen}, device={device}, "
+            f"target={','.join(str(label) for label in target_labels) if isinstance(target_labels, list) else '-'}/control_vehicle, "
             f"model={report_model or '-'}/{expected_model_path or '-'}"
         ),
     )
