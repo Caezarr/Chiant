@@ -26,12 +26,15 @@ def test_notification_test_passes_on_2xx(tmp_path):
     assert report.passed is True
     assert report.webhook_host == "notify.example.test"
     assert report.webhook_hash == _hash("https://notify.example.test/boring")
+    assert report.sound is True
     assert calls[0][1]["title"] == "Boring Box - test notification"
+    assert calls[0][1]["sound"] is True
 
     output = tmp_path / "reports" / "notification-test.json"
     write_report(report, output)
     payload = json.loads(output.read_text())
     assert payload["passed"] is True
+    assert payload["sound"] is True
     assert payload["webhook_hash"] == _hash("https://notify.example.test/boring")
 
 
@@ -40,6 +43,7 @@ def test_notification_test_fails_without_webhook():
 
     assert report.passed is False
     assert report.webhook_hash == ""
+    assert report.sound is True
     assert report.error == "missing webhook url"
 
 

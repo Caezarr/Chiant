@@ -841,6 +841,7 @@ def _check_notification_report(
     webhook_hash = str(payload.get("webhook_hash") or "")
     title = str(payload.get("title") or "")
     message = str(payload.get("message") or "")
+    sound = payload.get("sound") is True
     tested_at = _parse_timestamp(payload.get("tested_at"))
     error = payload.get("error")
     host_ok = expected_webhook_host is None or host == expected_webhook_host
@@ -852,6 +853,7 @@ def _check_notification_report(
         and 200 <= status_code < 300
         and host_ok
         and hash_ok
+        and sound
         and tested_at is not None
         and battery_message_ok
     )
@@ -862,6 +864,7 @@ def _check_notification_report(
             f"passed={passed}, status={status_code}, host={host}, "
             f"expected_host={expected_webhook_host or '-'}, "
             f"hash={_hash_status(webhook_hash, hash_ok)}, "
+            f"sound={sound}, "
             f"tested_at={'ok' if tested_at is not None else 'missing'}, "
             f"battery_message={battery_message_ok}, error={error or '-'}"
         ),
