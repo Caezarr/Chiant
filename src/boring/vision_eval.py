@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 import cv2
@@ -27,6 +28,7 @@ class VisionEvalReport:
     false_positives: int = 0
     false_negatives: int = 0
     invalid_images: int = 0
+    generated_at: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -70,6 +72,7 @@ def build_report(
         false_positives=false_positives,
         false_negatives=false_negatives,
         invalid_images=invalid_images,
+        generated_at=datetime.now(timezone.utc).isoformat(),
     )
 
 
