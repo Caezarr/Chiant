@@ -241,6 +241,20 @@ def test_evidence_pack_rejects_runtime_report_with_failures(tmp_path: Path):
     assert "failures=failures" in item.detail
 
 
+def test_evidence_pack_rejects_network_report_without_recovery_command(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["network_runtime"].read_text())
+    payload.pop("recovery_command")
+    paths["network_runtime"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "network_runtime"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "recovery_command" in item.detail
+
+
 def test_evidence_pack_rejects_burn_in_without_charge_cycle(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["burn_in"].read_text())
@@ -949,6 +963,7 @@ def _network_runtime_payload() -> dict:
         "online": True,
         "timeout_seconds": 3.0,
         "recovery_command_configured": True,
+        "recovery_command": "systemctl restart NetworkManager",
         "checked_at": "2026-01-01T00:00:00+00:00",
         "failures": [],
         "error": None,

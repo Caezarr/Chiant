@@ -18,6 +18,7 @@ def test_network_check_passes_when_online_and_recovery_configured():
     assert report.passed is True
     assert report.online is True
     assert report.recovery_command_configured is True
+    assert report.recovery_command == "systemctl restart NetworkManager"
     assert report.failures == []
 
 
@@ -44,6 +45,7 @@ def test_network_check_fails_without_recovery_command():
 
     assert report.passed is False
     assert "recovery_command=missing" in report.failures
+    assert report.recovery_command is None
 
 
 def test_write_network_report_includes_passed(tmp_path: Path):

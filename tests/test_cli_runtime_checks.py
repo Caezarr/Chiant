@@ -187,6 +187,7 @@ def _patch_runtime_reports(monkeypatch) -> None:
             online=True,
             timeout_seconds=3.0,
             recovery_command_configured=True,
+            recovery_command="systemctl restart NetworkManager",
             checked_at=checked_at,
             failures=[],
             error=None,
