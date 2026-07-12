@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,6 +16,8 @@ class EvidenceItem:
     present: bool
     valid_json: bool
     passed: bool | None
+    size_bytes: int | None
+    sha256: str | None
     detail: str
 
 
@@ -67,11 +70,21 @@ def evidence_item_ok(item: EvidenceItem) -> bool:
 
 def _read_item(name: str, path: Path) -> EvidenceItem:
     if not path.exists():
-        return EvidenceItem(name, str(path), False, False, None, "missing")
+        return EvidenceItem(name, str(path), False, False, None, None, None, "missing")
+    raw = path.read_bytes()
     try:
-        payload = json.loads(path.read_text())
+        payload = json.loads(raw.decode("utf-8"))
     except json.JSONDecodeError:
-        return EvidenceItem(name, str(path), True, False, None, "invalid json")
+        return EvidenceItem(
+            name,
+            str(path),
+            True,
+            False,
+            None,
+            len(raw),
+            hashlib.sha256(raw).hexdigest(),
+            "invalid json",
+        )
     passed = payload.get("passed") if isinstance(payload, dict) else None
     return EvidenceItem(
         name=name,
@@ -79,6 +92,8 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
         present=True,
         valid_json=True,
         passed=passed if isinstance(passed, bool) else None,
+        size_bytes=len(raw),
+        sha256=hashlib.sha256(raw).hexdigest(),
         detail=_detail(payload),
     )
 
