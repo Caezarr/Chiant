@@ -5,6 +5,7 @@ from __future__ import annotations
 BLOCKING_RUNTIME_EVENTS = frozenset(
     {
         "battery_critical",
+        "battery_sensor_missing",
         "disk_low",
         "network_offline",
         "notification_failed",

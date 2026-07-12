@@ -7,6 +7,7 @@ def test_blocking_runtime_events_cover_field_readiness_failures():
     assert BLOCKING_RUNTIME_EVENTS == frozenset(
         {
             "battery_critical",
+            "battery_sensor_missing",
             "disk_low",
             "network_offline",
             "notification_failed",

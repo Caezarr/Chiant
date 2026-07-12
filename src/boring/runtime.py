@@ -37,6 +37,7 @@ console = Console()
 class RuntimeState:
     low_battery_alert_sent: bool = False
     critical_battery_alert_sent: bool = False
+    battery_sensor_missing_alert_sent: bool = False
     battery_saver_active: bool = False
     battery_critical_active: bool = False
     last_power_check: float = 0.0
@@ -350,7 +351,35 @@ def _check_power(
     state.last_power_check = now
     status = power.read()
     if status is None or status.percent is None:
+        state.battery_critical_active = True
+        state.battery_saver_active = True
+        if not state.battery_sensor_missing_alert_sent:
+            if event_log is not None:
+                event_log.write(
+                    "battery_sensor_missing",
+                    source=status.source if status else "missing",
+                )
+            notify(
+                "Boring Box — jauge batterie absente",
+                "Autopaiement bloque jusqu'au retour de la jauge.",
+                sound=True,
+            )
+            state.battery_sensor_missing_alert_sent = True
         return status
+    if state.battery_sensor_missing_alert_sent:
+        if event_log is not None:
+            event_log.write(
+                "battery_sensor_recovered",
+                percent=status.percent,
+                source=status.source,
+                charging=status.charging,
+            )
+        notify(
+            "Boring Box — jauge batterie revenue",
+            f"{status.percent}% restants",
+            sound=False,
+        )
+        state.battery_sensor_missing_alert_sent = False
     had_alert = state.low_battery_alert_sent or state.critical_battery_alert_sent
     saver_active = status.percent <= config.battery_low_percent and not status.charging
     critical_active = (
