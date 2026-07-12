@@ -512,8 +512,13 @@ def _check_burn_in_report(
 
     passed = bool(payload.get("passed"))
     duration_hours = float(payload.get("duration_seconds") or 0) / 3600
+    sample_count = int(payload.get("sample_count") or 0)
     camera_failures = int(payload.get("camera_failures") or 0)
     network_failures = int(payload.get("network_failures") or 0)
+    start_battery = _json_float(payload.get("start_battery_percent"))
+    end_battery = _json_float(payload.get("end_battery_percent"))
+    min_battery = _json_float(payload.get("min_battery_percent"))
+    battery_delta = _json_float(payload.get("battery_delta_percent"))
     battery_critical = bool(payload.get("battery_critical_seen"))
     thermal_critical = bool(payload.get("thermal_critical_seen"))
     charging_seen = bool(payload.get("charging_seen"))
@@ -523,8 +528,13 @@ def _check_burn_in_report(
     ok = (
         passed
         and duration_hours >= min_burn_in_hours
+        and sample_count > 0
         and camera_failures == 0
         and network_failures == 0
+        and start_battery is not None
+        and end_battery is not None
+        and min_battery is not None
+        and battery_delta is not None
         and not battery_critical
         and not thermal_critical
         and charging_ok
@@ -535,7 +545,9 @@ def _check_burn_in_report(
         ok,
         (
             f"passed={passed}, duration={duration_hours:.1f}h/{min_burn_in_hours:.1f}h, "
+            f"samples={sample_count}, "
             f"camera_failures={camera_failures}, network_failures={network_failures}, "
+            f"battery={_format_battery(start_battery, end_battery, min_battery, battery_delta)}, "
             f"battery_critical={battery_critical}, thermal_critical={thermal_critical}, "
             f"charging_seen={charging_seen}, discharging_seen={discharging_seen}"
         ),
@@ -724,6 +736,17 @@ def _format_coord(lat: float | None, lon: float | None) -> str:
     if lat is None or lon is None:
         return "-"
     return f"{lat:.5f},{lon:.5f}"
+
+
+def _format_battery(
+    start: float | None,
+    end: float | None,
+    minimum: float | None,
+    delta: float | None,
+) -> str:
+    if start is None or end is None or minimum is None or delta is None:
+        return "-"
+    return f"start={start:.0f}%, end={end:.0f}%, min={minimum:.0f}%, delta={delta:.0f}%"
 
 
 def _same_path(reported: str, expected: Path) -> bool:
