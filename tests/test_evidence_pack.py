@@ -578,6 +578,40 @@ def test_evidence_pack_rejects_vision_eval_without_frames(tmp_path: Path):
     assert "frames=0" in item.detail
 
 
+def test_evidence_pack_rejects_vision_eval_without_negative_coverage(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_eval"].read_text())
+    payload["negative_frames_evaluated"] = 0
+    payload["negative_evaluated_hours"] = 0
+    payload["false_positive_per_hour"] = 0
+    paths["vision_eval"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "negative_frames=0" in item.detail
+    assert "negative_hours=0.0" in item.detail
+
+
+def test_evidence_pack_rejects_vision_eval_with_inconsistent_frame_coverage(
+    tmp_path: Path,
+):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_eval"].read_text())
+    payload["positive_frames_evaluated"] = 800
+    payload["negative_frames_evaluated"] = 9_000
+    paths["vision_eval"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "metrics_consistent=False" in item.detail
+
+
 def test_evidence_pack_rejects_vision_eval_with_invalid_images(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["vision_eval"].read_text())
@@ -1349,6 +1383,9 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
                 "max_false_positive_per_hour": 1.0,
                 "evaluated_hours": 3.0,
                 "frames_evaluated": 10_800,
+                "positive_frames_evaluated": 800,
+                "negative_frames_evaluated": 10_000,
+                "negative_evaluated_hours": 3.0,
                 "true_positives": 93,
                 "false_positives": 1,
                 "false_negatives": 7,

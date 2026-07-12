@@ -25,6 +25,9 @@ class VisionEvalReport:
     max_false_positive_per_hour: float
     passed: bool
     frames_evaluated: int = 0
+    positive_frames_evaluated: int = 0
+    negative_frames_evaluated: int = 0
+    negative_evaluated_hours: float = 0.0
     true_positives: int = 0
     false_positives: int = 0
     false_negatives: int = 0
@@ -49,6 +52,9 @@ def build_report(
     min_recall: float = 0.90,
     max_false_positive_per_hour: float = 1.0,
     frames_evaluated: int = 0,
+    positive_frames_evaluated: int = 0,
+    negative_frames_evaluated: int = 0,
+    negative_evaluated_hours: float = 0.0,
     true_positives: int = 0,
     false_positives: int = 0,
     false_negatives: int = 0,
@@ -61,6 +67,9 @@ def build_report(
         and false_positive_per_hour <= max_false_positive_per_hour
         and evaluated_hours > 0
         and frames_evaluated > 0
+        and positive_frames_evaluated > 0
+        and negative_frames_evaluated > 0
+        and negative_evaluated_hours > 0
         and true_positives > 0
         and invalid_images == 0
         and invalid_labels == 0
@@ -77,6 +86,9 @@ def build_report(
         max_false_positive_per_hour=max_false_positive_per_hour,
         passed=passed,
         frames_evaluated=frames_evaluated,
+        positive_frames_evaluated=positive_frames_evaluated,
+        negative_frames_evaluated=negative_frames_evaluated,
+        negative_evaluated_hours=negative_evaluated_hours,
         true_positives=true_positives,
         false_positives=false_positives,
         false_negatives=false_negatives,
@@ -112,6 +124,8 @@ def evaluate_yolo_dataset(
     invalid_images = 0
     invalid_labels = 0
     frames_evaluated = 0
+    positive_frames_evaluated = 0
+    negative_frames_evaluated = 0
     for index, image_path in enumerate(images):
         frame = cv2.imread(str(image_path))
         if frame is None:
@@ -124,6 +138,10 @@ def evaluate_yolo_dataset(
         )
         invalid_labels += label_result.invalid_lines
         expected = label_result.has_required_class
+        if expected:
+            positive_frames_evaluated += 1
+        else:
+            negative_frames_evaluated += 1
         detected = bool(
             detector.detect_frame(frame, timestamp=float(index) * frame_interval_seconds)
         )
@@ -140,8 +158,9 @@ def evaluate_yolo_dataset(
     recall = true_positives / recall_denominator if recall_denominator else 0.0
     precision = true_positives / precision_denominator if precision_denominator else 0.0
     evaluated_hours = frames_evaluated * frame_interval_seconds / 3600
+    negative_evaluated_hours = negative_frames_evaluated * frame_interval_seconds / 3600
     false_positive_per_hour = (
-        false_positives / evaluated_hours if evaluated_hours > 0 else float("inf")
+        false_positives / negative_evaluated_hours if negative_evaluated_hours > 0 else float("inf")
     )
     return build_report(
         model_path=model_path,
@@ -155,6 +174,9 @@ def evaluate_yolo_dataset(
         min_recall=min_recall,
         max_false_positive_per_hour=max_false_positive_per_hour,
         frames_evaluated=frames_evaluated,
+        positive_frames_evaluated=positive_frames_evaluated,
+        negative_frames_evaluated=negative_frames_evaluated,
+        negative_evaluated_hours=negative_evaluated_hours,
         true_positives=true_positives,
         false_positives=false_positives,
         false_negatives=false_negatives,

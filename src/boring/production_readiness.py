@@ -1075,6 +1075,9 @@ def _check_vision_eval_report(
     max_false_positive_per_hour = _json_float(payload.get("max_false_positive_per_hour")) or 1.0
     evaluated_hours = _json_float(payload.get("evaluated_hours")) or 0.0
     frames_evaluated = int(payload.get("frames_evaluated") or 0)
+    positive_frames = int(payload.get("positive_frames_evaluated") or 0)
+    negative_frames = int(payload.get("negative_frames_evaluated") or 0)
+    negative_hours = _json_float(payload.get("negative_evaluated_hours")) or 0.0
     true_positives = int(payload.get("true_positives") or 0)
     false_positives = int(payload.get("false_positives") or 0)
     false_negatives = int(payload.get("false_negatives") or 0)
@@ -1083,7 +1086,8 @@ def _check_vision_eval_report(
     precision = _json_float(payload.get("precision")) or 0.0
     expected_recall = _ratio(true_positives, true_positives + false_negatives)
     expected_precision = _ratio(true_positives, true_positives + false_positives)
-    expected_fp_per_hour = false_positives / evaluated_hours if evaluated_hours > 0 else None
+    expected_fp_per_hour = false_positives / negative_hours if negative_hours > 0 else None
+    frame_coverage_consistent = frames_evaluated == positive_frames + negative_frames
     metrics_consistent = (
         expected_recall is not None
         and abs(recall - expected_recall) <= 0.001
@@ -1091,6 +1095,7 @@ def _check_vision_eval_report(
         and abs(precision - expected_precision) <= 0.001
         and expected_fp_per_hour is not None
         and abs(false_positive_per_hour - expected_fp_per_hour) <= 0.001
+        and frame_coverage_consistent
     )
     report_model = str(payload.get("model_path") or "")
     model_ok = expected_model_path is None or _same_path(report_model, expected_model_path)
@@ -1107,6 +1112,9 @@ def _check_vision_eval_report(
         and false_positive_per_hour <= max_false_positive_per_hour
         and evaluated_hours > 0
         and frames_evaluated > 0
+        and positive_frames > 0
+        and negative_frames > 0
+        and negative_hours > 0
         and true_positives > 0
         and invalid_images == 0
         and invalid_labels == 0
@@ -1122,6 +1130,8 @@ def _check_vision_eval_report(
             f"passed={passed}, recall={recall:.3f}/{min_recall:.3f}, "
             f"fp_per_hour={false_positive_per_hour:.2f}/{max_false_positive_per_hour:.2f}, "
             f"hours={evaluated_hours:.1f}, frames={frames_evaluated}, "
+            f"positive_frames={positive_frames}, negative_frames={negative_frames}, "
+            f"negative_hours={negative_hours:.1f}, "
             f"true_positives={true_positives}, false_positives={false_positives}, "
             f"false_negatives={false_negatives}, invalid_images={invalid_images}, "
             f"invalid_labels={invalid_labels}, "

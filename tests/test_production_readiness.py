@@ -1696,6 +1696,76 @@ def test_production_readiness_fails_when_vision_eval_has_no_frames(tmp_path: Pat
     assert any(check.name == "vision_eval" and not check.ok for check in report.checks)
 
 
+def test_production_readiness_fails_when_vision_eval_has_no_negative_coverage(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["vision_eval"].read_text())
+    payload["negative_frames_evaluated"] = 0
+    payload["negative_evaluated_hours"] = 0
+    payload["false_positive_per_hour"] = 0
+    artifacts["vision_eval"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "vision_eval"][0]
+    assert "negative_frames=0" in check.detail
+    assert "negative_hours=0.0" in check.detail
+
+
+def test_production_readiness_fails_when_vision_eval_frame_coverage_is_inconsistent(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["vision_eval"].read_text())
+    payload["positive_frames_evaluated"] = 800
+    payload["negative_frames_evaluated"] = 9_000
+    artifacts["vision_eval"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "vision_eval"][0]
+    assert "metrics_consistent=False" in check.detail
+
+
 def test_production_readiness_fails_when_vision_eval_has_invalid_labels(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     payload = json.loads(artifacts["vision_eval"].read_text())
@@ -3483,6 +3553,9 @@ def _write_ready_artifacts(
                 "false_positive_per_hour": vision_false_positive_per_hour,
                 "evaluated_hours": 3.0,
                 "frames_evaluated": 10_800,
+                "positive_frames_evaluated": 800,
+                "negative_frames_evaluated": 10_000,
+                "negative_evaluated_hours": 3.0,
                 "true_positives": 93,
                 "false_positives": 1,
                 "false_negatives": 7,

@@ -1667,6 +1667,15 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
     frames_evaluated = (
         _integer(payload.get("frames_evaluated")) if isinstance(payload, dict) else None
     )
+    positive_frames = (
+        _integer(payload.get("positive_frames_evaluated")) if isinstance(payload, dict) else None
+    )
+    negative_frames = (
+        _integer(payload.get("negative_frames_evaluated")) if isinstance(payload, dict) else None
+    )
+    negative_hours = (
+        _number(payload.get("negative_evaluated_hours")) if isinstance(payload, dict) else None
+    )
     true_positives = _integer(payload.get("true_positives")) if isinstance(payload, dict) else None
     false_positives = (
         _integer(payload.get("false_positives")) if isinstance(payload, dict) else None
@@ -1683,9 +1692,15 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
     expected_recall = _metric_ratio(true_positives, true_positives, false_negatives)
     expected_precision = _metric_ratio(true_positives, true_positives, false_positives)
     expected_fp_per_hour = (
-        false_positives / evaluated_hours
-        if false_positives is not None and evaluated_hours is not None and evaluated_hours > 0
+        false_positives / negative_hours
+        if false_positives is not None and negative_hours is not None and negative_hours > 0
         else None
+    )
+    frame_coverage_consistent = (
+        frames_evaluated is not None
+        and positive_frames is not None
+        and negative_frames is not None
+        and frames_evaluated == positive_frames + negative_frames
     )
     metrics_consistent = (
         recall is not None
@@ -1697,6 +1712,7 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
         and false_positive_per_hour is not None
         and expected_fp_per_hour is not None
         and abs(false_positive_per_hour - expected_fp_per_hour) <= 0.001
+        and frame_coverage_consistent
     )
     ok = (
         passed
@@ -1710,6 +1726,12 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
         and evaluated_hours > 0
         and frames_evaluated is not None
         and frames_evaluated > 0
+        and positive_frames is not None
+        and positive_frames > 0
+        and negative_frames is not None
+        and negative_frames > 0
+        and negative_hours is not None
+        and negative_hours > 0
         and true_positives is not None
         and true_positives > 0
         and false_positives is not None
@@ -1734,6 +1756,8 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
             f"passed={passed}, recall={_fmt(recall)}/{_fmt(min_recall)}, "
             f"fp_per_hour={_fmt(false_positive_per_hour)}/{_fmt(max_false_positive_per_hour)}, "
             f"hours={_fmt(evaluated_hours)}, frames={frames_evaluated}, "
+            f"positive_frames={positive_frames}, negative_frames={negative_frames}, "
+            f"negative_hours={_fmt(negative_hours)}, "
             f"true_positives={true_positives}, false_positives={false_positives}, "
             f"false_negatives={false_negatives}, invalid_images={invalid_images}, "
             f"invalid_labels={invalid_labels}, "
