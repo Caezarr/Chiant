@@ -442,10 +442,13 @@ def _camera_report_failures(payload: dict) -> list[str]:
 
 def _network_report_failures(payload: dict) -> list[str]:
     failures = []
+    timeout_seconds = _number(payload.get("timeout_seconds"))
     if not _has_text(payload.get("checked_at")):
         failures.append("checked_at")
     if not _has_text(payload.get("target")):
         failures.append("target")
+    if timeout_seconds is None or timeout_seconds <= 0:
+        failures.append("timeout")
     if payload.get("online") is not True:
         failures.append("online")
     if payload.get("recovery_command_configured") is not True:

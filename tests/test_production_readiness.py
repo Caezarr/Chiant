@@ -997,6 +997,42 @@ def test_production_readiness_rejects_network_runtime_for_other_recovery_command
     assert "systemctl restart other-network/systemctl restart NetworkManager" in check.detail
 
 
+def test_production_readiness_rejects_network_runtime_for_other_timeout(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["network"].read_text())
+    payload["timeout_seconds"] = 1.0
+    artifacts["network"].write_text(json.dumps(payload))
+    env = _ready_env()
+    env["NETWORK_PROBE_TIMEOUT_SECONDS"] = "5"
+
+    report = audit_production_readiness(
+        env=env,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "network_runtime"][0]
+    assert check.ok is False
+    assert "timeout=1.0/5.0s" in check.detail
+
+
 def test_production_readiness_fails_without_power_runtime_report(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
 

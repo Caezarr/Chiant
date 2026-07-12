@@ -256,6 +256,20 @@ def test_evidence_pack_rejects_network_report_without_recovery_command(tmp_path:
     assert "recovery_command" in item.detail
 
 
+def test_evidence_pack_rejects_network_report_without_timeout(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["network_runtime"].read_text())
+    payload.pop("timeout_seconds")
+    paths["network_runtime"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "network_runtime"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "timeout" in item.detail
+
+
 def test_evidence_pack_rejects_burn_in_without_charge_cycle(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["burn_in"].read_text())
