@@ -37,6 +37,7 @@ def test_box_config_from_env(monkeypatch):
     monkeypatch.setenv("THERMAL_CRITICAL_C", "82")
     monkeypatch.setenv("THERMAL_CHECK_SECONDS", "30")
     monkeypatch.setenv("NETWORK_PROBE_TARGET", "example.com:443")
+    monkeypatch.setenv("NETWORK_PROBE_TIMEOUT_SECONDS", "4.5")
     monkeypatch.setenv("BOX_LAT", "50.6371")
     monkeypatch.setenv("BOX_LON", "3.0633")
     monkeypatch.setenv("BORING_NOTIFY_WEBHOOK_URL", "https://notify.example.test/boring")
@@ -70,6 +71,7 @@ def test_box_config_from_env(monkeypatch):
     assert config.thermal_critical_c == 82
     assert config.thermal_check_seconds == 30
     assert config.network_probe_target == "example.com:443"
+    assert config.network_probe_timeout_seconds == 4.5
     assert config.lat == 50.6371
     assert config.lon == 3.0633
     assert config.notify_webhook_url == "https://notify.example.test/boring"
