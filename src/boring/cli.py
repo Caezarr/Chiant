@@ -310,13 +310,13 @@ def box_network_check(
         Path("reports/network-check.json"),
         help="Rapport JSON de reseau runtime.",
     ),
-    timeout: float = typer.Option(3.0, help="Timeout de connexion en secondes."),
+    timeout: float | None = typer.Option(None, help="Timeout de connexion en secondes."),
 ) -> None:
     """Verifie que la box joint la cible reseau necessaire a l'autopaiement."""
     config = BoxConfig.from_env()
     report = run_network_check(
         target=config.network_probe_target,
-        timeout_seconds=timeout,
+        timeout_seconds=timeout if timeout is not None else config.network_probe_timeout_seconds,
         recovery_command=config.network_recovery_command,
     )
     write_network_report(report, output)
@@ -383,7 +383,7 @@ def box_runtime_checks(
     service: str = typer.Option("boring-box.service", help="Nom du service systemd."),
     min_width: int = typer.Option(640, help="Largeur minimale camera."),
     min_height: int = typer.Option(480, help="Hauteur minimale camera."),
-    network_timeout: float = typer.Option(3.0, help="Timeout reseau en secondes."),
+    network_timeout: float | None = typer.Option(None, help="Timeout reseau en secondes."),
 ) -> None:
     """Produit les preuves runtime locales attendues par box-ready."""
     config = BoxConfig.from_env()
@@ -413,7 +413,9 @@ def box_runtime_checks(
 
     network = run_network_check(
         target=config.network_probe_target,
-        timeout_seconds=network_timeout,
+        timeout_seconds=(
+            network_timeout if network_timeout is not None else config.network_probe_timeout_seconds
+        ),
         recovery_command=config.network_recovery_command,
     )
     write_network_report(network, output_dir / "network-check.json")

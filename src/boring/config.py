@@ -68,6 +68,7 @@ class BoxConfig:
     thermal_check_seconds: int = 60
     network_check_seconds: int = 60
     network_probe_target: str = "1.1.1.1:443"
+    network_probe_timeout_seconds: float = 3.0
     network_recovery_command: str | None = None
     network_recovery_cooldown_seconds: int = 300
     network_recovery_timeout_seconds: float = 20.0
@@ -125,6 +126,7 @@ class BoxConfig:
             thermal_check_seconds=int(os.getenv("THERMAL_CHECK_SECONDS", "60")),
             network_check_seconds=int(os.getenv("NETWORK_CHECK_SECONDS", "60")),
             network_probe_target=os.getenv("NETWORK_PROBE_TARGET", "1.1.1.1:443"),
+            network_probe_timeout_seconds=float(os.getenv("NETWORK_PROBE_TIMEOUT_SECONDS", "3.0")),
             network_recovery_command=os.getenv("NETWORK_RECOVERY_COMMAND") or None,
             network_recovery_cooldown_seconds=int(
                 os.getenv("NETWORK_RECOVERY_COOLDOWN_SECONDS", "300")

@@ -30,6 +30,17 @@ def test_box_runtime_checks_writes_runtime_reports(tmp_path, monkeypatch):
     assert not (tmp_path / "systemd-check.json").exists()
 
 
+def test_box_runtime_checks_uses_network_probe_timeout_env(tmp_path, monkeypatch):
+    _patch_runtime_reports(monkeypatch)
+    monkeypatch.setenv("NETWORK_PROBE_TIMEOUT_SECONDS", "4.5")
+
+    result = runner.invoke(app, ["box-runtime-checks", "--output-dir", str(tmp_path)])
+
+    assert result.exit_code == 0
+    payload = json.loads((tmp_path / "network-check.json").read_text())
+    assert payload["timeout_seconds"] == 4.5
+
+
 def test_box_runtime_checks_can_include_systemd(tmp_path, monkeypatch):
     _patch_runtime_reports(monkeypatch)
 
@@ -185,7 +196,7 @@ def _patch_runtime_reports(monkeypatch) -> None:
             passed=True,
             target="1.1.1.1:443",
             online=True,
-            timeout_seconds=3.0,
+            timeout_seconds=kwargs["timeout_seconds"],
             recovery_command_configured=True,
             recovery_command="systemctl restart NetworkManager",
             checked_at=checked_at,
