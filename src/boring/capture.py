@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator
 
 import cv2
 from rich.console import Console
@@ -12,11 +13,40 @@ from rich.console import Console
 console = Console()
 
 
+@dataclass(frozen=True)
+class CameraProbeResult:
+    ok: bool
+    device_index: int
+    width: int | None = None
+    height: int | None = None
+    error: str | None = None
+
+
 def open_camera(device_index: int = 0) -> cv2.VideoCapture:
     cap = cv2.VideoCapture(device_index)
     if not cap.isOpened():
         raise RuntimeError(f"Impossible d'ouvrir la caméra (index={device_index})")
     return cap
+
+
+def probe_camera(
+    device_index: int = 0,
+    capture_factory: Callable[[int], cv2.VideoCapture] = cv2.VideoCapture,
+) -> CameraProbeResult:
+    """Verifie qu'une camera s'ouvre et retourne au moins une frame."""
+    cap = capture_factory(device_index)
+    try:
+        if not cap.isOpened():
+            return CameraProbeResult(False, device_index, error="camera not opened")
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            return CameraProbeResult(False, device_index, error="camera read failed")
+        height, width = frame.shape[:2]
+        return CameraProbeResult(True, device_index, width=width, height=height)
+    except Exception as exc:
+        return CameraProbeResult(False, device_index, error=str(exc))
+    finally:
+        cap.release()
 
 
 def iter_frames(

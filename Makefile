@@ -1,4 +1,4 @@
-.PHONY: install dev zones capture detect run prepare train mitmproxy test format lint clean
+.PHONY: install dev zones capture detect run box-run box-doctor box-burn-in box-notify-test box-ready box-evidence-pack prepare scrape-baseline scrape-negatives import-openimages train vision-sources vision-ready vision-eval vision-benchmark autopay-ready autopay-smoke mitmproxy test format lint clean
 
 install:
 	uv sync
@@ -13,7 +13,13 @@ prepare:
 	uv run python scripts/prepare_dataset.py
 
 scrape-baseline:
-	uv run python scripts/scrape_baseline.py
+	uv run python scripts/scrape_baseline.py --profile positives
+
+scrape-negatives:
+	uv run python scripts/scrape_baseline.py --profile negatives
+
+import-openimages:
+	uv run python scripts/import_openimages_manifest.py --descriptions datasets/openimages/class-descriptions-boxable.csv --annotations datasets/openimages/train-annotations-bbox.csv
 
 landing:
 	@echo "Landing dispo localement → file://$(PWD)/docs/index.html"
@@ -28,12 +34,48 @@ detect:
 run:
 	uv run boring run
 
+box-run:
+	uv run boring box-run
+
+box-doctor:
+	uv run boring box-doctor
+
+box-burn-in:
+	uv run boring box-burn-in --minutes 30 --interval 60 --output burn-in
+
+box-notify-test:
+	uv run boring box-notify-test
+
+box-ready:
+	uv run boring box-ready
+
+box-evidence-pack:
+	uv run boring box-evidence-pack
+
 contest:
 	@echo "Exemple : uv run boring contest-fps --subject FPS-DEMO --reason 'J''avais payé via PayByPhone.'"
 	@uv run boring contest-fps --subject "FPS-DEMO-001" --reason "Démo CLI" --amount 35
 
 train:
 	uv run python scripts/train_custom.py --data datasets/control_vehicle_v1/data.yaml
+
+vision-sources:
+	uv run boring vision-sources
+
+vision-ready:
+	uv run boring vision-ready
+
+vision-eval:
+	uv run boring vision-eval
+
+vision-benchmark:
+	uv run boring vision-benchmark
+
+autopay-ready:
+	uv run boring autopay-ready
+
+autopay-smoke:
+	uv run boring autopay-smoke --yes
 
 mitmproxy:
 	uv run mitmproxy -s scripts/paybyphone_capture.py

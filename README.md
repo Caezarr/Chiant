@@ -22,7 +22,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/Status-pre--alpha-orange" alt="Status">
   <img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Tests-42%2F42-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-184%2F184-brightgreen" alt="Tests">
 </p>
 
 ---
@@ -99,13 +99,31 @@ git clone https://github.com/Caezarr/Chiant.git
 cd Chiant
 cp .env.example .env          # → renseigne ASSISTED_IMESSAGE_RECIPIENT au minimum
 make dev                      # uv sync + outils dev
-make test                     # 42 tests doivent passer
+make test                     # 184 tests doivent passer
 make zones                    # télécharge / met à jour les zones Lille
-uv run boring pay-now --plate AB-123-CD --duration 15    # smoke test
+make scrape-baseline          # images web candidates control_vehicle
+make scrape-negatives         # hard negatives gratuits
+make import-openimages        # hard negatives Open Images depuis CSV locaux
+make vision-sources           # catalogue sources gratuites candidates
+make vision-ready             # audit dataset/modele + revue licence
+uv run boring vision-ready --allow-unreviewed-sources  # rehearsal dataset candidat
+uv run boring vision-eval --dataset datasets/control_vehicle_v1 --model models/best.pt --split valid --frame-interval 1
+uv run boring vision-benchmark --model models/best.pt --frames 120 --min-fps 2.0
+make autopay-ready            # audit env/HAR avant paiement reel
+uv run boring autopay-smoke --yes --output reports/autopay-smoke.json
+uv run boring box-doctor      # preflight config boîtier headless
+cp deploy/pi/hardware-profile.example.json deploy/pi/hardware-profile.json
+uv run boring box-burn-in --minutes 120 --interval 60    # preuve terrain Pi
+uv run boring box-notify-test --output reports/notification-test.json
+uv run boring box-ready --hardware-profile deploy/pi/hardware-profile.json --vision-eval-report reports/vision-eval.json --benchmark-report reports/vision-benchmark.json --autopay-smoke-report reports/autopay-smoke.json --notification-report reports/notification-test.json --burn-in-report burn-in/report.json
+uv run boring box-evidence-pack --output reports/evidence-pack.json
 uv run boring contest-fps --subject "FPS-X" --reason "Test"  # smoke test contestation
 ```
 
+Pour `box-ready` en mode prod, lance aussi `autopay-smoke` avec `PAYMENT_DRY_RUN=false`, configure `NETWORK_RECOVERY_COMMAND`, `BORING_NOTIFY_WEBHOOK_URL` ou `NTFY_WEBHOOK_URL`, puis lance `box-notify-test`; sans preuve d'autopaiement reel minimal, recovery reseau et notification 2xx, le boitier n'est pas installable.
+
 Si tu veux contribuer ou build ton propre boîtier : lis [HUMAN-TODO.md](HUMAN-TODO.md) pour les étapes humaines (captation Lille, annotation, training, reverse PayByPhone via HAR).
+Architecture boîtier : [docs/BOX.md](docs/BOX.md). Déploiement Pi : [deploy/pi/README.md](deploy/pi/README.md). Dataset vision : [docs/DATASETS.md](docs/DATASETS.md). Autopaiement : [docs/AUTOPAYMENT.md](docs/AUTOPAYMENT.md).
 
 ---
 
@@ -120,7 +138,8 @@ Si tu veux contribuer ou build ton propre boîtier : lis [HUMAN-TODO.md](HUMAN-T
 - Multi-provider scaffolding : PayByPhone (réel), EasyPark / Flowbird / OPnGO (stubs)
 - Vertical 2 — **`boring.contest`** : génération RAPO automatique + escalade CCSP
 - CLI complète : `capture / detect / run / pay-now / contest-fps`
-- Tests pytest (42/42), CI GitHub Actions, pre-commit hooks
+- Runtime headless boîtier : `box-run / box-doctor`, config Pi 4 / Pi 5 documentée
+- Tests pytest (184/184), CI GitHub Actions, pre-commit hooks
 
 ### Ce qui manque ⏳
 - Modèle custom `control_vehicle` (besoin captation terrain — cf. HUMAN-TODO #1-3)

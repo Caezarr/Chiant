@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator
 
 import cv2
 from rich.console import Console
@@ -32,7 +32,7 @@ class Detector:
         model_path: str | Path = DEFAULT_MODEL,
         target_labels: tuple[str, ...] = ("car",),
         confidence_threshold: float = 0.5,
-        device: str = "mps",
+        device: str = "auto",
     ) -> None:
         console.print(f"[dim]Chargement modèle {model_path} sur {device}…[/dim]")
         self.model = YOLO(str(model_path))
@@ -41,9 +41,10 @@ class Detector:
         self.device = device
 
     def detect_frame(self, frame, timestamp: float) -> list[Detection]:
-        results = self.model.predict(
-            frame, device=self.device, verbose=False, conf=self.confidence_threshold
-        )
+        kwargs = {"verbose": False, "conf": self.confidence_threshold}
+        if self.device != "auto":
+            kwargs["device"] = self.device
+        results = self.model.predict(frame, **kwargs)
         out: list[Detection] = []
         for r in results:
             names = r.names
@@ -82,6 +83,25 @@ class StreamTracker:
         return len(self.recent) >= self.required_consecutive
 
 
+class AdaptiveFrameGate:
+    """Filtre les frames pour respecter un FPS qui peut changer au runtime."""
+
+    def __init__(self) -> None:
+        self.last_emit: float | None = None
+
+    def allow(self, timestamp: float, fps: float) -> bool:
+        if fps <= 0:
+            return False
+        if self.last_emit is None:
+            self.last_emit = timestamp
+            return True
+        interval = 1.0 / fps
+        if timestamp - self.last_emit >= interval:
+            self.last_emit = timestamp
+            return True
+        return False
+
+
 def _annotate(frame, detections: list[Detection], triggered: bool) -> None:
     color = (0, 0, 255) if triggered else (0, 255, 0)
     for d in detections:
@@ -105,10 +125,16 @@ def run_live_detection(
     fps: float = 5.0,
     show_window: bool = True,
     tracker: StreamTracker | None = None,
+    device_index: int = 0,
+    fps_provider: Callable[[], float] | None = None,
 ) -> Iterator[list[Detection]]:
     """Boucle live, yield à chaque trigger (détection consécutive franchie)."""
     tracker = tracker or StreamTracker()
-    for ts, frame in iter_frames(fps=fps):
+    frame_gate = AdaptiveFrameGate() if fps_provider is not None else None
+    capture_fps = None if fps_provider is not None else fps
+    for ts, frame in iter_frames(device_index=device_index, fps=capture_fps):
+        if frame_gate is not None and not frame_gate.allow(ts, fps_provider()):
+            continue
         detections = detector.detect_frame(frame, ts)
         triggered = tracker.update(bool(detections), ts)
 

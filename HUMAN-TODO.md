@@ -149,6 +149,23 @@ Pointe ta webcam vers une fenêtre où passe le bon type de véhicule → tu doi
 7. **Envoie-moi `scripts/paybyphone_endpoints.json`** (drag-drop dans le chat).
    Je code le client réel et tu pourras lancer `boring pay-now` en mode `PAYMENT_MODE=auto` pour un vrai paiement.
 
+### Test boîtier après intégration
+
+Quand les variables PayByPhone sont en place :
+
+```bash
+PAYMENT_MODE=auto PAYMENT_DRY_RUN=false uv run boring box-doctor
+PAYMENT_MODE=auto PAYMENT_DRY_RUN=false uv run boring pay-now --plate AB-123-CD --duration 15
+```
+
+Le vrai service headless se lance avec :
+
+```bash
+uv run boring box-run
+```
+
+Voir aussi [docs/BOX.md](docs/BOX.md) et [docs/AUTOPAYMENT.md](docs/AUTOPAYMENT.md).
+
 ### Si tu veux faire la version mobile à la place (1h)
 
 Pour capturer l'app iOS native (vs le web), garde l'option `scripts/paybyphone_capture.py` + mitmproxy.

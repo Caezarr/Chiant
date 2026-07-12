@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-11",
+  "presets": [
+    {
+      "id": "pi4-low-cost",
+      "label": "Raspberry Pi 4 low-cost demo",
+      "board_model": "raspberry-pi-4",
+      "min_ram_gb": 4,
+      "min_storage_gb": 64,
+      "min_battery_wh": 80,
+      "min_vehicle_charge_watts": 20,
+      "recommended_detection_fps": 1.0,
+      "min_benchmark_fps": 1.0,
+      "thermal_margin": "demo-only; validate with burn-in before unattended use"
+    },
+    {
+      "id": "pi5-production",
+      "label": "Raspberry Pi 5 production candidate",
+      "board_model": "raspberry-pi-5",
+      "min_ram_gb": 8,
+      "min_storage_gb": 64,
+      "min_battery_wh": 100,
+      "min_vehicle_charge_watts": 30,
+      "recommended_detection_fps": 2.0,
+      "min_benchmark_fps": 2.0,
+      "thermal_margin": "preferred for 10h unattended field beta"
+    }
+  ]
+}

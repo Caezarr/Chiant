@@ -1,0 +1,24 @@
+[Unit]
+Description=Boring Parking Box
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/boring
+EnvironmentFile=/opt/boring/.env
+ExecStart=/usr/bin/env uv run boring box-run
+Restart=always
+RestartSec=5
+WatchdogSec=120
+NotifyAccess=main
+User=boring
+Group=video
+SupplementaryGroups=video gpio i2c netdev
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/boring /var/lib/boring
+
+[Install]
+WantedBy=multi-user.target
