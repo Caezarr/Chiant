@@ -272,7 +272,7 @@ def box_doctor(config: BoxConfig | None = None) -> int:
         charge_efficiency=config.charge_efficiency,
     )
     if budget is None:
-        console.print("[yellow]WARN[/yellow] budget energie non verifie")
+        check(False, "budget energie", "BATTERY_CAPACITY_WH/VEHICLE_CHARGE_WATTS")
     else:
         check(
             budget.parked_runtime_hours >= config.required_runtime_hours,
