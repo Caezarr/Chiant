@@ -157,6 +157,38 @@ def test_production_readiness_fails_without_discharge_validation(tmp_path: Path)
     assert rehearsal.passed is True
 
 
+def test_production_readiness_fails_without_burn_in_battery_metrics(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["burn_in"].read_text())
+    payload["sample_count"] = 0
+    payload["start_battery_percent"] = None
+    payload["end_battery_percent"] = None
+    payload["min_battery_percent"] = None
+    payload["battery_delta_percent"] = None
+    artifacts["burn_in"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "burn_in"][0]
+    assert check.ok is False
+    assert "samples=0" in check.detail
+    assert "battery=-" in check.detail
+
+
 def test_production_readiness_fails_when_disk_space_is_low(tmp_path: Path, monkeypatch):
     artifacts = _write_ready_artifacts(tmp_path)
 
@@ -1158,6 +1190,7 @@ def _write_ready_artifacts(
                 "started_at": report_time.timestamp() - burn_in_hours * 3600,
                 "ended_at": report_time.timestamp(),
                 "duration_seconds": burn_in_hours * 3600,
+                "sample_count": int(burn_in_hours * 60),
                 "camera_failures": 0,
                 "network_failures": 0,
                 "battery_critical_seen": False,
@@ -1166,6 +1199,7 @@ def _write_ready_artifacts(
                 "discharging_seen": discharging_seen,
                 "start_battery_percent": 70,
                 "end_battery_percent": 82 if charging_seen else 62,
+                "min_battery_percent": 62 if charging_seen else 62,
                 "battery_delta_percent": 12 if charging_seen else -8,
             }
         )
