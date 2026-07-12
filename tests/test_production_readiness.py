@@ -18,6 +18,7 @@ def test_production_readiness_passes_with_all_artifacts(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -41,6 +42,7 @@ def test_production_readiness_fails_when_burn_in_too_short(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -66,6 +68,7 @@ def test_production_readiness_can_run_rehearsal_without_edge_or_real_payment(tmp
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -89,6 +92,7 @@ def test_production_readiness_fails_without_charge_validation(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -103,6 +107,7 @@ def test_production_readiness_fails_without_charge_validation(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -127,6 +132,7 @@ def test_production_readiness_fails_without_discharge_validation(tmp_path: Path)
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -141,6 +147,7 @@ def test_production_readiness_fails_without_discharge_validation(tmp_path: Path)
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -174,6 +181,7 @@ def test_production_readiness_fails_without_burn_in_battery_metrics(tmp_path: Pa
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -210,6 +218,7 @@ def test_production_readiness_fails_when_disk_space_is_low(tmp_path: Path, monke
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -254,6 +263,7 @@ def test_production_readiness_fails_without_systemd_service(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         service_unit_path=tmp_path / "missing.service",
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
@@ -295,6 +305,7 @@ def test_production_readiness_rejects_unsafe_systemd_service(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         service_unit_path=bad_service,
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
@@ -312,6 +323,62 @@ def test_production_readiness_rejects_unsafe_systemd_service(tmp_path: Path):
     assert "User=root" in check.detail
 
 
+def test_production_readiness_fails_without_systemd_runtime_report(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=tmp_path / "reports" / "missing-systemd-check.json",
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "systemd_runtime"][0]
+    assert check.ok is False
+    assert "missing" in check.detail
+
+
+def test_production_readiness_rejects_inactive_systemd_runtime(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["systemd"].read_text())
+    payload["passed"] = False
+    payload["active_state"] = "inactive"
+    payload["sub_state"] = "dead"
+    payload["failures"] = ["active=inactive", "sub=dead"]
+    artifacts["systemd"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "systemd_runtime"][0]
+    assert check.ok is False
+    assert "active=inactive" in check.detail
+
+
 def test_production_readiness_fails_when_vehicle_charge_cannot_recover(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     env = _ready_env()
@@ -324,6 +391,7 @@ def test_production_readiness_fails_when_vehicle_charge_cannot_recover(tmp_path:
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -346,6 +414,7 @@ def test_production_readiness_fails_when_hardware_and_env_power_disagree(tmp_pat
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -368,6 +437,7 @@ def test_production_readiness_fails_when_vision_eval_fails(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -393,6 +463,7 @@ def test_production_readiness_fails_when_vision_eval_has_no_frames(tmp_path: Pat
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -418,6 +489,7 @@ def test_production_readiness_fails_when_vision_eval_uses_other_model(tmp_path: 
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -446,6 +518,7 @@ def test_production_readiness_fails_when_vision_eval_uses_other_dataset(tmp_path
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -470,6 +543,7 @@ def test_production_readiness_fails_when_benchmark_fails(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -495,6 +569,7 @@ def test_production_readiness_fails_when_benchmark_uses_other_model(tmp_path: Pa
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -519,6 +594,7 @@ def test_production_readiness_requires_benchmark_threshold_from_hardware_preset(
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -544,6 +620,7 @@ def test_production_readiness_fails_without_notification_webhook(tmp_path: Path)
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -558,6 +635,7 @@ def test_production_readiness_fails_without_notification_webhook(tmp_path: Path)
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -584,6 +662,7 @@ def test_production_readiness_fails_without_network_recovery(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -598,6 +677,7 @@ def test_production_readiness_fails_without_network_recovery(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -622,6 +702,7 @@ def test_production_readiness_fails_when_notification_test_fails(tmp_path: Path)
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -647,6 +728,7 @@ def test_production_readiness_requires_notification_test_for_configured_webhook(
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -670,6 +752,7 @@ def test_production_readiness_fails_when_autopay_smoke_fails(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -695,6 +778,7 @@ def test_production_readiness_requires_autopay_stop_verification(tmp_path: Path)
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -720,6 +804,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_plate(tmp_path: Pa
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -747,6 +832,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_provider(tmp_path:
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -775,6 +861,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_forced_zone(
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -806,6 +893,7 @@ def test_production_readiness_rejects_autopay_smoke_above_session_limit(
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -837,6 +925,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_duration(
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -867,6 +956,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_position(
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -893,6 +983,7 @@ def test_production_readiness_rejects_stale_reports(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -920,6 +1011,7 @@ def test_production_readiness_rejects_report_without_timestamp(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -948,6 +1040,7 @@ def test_production_readiness_can_disable_report_freshness_for_rehearsal(tmp_pat
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -972,6 +1065,7 @@ def test_production_readiness_requires_runtime_event_log(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -999,6 +1093,7 @@ def test_production_readiness_can_allow_missing_runtime_event_log_for_rehearsal(
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1025,6 +1120,7 @@ def test_production_readiness_rejects_empty_runtime_event_log(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1074,6 +1170,7 @@ def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Pa
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1108,6 +1205,7 @@ def test_production_readiness_rejects_runtime_log_without_heartbeat(tmp_path: Pa
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1142,6 +1240,7 @@ def test_production_readiness_rejects_stale_runtime_heartbeat(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1178,6 +1277,7 @@ def test_production_readiness_rejects_runtime_heartbeat_missing_start_coverage(
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1214,6 +1314,7 @@ def test_production_readiness_rejects_runtime_heartbeat_missing_end_coverage(
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1250,6 +1351,7 @@ def test_production_readiness_rejects_blocking_runtime_event(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1273,6 +1375,7 @@ def test_write_report_includes_passed(tmp_path: Path):
         baseline_manifest=artifacts["manifest"],
         endpoints_path=artifacts["endpoints"],
         hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
         vision_eval_report_path=artifacts["vision_eval"],
         benchmark_report_path=artifacts["benchmark"],
         autopay_smoke_report_path=artifacts["autopay_smoke"],
@@ -1559,6 +1662,27 @@ def _write_ready_artifacts(
         + "\n"
     )
 
+    systemd = tmp_path / "reports" / "systemd-check.json"
+    systemd.write_text(
+        json.dumps(
+            {
+                "service": "boring-box.service",
+                "passed": True,
+                "enabled_state": "enabled",
+                "active_state": "active",
+                "sub_state": "running",
+                "unit_file_state": "enabled",
+                "type": "notify",
+                "watchdog_usec": 30_000_000,
+                "exec_start": "/opt/boring/.venv/bin/boring box-run",
+                "user": "boring",
+                "checked_at": report_time_iso,
+                "failures": [],
+                "error": None,
+            }
+        )
+    )
+
     return {
         "manifest": manifest,
         "dataset": dataset,
@@ -1571,4 +1695,5 @@ def _write_ready_artifacts(
         "notification": notification,
         "burn_in": burn_in,
         "events": events,
+        "systemd": systemd,
     }

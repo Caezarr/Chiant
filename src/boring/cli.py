@@ -35,6 +35,8 @@ from boring.notification_readiness import write_report as write_notification_rep
 from boring.production_readiness import audit_production_readiness
 from boring.production_readiness import write_report as write_production_report
 from boring.runtime import box_doctor, run_box_service
+from boring.systemd_readiness import run_systemd_check
+from boring.systemd_readiness import write_report as write_systemd_report
 from boring.vision_eval import evaluate_yolo_dataset
 from boring.vision_eval import write_report as write_vision_eval_report
 from boring.vision_readiness import audit_vision_readiness
@@ -182,6 +184,37 @@ def box_notify_test(
     raise typer.Exit(0 if report.passed else 1)
 
 
+@app.command("box-systemd-check")
+def box_systemd_check(
+    service: str = typer.Option("boring-box.service", help="Nom du service systemd."),
+    output: Path = typer.Option(
+        Path("reports/systemd-check.json"),
+        help="Rapport JSON du service installe.",
+    ),
+) -> None:
+    """Verifie l'etat runtime du service systemd installe sur le Pi."""
+    report = run_systemd_check(service)
+    write_systemd_report(report, output)
+    table = Table(title="Boring Box — systemd runtime")
+    table.add_column("Signal", style="bold")
+    table.add_column("Valeur")
+    table.add_row("Service", report.service)
+    table.add_row("Enabled", report.enabled_state or "-")
+    table.add_row("Active", report.active_state or "-")
+    table.add_row("Sub", report.sub_state or "-")
+    table.add_row("Type", report.type or "-")
+    table.add_row(
+        "Watchdog usec", "-" if report.watchdog_usec is None else str(report.watchdog_usec)
+    )
+    table.add_row("User", report.user or "-")
+    table.add_row("Failures", ", ".join(report.failures) if report.failures else "-")
+    table.add_row("Error", report.error or "-")
+    table.add_row("Passed", "yes" if report.passed else "no")
+    console.print(table)
+    console.print(f"[dim]Rapport: {output}[/dim]")
+    raise typer.Exit(0 if report.passed else 1)
+
+
 @app.command("box-ready")
 def box_ready(
     dataset: Path = typer.Option(Path("datasets/control_vehicle_v1"), help="Dataset YOLOv8."),
@@ -201,6 +234,10 @@ def box_ready(
     service_unit: Path = typer.Option(
         Path("deploy/systemd/boring-box.service"),
         help="Unite systemd installee pour le service headless.",
+    ),
+    systemd_report: Path = typer.Option(
+        Path("reports/systemd-check.json"),
+        help="Rapport produit par box-systemd-check.",
     ),
     vision_eval_report: Path = typer.Option(
         Path("reports/vision-eval.json"),
@@ -257,6 +294,10 @@ def box_ready(
         False,
         help="Ne pas exiger le journal runtime events.jsonl.",
     ),
+    allow_missing_systemd_report: bool = typer.Option(
+        False,
+        help="Ne pas exiger le rapport box-systemd-check.",
+    ),
 ) -> None:
     """Gate final avant installation voiture / systemd."""
     report = audit_production_readiness(
@@ -266,6 +307,7 @@ def box_ready(
         endpoints_path=endpoints,
         hardware_profile_path=hardware_profile,
         service_unit_path=service_unit,
+        systemd_report_path=systemd_report,
         vision_eval_report_path=vision_eval_report,
         benchmark_report_path=benchmark_report,
         autopay_smoke_report_path=autopay_smoke_report,
@@ -280,6 +322,7 @@ def box_ready(
         require_notification_webhook=not allow_missing_notification_webhook,
         require_notification_test=not allow_missing_notification_test,
         require_runtime_event_log=not allow_missing_runtime_event_log,
+        require_systemd_report=not allow_missing_systemd_report,
         min_burn_in_hours=min_burn_in_hours,
     )
     write_production_report(report, output)

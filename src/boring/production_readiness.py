@@ -48,6 +48,7 @@ def audit_production_readiness(
     endpoints_path: Path = Path("scripts/paybyphone_endpoints.json"),
     hardware_profile_path: Path = Path("deploy/pi/hardware-profile.json"),
     service_unit_path: Path = Path("deploy/systemd/boring-box.service"),
+    systemd_report_path: Path = Path("reports/systemd-check.json"),
     vision_eval_report_path: Path = Path("reports/vision-eval.json"),
     benchmark_report_path: Path = Path("reports/vision-benchmark.json"),
     autopay_smoke_report_path: Path = Path("reports/autopay-smoke.json"),
@@ -62,6 +63,7 @@ def audit_production_readiness(
     require_notification_webhook: bool = True,
     require_notification_test: bool = True,
     require_runtime_event_log: bool = True,
+    require_systemd_report: bool = True,
     min_burn_in_hours: float = 10.0,
     now: datetime | None = None,
 ) -> ProductionReadinessReport:
@@ -90,6 +92,10 @@ def audit_production_readiness(
         _summary_check("hardware", hardware.passed, _failed_names(hardware.checks)),
         _check_hardware_env_consistency(values, hardware_profile_path),
         _check_systemd_service(service_unit_path),
+        _check_systemd_report(
+            systemd_report_path,
+            require_systemd_report=require_systemd_report,
+        ),
         _check_vision_eval_report(
             vision_eval_report_path,
             expected_model_path=model_path,
@@ -276,6 +282,58 @@ def _check_systemd_service(path: Path) -> ProductionCheck:
             f"type={service_type or '-'}, watchdog={watchdog or 0:.0f}s, "
             f"restart={restart or '-'}, user={user or '-'}, "
             f"failures={', '.join(failures) if failures else '-'}"
+        ),
+    )
+
+
+def _check_systemd_report(path: Path, *, require_systemd_report: bool) -> ProductionCheck:
+    if not require_systemd_report:
+        return ProductionCheck(
+            "systemd_runtime",
+            True,
+            "required=false" if not path.exists() else str(path),
+        )
+    if not path.exists():
+        return ProductionCheck("systemd_runtime", False, f"missing {path}")
+    try:
+        payload = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return ProductionCheck("systemd_runtime", False, f"invalid json {path}")
+
+    passed = bool(payload.get("passed"))
+    service = str(payload.get("service") or "")
+    enabled = str(payload.get("enabled_state") or "")
+    active = str(payload.get("active_state") or "")
+    sub = str(payload.get("sub_state") or "")
+    unit_file = str(payload.get("unit_file_state") or "")
+    service_type = str(payload.get("type") or "")
+    watchdog_usec = _json_float(payload.get("watchdog_usec")) or 0
+    exec_start = str(payload.get("exec_start") or "")
+    user = str(payload.get("user") or "")
+    failures = payload.get("failures")
+    failures_text = (
+        ",".join(str(failure) for failure in failures) if isinstance(failures, list) else "-"
+    )
+    ok = (
+        passed
+        and service == "boring-box.service"
+        and enabled == "enabled"
+        and active == "active"
+        and sub == "running"
+        and unit_file == "enabled"
+        and service_type == "notify"
+        and watchdog_usec > 0
+        and "boring box-run" in exec_start
+        and user == "boring"
+    )
+    return ProductionCheck(
+        "systemd_runtime",
+        ok,
+        (
+            f"passed={passed}, service={service or '-'}, enabled={enabled or '-'}, "
+            f"active={active or '-'}, sub={sub or '-'}, unit_file={unit_file or '-'}, "
+            f"type={service_type or '-'}, watchdog_usec={watchdog_usec}, "
+            f"user={user or '-'}, failures={failures_text}"
         ),
     )
 
