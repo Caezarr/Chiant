@@ -2090,6 +2090,39 @@ def test_production_readiness_requires_low_battery_notification_message(tmp_path
     assert "battery_message=False" in check.detail
 
 
+def test_production_readiness_requires_timestamped_notification_test(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["notification"].read_text())
+    payload.pop("tested_at")
+    artifacts["notification"].write_text(json.dumps(payload))
+    env = _ready_env()
+    env["BOX_READINESS_MAX_REPORT_AGE_HOURS"] = "0"
+
+    report = audit_production_readiness(
+        env=env,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "notification_test"][0]
+    assert "tested_at=missing" in check.detail
+
+
 def test_production_readiness_fails_when_autopay_smoke_fails(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path, autopay_smoke_passed=False)
 
