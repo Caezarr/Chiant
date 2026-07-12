@@ -153,6 +153,7 @@ def audit_production_readiness(
             min_burn_in_hours=min_burn_in_hours,
             require_charging_seen=require_charging_seen,
         ),
+        _check_burn_in_samples(burn_in_report_path),
         _check_runtime_event_log(
             storage_path,
             burn_in_report_path,
@@ -932,6 +933,85 @@ def _check_burn_in_report(
     )
 
 
+def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
+    samples_path = burn_in_report_path.with_name("samples.jsonl")
+    if not samples_path.exists():
+        return ProductionCheck("burn_in_samples", False, f"missing {samples_path}")
+    try:
+        report = json.loads(burn_in_report_path.read_text())
+    except FileNotFoundError:
+        return ProductionCheck("burn_in_samples", False, f"missing report {burn_in_report_path}")
+    except json.JSONDecodeError:
+        return ProductionCheck(
+            "burn_in_samples", False, f"invalid report json {burn_in_report_path}"
+        )
+    if not isinstance(report, dict):
+        return ProductionCheck("burn_in_samples", False, "invalid report payload")
+
+    expected_sample_count = int(report.get("sample_count") or 0)
+    expected_camera_failures = int(report.get("camera_failures") or 0)
+    expected_network_failures = int(report.get("network_failures") or 0)
+    expected_min_battery = _json_float(report.get("min_battery_percent"))
+    expected_max_temp = _json_float(report.get("max_temp_c"))
+    invalid_lines = 0
+    scanned = 0
+    camera_failures = 0
+    network_failures = 0
+    battery_values: list[float] = []
+    temp_values: list[float] = []
+    for line_number, raw_line in enumerate(samples_path.read_text().splitlines(), start=1):
+        if not raw_line.strip():
+            continue
+        try:
+            sample = json.loads(raw_line)
+        except json.JSONDecodeError:
+            invalid_lines += 1
+            continue
+        if not isinstance(sample, dict):
+            invalid_lines += 1
+            continue
+        scanned += 1
+        if sample.get("camera_ok") is not True:
+            camera_failures += 1
+        if sample.get("network_online") is not True:
+            network_failures += 1
+        battery = _json_float(sample.get("battery_percent"))
+        if battery is not None:
+            battery_values.append(battery)
+        temp = _json_float(sample.get("temp_c"))
+        if temp is not None:
+            temp_values.append(temp)
+
+    min_battery = min(battery_values) if battery_values else None
+    max_temp = max(temp_values) if temp_values else None
+    sample_count_ok = scanned == expected_sample_count
+    camera_ok = camera_failures == expected_camera_failures == 0
+    network_ok = network_failures == expected_network_failures == 0
+    battery_ok = min_battery is not None and min_battery == expected_min_battery
+    temp_ok = max_temp is not None and max_temp == expected_max_temp
+    ok = (
+        invalid_lines == 0
+        and scanned > 0
+        and sample_count_ok
+        and camera_ok
+        and network_ok
+        and battery_ok
+        and temp_ok
+    )
+    return ProductionCheck(
+        "burn_in_samples",
+        ok,
+        (
+            f"scanned={scanned}/{expected_sample_count}, "
+            f"camera_failures={camera_failures}/{expected_camera_failures}, "
+            f"network_failures={network_failures}/{expected_network_failures}, "
+            f"min_battery={_format_percent(min_battery)}/{_format_percent(expected_min_battery)}, "
+            f"max_temp={_format_temp(max_temp)}/{_format_temp(expected_max_temp)}, "
+            f"invalid_lines={invalid_lines}"
+        ),
+    )
+
+
 def _check_runtime_event_log(
     event_log_path: Path,
     burn_in_report_path: Path,
@@ -1219,6 +1299,12 @@ def _format_temp(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value:.1f}C"
+
+
+def _format_percent(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.0f}%"
 
 
 def _format_battery(

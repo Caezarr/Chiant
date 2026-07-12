@@ -261,6 +261,79 @@ def test_production_readiness_fails_without_burn_in_thermal_metrics(tmp_path: Pa
     assert "max_temp=-" in check.detail
 
 
+def test_production_readiness_fails_without_burn_in_samples(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    artifacts["burn_in_samples"].unlink()
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "burn_in_samples"][0]
+    assert check.ok is False
+    assert "missing" in check.detail
+
+
+def test_production_readiness_fails_when_burn_in_samples_do_not_match_report(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    artifacts["burn_in_samples"].write_text(
+        json.dumps(
+            {
+                "ts": 1.0,
+                "camera_ok": True,
+                "network_online": True,
+                "battery_percent": 70,
+                "temp_c": 55.0,
+            }
+        )
+        + "\n"
+    )
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "burn_in_samples"][0]
+    assert check.ok is False
+    assert "scanned=1/600" in check.detail
+
+
 def test_production_readiness_recomputes_burn_in_thermal_threshold(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     payload = json.loads(artifacts["burn_in"].read_text())
@@ -2155,6 +2228,35 @@ def _write_ready_artifacts(
             }
         )
     )
+    burn_in_samples = burn_in.with_name("samples.jsonl")
+    sample_count = int(burn_in_hours * 60)
+    burn_in_sample_lines = []
+    end_battery = 82 if charging_seen else 62
+    for index in range(sample_count):
+        if index == 0:
+            battery_percent = 70
+        elif index == sample_count - 1:
+            battery_percent = end_battery
+        else:
+            battery_percent = 62
+        burn_in_sample_lines.append(
+            json.dumps(
+                {
+                    "ts": report_time.timestamp() - burn_in_hours * 3600 + index * 60,
+                    "camera_ok": True,
+                    "camera_error": None,
+                    "battery_percent": battery_percent,
+                    "battery_charging": index >= sample_count // 2 if charging_seen else False,
+                    "battery_source": "bat",
+                    "temp_c": 55.0 if index == sample_count - 1 else 44.0,
+                    "thermal_source": "thermal",
+                    "thermal_label": "cpu",
+                    "network_online": True,
+                    "network_error": None,
+                }
+            )
+        )
+    burn_in_samples.write_text("\n".join(burn_in_sample_lines) + "\n")
 
     benchmark = tmp_path / "reports" / "vision-benchmark.json"
     benchmark.parent.mkdir(exist_ok=True)
@@ -2332,6 +2434,7 @@ def _write_ready_artifacts(
         "autopay_smoke": autopay_smoke,
         "notification": notification,
         "burn_in": burn_in,
+        "burn_in_samples": burn_in_samples,
         "events": events,
         "systemd": systemd,
         "position": position,
