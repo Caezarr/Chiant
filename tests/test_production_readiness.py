@@ -2164,6 +2164,38 @@ def test_production_readiness_requires_low_battery_notification_message(tmp_path
     assert "battery_message=False" in check.detail
 
 
+def test_production_readiness_requires_audible_notification_test(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["notification"].read_text())
+    payload["sound"] = False
+    artifacts["notification"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "notification_test"][0]
+    assert check.ok is False
+    assert "sound=False" in check.detail
+
+
 def test_production_readiness_requires_timestamped_notification_test(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     payload = json.loads(artifacts["notification"].read_text())
@@ -3493,6 +3525,7 @@ def _write_ready_artifacts(
                 "status_code": 204 if notification_passed else 500,
                 "title": "Boring Box - test notification",
                 "message": "Canal notification pret pour batterie faible.",
+                "sound": True,
                 "tested_at": report_time_iso,
                 "error": None if notification_passed else "HTTP 500",
             }

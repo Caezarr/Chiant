@@ -1572,6 +1572,7 @@ def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
     webhook_hash = str(payload.get("webhook_hash") or "") if isinstance(payload, dict) else ""
     title = str(payload.get("title") or "") if isinstance(payload, dict) else ""
     message = str(payload.get("message") or "") if isinstance(payload, dict) else ""
+    sound = payload.get("sound") is True if isinstance(payload, dict) else False
     tested_at = (
         _parse_evidence_timestamp(payload.get("tested_at")) if isinstance(payload, dict) else None
     )
@@ -1584,6 +1585,7 @@ def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
         and bool(webhook_hash)
         and bool(title)
         and bool(message)
+        and sound
         and tested_at is not None
         and battery_message_ok
     )
@@ -1602,6 +1604,7 @@ def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
             f"hash={'ok' if webhook_hash else 'missing'}, "
             f"title={'ok' if title else 'missing'}, "
             f"message={'ok' if message else 'missing'}, "
+            f"sound={sound}, "
             f"tested_at={'ok' if tested_at is not None else 'missing'}, "
             f"battery_message={battery_message_ok}"
         ),

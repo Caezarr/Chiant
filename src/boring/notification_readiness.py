@@ -21,6 +21,7 @@ class NotificationTestReport:
     status_code: int | None
     title: str
     message: str
+    sound: bool
     tested_at: str
     error: str | None = None
 
@@ -47,6 +48,7 @@ def run_notification_test(
             status_code=None,
             title=title,
             message=message,
+            sound=sound,
             tested_at=tested_at,
             error="missing webhook url",
         )
@@ -69,6 +71,7 @@ def run_notification_test(
             status_code=None,
             title=title,
             message=message,
+            sound=sound,
             tested_at=tested_at,
             error=str(exc),
         )
@@ -80,6 +83,7 @@ def run_notification_test(
         status_code=status_code,
         title=title,
         message=message,
+        sound=sound,
         tested_at=tested_at,
         error=None if 200 <= status_code < 300 else f"HTTP {status_code}",
     )
