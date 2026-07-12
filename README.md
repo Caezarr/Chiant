@@ -142,7 +142,7 @@ Architecture boîtier : [docs/BOX.md](docs/BOX.md). Déploiement Pi : [deploy/pi
 - Vertical 2 — **`boring.contest`** : génération RAPO automatique + escalade CCSP
 - CLI complète : `capture / detect / run / pay-now / contest-fps`
 - Runtime headless boîtier : `box-run / box-doctor`, config Pi 4 / Pi 5 documentée
-- Tests pytest (338/338), CI GitHub Actions, pre-commit hooks
+- Tests pytest (342/342), CI GitHub Actions, pre-commit hooks
 
 ### Ce qui manque ⏳
 - Modèle custom `control_vehicle` (besoin captation terrain — cf. HUMAN-TODO #1-3)

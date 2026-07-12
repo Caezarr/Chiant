@@ -47,6 +47,7 @@ def audit_autopay_readiness(
         _check_paybyphone_credentials(values),
         _check_paybyphone_hints(values),
         _check_geofence(values),
+        _check_geofence_zones(values),
         _check_har_artifact(endpoints_path),
     ]
     return AutopayReadinessReport(checks)
@@ -143,6 +144,28 @@ def _check_geofence(env: Mapping[str, str]) -> AutopayCheck:
             f"require={require_geofence}, mode={position_mode}, "
             f"static={has_static_position}, gpsd={gpsd_ready}"
         ),
+    )
+
+
+def _check_geofence_zones(env: Mapping[str, str]) -> AutopayCheck:
+    require_geofence = _env_bool(env, "BOX_REQUIRE_GEOFENCE", True)
+    path = Path(_get(env, "PARKING_ZONES_PATH", "data/lille_parking_zones.geojson"))
+    if not require_geofence:
+        return AutopayCheck("geofence_zones", True, f"required=false, path={path}")
+    if not path.exists():
+        return AutopayCheck("geofence_zones", False, f"missing {path}")
+    try:
+        payload = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return AutopayCheck("geofence_zones", False, f"invalid json {path}")
+    features = payload.get("features")
+    ok = (
+        payload.get("type") == "FeatureCollection" and isinstance(features, list) and bool(features)
+    )
+    return AutopayCheck(
+        "geofence_zones",
+        ok,
+        f"path={path}, features={len(features) if isinstance(features, list) else '-'}",
     )
 
 

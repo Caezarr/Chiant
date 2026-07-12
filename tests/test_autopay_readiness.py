@@ -8,8 +8,9 @@ from boring.autopay_readiness import audit_autopay_readiness, write_report
 
 def test_autopay_readiness_passes_with_complete_real_config(tmp_path: Path):
     endpoints = _write_endpoints(tmp_path)
+    env = _ready_env(tmp_path)
 
-    report = audit_autopay_readiness(env=_ready_env(), endpoints_path=endpoints)
+    report = audit_autopay_readiness(env=env, endpoints_path=endpoints)
 
     assert report.passed is True
     assert all(check.ok for check in report.checks)
@@ -17,7 +18,7 @@ def test_autopay_readiness_passes_with_complete_real_config(tmp_path: Path):
 
 def test_autopay_readiness_fails_on_dry_run_when_real_required(tmp_path: Path):
     endpoints = _write_endpoints(tmp_path)
-    env = _ready_env()
+    env = _ready_env(tmp_path)
     env["PAYMENT_DRY_RUN"] = "true"
 
     strict = audit_autopay_readiness(env=env, endpoints_path=endpoints)
@@ -34,7 +35,7 @@ def test_autopay_readiness_fails_on_dry_run_when_real_required(tmp_path: Path):
 
 def test_autopay_readiness_fails_without_geofence_position(tmp_path: Path):
     endpoints = _write_endpoints(tmp_path)
-    env = _ready_env()
+    env = _ready_env(tmp_path)
     env["BOX_LAT"] = ""
     env["BOX_LON"] = ""
     env["POSITION_MODE"] = "static"
@@ -45,9 +46,47 @@ def test_autopay_readiness_fails_without_geofence_position(tmp_path: Path):
     assert any(check.name == "geofence_position" and not check.ok for check in report.checks)
 
 
+def test_autopay_readiness_fails_without_geofence_zones(tmp_path: Path):
+    endpoints = _write_endpoints(tmp_path)
+    env = _ready_env(tmp_path)
+    env["PARKING_ZONES_PATH"] = str(tmp_path / "missing-zones.geojson")
+
+    report = audit_autopay_readiness(env=env, endpoints_path=endpoints)
+
+    assert report.passed is False
+    assert any(check.name == "geofence_zones" and not check.ok for check in report.checks)
+
+
+def test_autopay_readiness_fails_with_empty_geofence_zones(tmp_path: Path):
+    endpoints = _write_endpoints(tmp_path)
+    zones = tmp_path / "empty-zones.geojson"
+    zones.write_text(json.dumps({"type": "FeatureCollection", "features": []}))
+    env = _ready_env(tmp_path)
+    env["PARKING_ZONES_PATH"] = str(zones)
+
+    report = audit_autopay_readiness(env=env, endpoints_path=endpoints)
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "geofence_zones"][0]
+    assert "features=0" in check.detail
+
+
+def test_autopay_readiness_allows_missing_zones_when_geofence_disabled(tmp_path: Path):
+    endpoints = _write_endpoints(tmp_path)
+    env = _ready_env(tmp_path)
+    env["BOX_REQUIRE_GEOFENCE"] = "false"
+    env["PARKING_ZONES_PATH"] = str(tmp_path / "missing-zones.geojson")
+
+    report = audit_autopay_readiness(env=env, endpoints_path=endpoints)
+
+    assert report.passed is True
+    check = [check for check in report.checks if check.name == "geofence_zones"][0]
+    assert "required=false" in check.detail
+
+
 def test_autopay_readiness_fails_when_payment_limits_are_invalid(tmp_path: Path):
     endpoints = _write_endpoints(tmp_path)
-    env = _ready_env()
+    env = _ready_env(tmp_path)
     env["MAX_SESSION_AMOUNT_CENTS"] = "2000"
     env["MAX_DAILY_AMOUNT_CENTS"] = "1500"
 
@@ -58,7 +97,9 @@ def test_autopay_readiness_fails_when_payment_limits_are_invalid(tmp_path: Path)
 
 
 def test_autopay_readiness_fails_without_har_artifact(tmp_path: Path):
-    report = audit_autopay_readiness(env=_ready_env(), endpoints_path=tmp_path / "missing.json")
+    report = audit_autopay_readiness(
+        env=_ready_env(tmp_path), endpoints_path=tmp_path / "missing.json"
+    )
 
     assert report.passed is False
     assert any(check.name == "paybyphone_har_artifact" and not check.ok for check in report.checks)
@@ -67,14 +108,16 @@ def test_autopay_readiness_fails_without_har_artifact(tmp_path: Path):
 def test_autopay_readiness_fails_when_har_flow_is_incomplete(tmp_path: Path):
     endpoints = _write_endpoints(tmp_path, session_stop=False)
 
-    report = audit_autopay_readiness(env=_ready_env(), endpoints_path=endpoints)
+    report = audit_autopay_readiness(env=_ready_env(tmp_path), endpoints_path=endpoints)
 
     assert report.passed is False
     assert any(check.name == "paybyphone_har_artifact" and not check.ok for check in report.checks)
 
 
 def test_write_report_includes_passed(tmp_path: Path):
-    report = audit_autopay_readiness(env=_ready_env(), endpoints_path=_write_endpoints(tmp_path))
+    report = audit_autopay_readiness(
+        env=_ready_env(tmp_path), endpoints_path=_write_endpoints(tmp_path)
+    )
     output = tmp_path / "reports" / "autopay.json"
 
     write_report(report, output)
@@ -83,7 +126,8 @@ def test_write_report_includes_passed(tmp_path: Path):
     assert payload["passed"] is True
 
 
-def _ready_env() -> dict[str, str]:
+def _ready_env(tmp_path: Path) -> dict[str, str]:
+    zones = _write_zones(tmp_path)
     return {
         "PAYMENT_MODE": "auto",
         "PAYMENT_PROVIDER": "paybyphone",
@@ -104,6 +148,7 @@ def _ready_env() -> dict[str, str]:
         "POSITION_MODE": "static",
         "BOX_LAT": "50.6371",
         "BOX_LON": "3.0633",
+        "PARKING_ZONES_PATH": str(zones),
     }
 
 
@@ -134,3 +179,28 @@ def _write_endpoints(tmp_path: Path, *, session_stop: bool = True) -> Path:
         )
     )
     return endpoints
+
+
+def _write_zones(tmp_path: Path) -> Path:
+    zones = tmp_path / "data" / "lille_parking_zones.geojson"
+    zones.parent.mkdir(parents=True, exist_ok=True)
+    zones.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [
+                                [[3.0, 50.6], [3.1, 50.6], [3.1, 50.7], [3.0, 50.7], [3.0, 50.6]]
+                            ],
+                        },
+                    }
+                ],
+            }
+        )
+    )
+    return zones

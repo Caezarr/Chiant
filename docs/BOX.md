@@ -44,7 +44,7 @@ Preflight avant de laisser la box seule :
 uv run boring box-doctor
 ```
 
-Le doctor verifie notamment : camera accessible, modele present, zones, position, dossier d'etat, reseau, paiement reel, autonomie theorique.
+Le doctor verifie notamment : camera accessible, modele present, zones geofence presentes et non vides, position, dossier d'etat, reseau, paiement reel, autonomie theorique.
 
 Burn-in avant beta terrain :
 
