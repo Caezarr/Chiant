@@ -85,7 +85,7 @@ Avant `box-ready` en mode prod :
 uv run boring autopay-smoke --yes --output reports/autopay-smoke.json
 ```
 
-Cette commande refuse de tourner sans `--yes`, refuse `PAYMENT_DRY_RUN=true`, se connecte avec `PAYBYPHONE_USERNAME/PAYBYPHONE_PASSWORD`, utilise `DEFAULT_DURATION_MINUTES` par defaut, verifie qu'aucune session n'est deja active pour la plaque, demarre une session minimale, re-verifie qu'elle est active, appelle `stop_session()`, puis verifie que la session n'est plus active. Le rapport doit contenir `passed=true`, `dry_run=false`, `duration_minutes=DEFAULT_DURATION_MINUTES`, `lat/lon` correspondant a `BOX_LAT/BOX_LON`, `active_session_verified=true`, `stopped=true`, `stop_verified=true` et un `amount_cents` positif inferieur ou egal a `MAX_SESSION_AMOUNT_CENTS`.
+Cette commande refuse de tourner sans `--yes`, refuse `PAYMENT_DRY_RUN=true`, se connecte avec `PAYBYPHONE_USERNAME/PAYBYPHONE_PASSWORD`, utilise `DEFAULT_DURATION_MINUTES` par defaut, verifie qu'aucune session n'est deja active pour la plaque, demarre une session minimale, re-verifie qu'elle est active, appelle `stop_session()`, puis verifie que la session n'est plus active. Le rapport doit contenir `passed=true`, `dry_run=false`, `duration_minutes=DEFAULT_DURATION_MINUTES`, `active_session_duration_minutes=DEFAULT_DURATION_MINUTES`, `duration_verified=true`, `lat/lon` correspondant a `BOX_LAT/BOX_LON`, `active_session_verified=true`, `stopped=true`, `stop_verified=true` et un `amount_cents` positif inferieur ou egal a `MAX_SESSION_AMOUNT_CENTS`.
 
 ## Gardes de securite
 

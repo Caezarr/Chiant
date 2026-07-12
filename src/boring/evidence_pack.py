@@ -1500,6 +1500,18 @@ def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
     )
     stopped = payload.get("stopped") is True if isinstance(payload, dict) else False
     stop_verified = payload.get("stop_verified") is True if isinstance(payload, dict) else False
+    duration_minutes = payload.get("duration_minutes") if isinstance(payload, dict) else None
+    active_duration = (
+        payload.get("active_session_duration_minutes") if isinstance(payload, dict) else None
+    )
+    duration_verified = (
+        payload.get("duration_verified") is True if isinstance(payload, dict) else False
+    )
+    duration_ok = (
+        isinstance(duration_minutes, int)
+        and isinstance(active_duration, int)
+        and duration_minutes == active_duration
+    )
     provider = payload.get("provider") if isinstance(payload, dict) else None
     session_id = payload.get("session_id") if isinstance(payload, dict) else None
     zone_id = payload.get("zone_id") if isinstance(payload, dict) else None
@@ -1512,6 +1524,8 @@ def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
         and active_verified
         and stopped
         and stop_verified
+        and duration_verified
+        and duration_ok
         and bool(provider)
         and bool(session_id)
         and bool(zone_id)
@@ -1529,6 +1543,7 @@ def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
         detail=(
             f"passed={passed}, dry_run={dry_run}, amount={amount_cents}, "
             f"active={active_verified}, stopped={stopped}, stop_verified={stop_verified}, "
+            f"duration={duration_minutes}/{active_duration}, duration_verified={duration_verified}, "
             f"provider={'ok' if provider else 'missing'}, "
             f"session={'ok' if session_id else 'missing'}, zone={'ok' if zone_id else 'missing'}, "
             f"session_zone={session_location_id or '-'}/{zone_id or '-'}"

@@ -21,6 +21,8 @@ class AutopaySmokeReport:
     session_id: str | None
     amount_cents: int | None
     duration_minutes: int
+    active_session_duration_minutes: int | None
+    duration_verified: bool
     lat: float
     lon: float
     active_session_verified: bool
@@ -86,6 +88,8 @@ def run_autopay_smoke(
             and active_after.vehicle_plate == plate
             and active_after.location_id == session.location_id
         )
+        active_duration = _session_duration_minutes(active_after)
+        duration_verified = active_duration == duration_minutes
         if stop_after:
             provider.stop_session(session.session_id)
             stopped = True
@@ -100,6 +104,7 @@ def run_autopay_smoke(
             and max_amount_ok
             and session_location_ok
             and active_verified
+            and duration_verified
             and (stopped and stop_verified if stop_after else True)
         )
         error = None
@@ -107,6 +112,8 @@ def run_autopay_smoke(
             error = f"session amount exceeds MAX_SESSION_AMOUNT_CENTS: {session.amount_cents}"
         elif not session_location_ok:
             error = f"session location mismatch: {session.location_id}/{zone_id}"
+        elif not duration_verified:
+            error = f"active session duration mismatch: {active_duration}/{duration_minutes}min"
         return _report(
             provider=provider,
             dry_run=dry_run,
@@ -119,6 +126,8 @@ def run_autopay_smoke(
             session_location_id=session.location_id,
             session_id=session.session_id,
             amount_cents=session.amount_cents,
+            active_session_duration_minutes=active_duration,
+            duration_verified=duration_verified,
             active_session_verified=active_verified,
             stopped=stopped,
             stop_verified=stop_verified,
@@ -171,6 +180,8 @@ def _report(
     session_location_id: str | None = None,
     session_id: str | None = None,
     amount_cents: int | None = None,
+    active_session_duration_minutes: int | None = None,
+    duration_verified: bool = False,
     active_session_verified: bool = False,
     stopped: bool = False,
     stop_verified: bool = False,
@@ -187,6 +198,8 @@ def _report(
         session_id=session_id,
         amount_cents=amount_cents,
         duration_minutes=duration_minutes,
+        active_session_duration_minutes=active_session_duration_minutes,
+        duration_verified=duration_verified,
         lat=lat,
         lon=lon,
         active_session_verified=active_session_verified,
@@ -220,3 +233,12 @@ def _cleanup_after_error(
     if active_after_stop is None:
         return f"{error}; cleanup_stop_verified=true", True, True
     return f"{error}; cleanup_stop_verified=false", True, False
+
+
+def _session_duration_minutes(session) -> int | None:
+    if session is None:
+        return None
+    duration_seconds = (session.end - session.start).total_seconds()
+    if duration_seconds <= 0:
+        return None
+    return round(duration_seconds / 60)

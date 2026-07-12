@@ -18,6 +18,7 @@ class FakeProvider(PaymentProvider):
         amount_cents: int = 120,
         fail_active_after_start: bool = False,
         session_location_id: str = "zone-1",
+        active_duration_minutes: int | None = None,
     ) -> None:
         self.dry_run = dry_run
         self.active_before = active_before
@@ -25,6 +26,7 @@ class FakeProvider(PaymentProvider):
         self.amount_cents = amount_cents
         self.fail_active_after_start = fail_active_after_start
         self.session_location_id = session_location_id
+        self.active_duration_minutes = active_duration_minutes
         self.session: ParkingSession | None = None
         self.stopped_session_id: str | None = None
 
@@ -46,7 +48,8 @@ class FakeProvider(PaymentProvider):
             vehicle_plate=vehicle_plate,
             location_id=self.session_location_id,
             start=datetime(2026, 7, 9, 12, 0, 0),
-            end=datetime(2026, 7, 9, 12, 0, 0) + timedelta(minutes=duration_minutes),
+            end=datetime(2026, 7, 9, 12, 0, 0)
+            + timedelta(minutes=self.active_duration_minutes or duration_minutes),
             amount_cents=self.amount_cents,
         )
         return self.session
@@ -90,11 +93,31 @@ def test_autopay_smoke_starts_verifies_and_stops_real_session():
     assert report.session_id == "session-1"
     assert report.amount_cents == 120
     assert report.duration_minutes == 15
+    assert report.active_session_duration_minutes == 15
+    assert report.duration_verified is True
     assert report.lat == 50.6371
     assert report.lon == 3.0633
     assert report.active_session_verified is True
     assert report.stopped is True
     assert report.stop_verified is True
+    assert provider.stopped_session_id == "session-1"
+
+
+def test_autopay_smoke_fails_when_active_session_duration_differs():
+    provider = FakeProvider(active_duration_minutes=5)
+
+    report = run_autopay_smoke(
+        provider=provider,
+        plate="AB-123-CD",
+        lat=50.6371,
+        lon=3.0633,
+        duration_minutes=15,
+    )
+
+    assert report.passed is False
+    assert report.active_session_duration_minutes == 5
+    assert report.duration_verified is False
+    assert "duration mismatch" in str(report.error)
     assert provider.stopped_session_id == "session-1"
 
 

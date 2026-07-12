@@ -912,6 +912,9 @@ def _check_autopay_smoke_report(
     duration_minutes = payload.get("duration_minutes")
     expected_duration = int(_env_float(env, "DEFAULT_DURATION_MINUTES") or 15)
     duration_ok = isinstance(duration_minutes, int) and duration_minutes == expected_duration
+    active_duration = _json_int(payload.get("active_session_duration_minutes"))
+    duration_verified = payload.get("duration_verified") is True
+    active_duration_ok = active_duration == expected_duration
     smoke_lat = _json_float(payload.get("lat"))
     smoke_lon = _json_float(payload.get("lon"))
     expected_lat = _env_float(env, "BOX_LAT")
@@ -945,6 +948,8 @@ def _check_autopay_smoke_report(
         and amount_ok
         and max_session_ok
         and duration_ok
+        and duration_verified
+        and active_duration_ok
         and position_ok
         and provider_ok
         and plate_ok
@@ -958,6 +963,8 @@ def _check_autopay_smoke_report(
             f"stopped={stopped}, stop_verified={stop_verified}, "
             f"amount={amount_cents}/{max_session_amount}, "
             f"duration={duration_minutes}/{expected_duration}, "
+            f"active_duration={active_duration if active_duration is not None else '-'}/{expected_duration}, "
+            f"duration_verified={duration_verified}, "
             f"position={_format_coord(smoke_lat, smoke_lon)}/{_format_coord(expected_lat, expected_lon)}, "
             f"provider={provider}/{expected_provider}, "
             f"plate={plate or '-'}/{expected_plate}, "
