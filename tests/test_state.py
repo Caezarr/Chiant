@@ -51,6 +51,41 @@ def test_state_store_roundtrip(tmp_path):
     assert loaded.last_session_id == "S1"
 
 
+def test_state_store_save_does_not_persist_load_error(tmp_path):
+    path = tmp_path / "state.json"
+    store = BoxStateStore(path)
+
+    store.save(BoxState(last_session_id="S1", load_error="invalid state file"))
+
+    assert "load_error" not in path.read_text()
+    assert store.load().load_error is None
+
+
+def test_state_store_keeps_previous_state_when_replace_fails(tmp_path, monkeypatch):
+    path = tmp_path / "state.json"
+    store = BoxStateStore(path)
+    first = datetime(2026, 7, 9, 9, 0)
+    second = datetime(2026, 7, 9, 10, 0)
+    store.save(BoxState(last_payment_at=first, last_session_id="S1"))
+
+    def fail_replace(_src, _dst):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr("boring.state.os.replace", fail_replace)
+
+    try:
+        store.save(BoxState(last_payment_at=second, last_session_id="S2"))
+    except OSError as exc:
+        assert "replace failed" in str(exc)
+    else:
+        raise AssertionError("expected failed replace to surface")
+
+    loaded = store.load()
+    assert loaded.last_payment_at == first
+    assert loaded.last_session_id == "S1"
+    assert not (tmp_path / ".state.json.tmp").exists()
+
+
 def test_state_store_record_session(tmp_path):
     store = BoxStateStore(tmp_path / "state.json")
     now = datetime.now()
