@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -151,7 +152,7 @@ def default_evidence_paths() -> dict[str, Path]:
         "camera_runtime": Path("reports/camera-check.json"),
         "network_runtime": Path("reports/network-check.json"),
         "power_runtime": Path("reports/power-check.json"),
-        "runtime_events": Path("/var/lib/boring/events.jsonl"),
+        "runtime_events": Path(os.getenv("BOX_EVENT_LOG_PATH", "/var/lib/boring/events.jsonl")),
         "vision_eval": Path("reports/vision-eval.json"),
         "vision_benchmark": Path("reports/vision-benchmark.json"),
         "paybyphone_endpoints": Path("scripts/paybyphone_endpoints.json"),
