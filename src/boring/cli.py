@@ -518,10 +518,12 @@ def box_ready(
     ),
     state_path: Path = typer.Option(
         Path("/var/lib/boring/state.json"),
+        envvar="BOX_STATE_PATH",
         help="Chemin BOX_STATE_PATH a verifier pour l'etat autopay persistant.",
     ),
     storage_path: Path = typer.Option(
         Path("/var/lib/boring/events.jsonl"),
+        envvar="BOX_EVENT_LOG_PATH",
         help="Chemin dont la partition doit garder assez d'espace libre.",
     ),
     output: Path = typer.Option(Path("reports/box-readiness.json"), help="Rapport JSON."),

@@ -86,6 +86,41 @@ def test_box_evidence_pack_can_override_model_path(tmp_path, monkeypatch):
     assert captured["kwargs"]["max_report_age_hours"] == 72.0
 
 
+def test_box_ready_uses_runtime_paths_from_env(tmp_path, monkeypatch):
+    captured = {}
+
+    def audit_spy(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            checks=[SimpleNamespace(name="state_path", ok=True, detail="ok")],
+            passed=True,
+        )
+
+    def write_report_spy(report, output):
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text("{}")
+
+    state_path = tmp_path / "custom-state" / "state.json"
+    event_log_path = tmp_path / "custom-events" / "events.jsonl"
+    monkeypatch.setenv("BOX_STATE_PATH", str(state_path))
+    monkeypatch.setenv("BOX_EVENT_LOG_PATH", str(event_log_path))
+    monkeypatch.setattr("boring.cli.audit_production_readiness", audit_spy)
+    monkeypatch.setattr("boring.cli.write_production_report", write_report_spy)
+
+    result = runner.invoke(
+        app,
+        [
+            "box-ready",
+            "--output",
+            str(tmp_path / "box-readiness.json"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["state_path"] == state_path
+    assert captured["storage_path"] == event_log_path
+
+
 def test_autopay_smoke_cli_uses_env_credentials_and_duration(tmp_path, monkeypatch):
     provider = _CliPaymentProvider()
     monkeypatch.setattr("boring.cli.make_payment_provider", lambda: provider)
