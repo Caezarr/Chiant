@@ -438,6 +438,51 @@ def test_production_readiness_rejects_low_battery_burn_in(tmp_path: Path):
     assert "battery_low=True" in check.detail
 
 
+def test_production_readiness_recomputes_low_battery_from_burn_in_minimum(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["burn_in"].read_text())
+    payload["min_battery_percent"] = 24
+    payload["battery_low_seen"] = False
+    payload["battery_critical_seen"] = False
+    payload["passed"] = True
+    artifacts["burn_in"].write_text(json.dumps(payload))
+
+    sample_lines = []
+    for raw_line in artifacts["burn_in_samples"].read_text().splitlines():
+        sample = json.loads(raw_line)
+        if sample["battery_percent"] == 62:
+            sample["battery_percent"] = 24
+        sample_lines.append(json.dumps(sample))
+    artifacts["burn_in_samples"].write_text("\n".join(sample_lines) + "\n")
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "burn_in"][0]
+    assert check.ok is False
+    assert "min_above_low=False(25%)" in check.detail
+
+
 def test_production_readiness_fails_when_disk_space_is_low(tmp_path: Path, monkeypatch):
     artifacts = _write_ready_artifacts(tmp_path)
 

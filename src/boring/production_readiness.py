@@ -991,9 +991,13 @@ def _check_burn_in_report(
     battery_delta = _json_float(payload.get("battery_delta_percent"))
     max_temp_c = _json_float(payload.get("max_temp_c"))
     thermal_critical_c = _env_float(env, "THERMAL_CRITICAL_C") or 85.0
+    battery_low_percent = _env_int(env, "BATTERY_LOW_PERCENT", 25)
+    battery_critical_percent = _env_int(env, "BATTERY_CRITICAL_PERCENT", 10)
     battery_low = bool(payload.get("battery_low_seen"))
     battery_critical = bool(payload.get("battery_critical_seen"))
     thermal_critical = bool(payload.get("thermal_critical_seen"))
+    min_above_low = min_battery is not None and min_battery > battery_low_percent
+    min_above_critical = min_battery is not None and min_battery > battery_critical_percent
     charging_seen = bool(payload.get("charging_seen"))
     discharging_seen = bool(payload.get("discharging_seen"))
     charging_ok = charging_seen if require_charging_seen else True
@@ -1012,6 +1016,8 @@ def _check_burn_in_report(
         and max_temp_c < thermal_critical_c
         and not battery_low
         and not battery_critical
+        and min_above_low
+        and min_above_critical
         and not thermal_critical
         and charging_ok
         and discharging_ok
@@ -1024,6 +1030,8 @@ def _check_burn_in_report(
             f"samples={sample_count}, "
             f"camera_failures={camera_failures}, network_failures={network_failures}, "
             f"battery={_format_battery(start_battery, end_battery, min_battery, battery_delta)}, "
+            f"min_above_low={min_above_low}({battery_low_percent}%), "
+            f"min_above_critical={min_above_critical}({battery_critical_percent}%), "
             f"max_temp={_format_temp(max_temp_c)}/{thermal_critical_c:.1f}C, "
             f"battery_low={battery_low}, battery_critical={battery_critical}, "
             f"thermal_critical={thermal_critical}, "

@@ -403,8 +403,13 @@ def _burn_in_report_failures(payload: dict) -> list[str]:
         failures.append("camera_failures")
     if payload.get("network_failures") != 0:
         failures.append("network_failures")
-    if not isinstance(payload.get("min_battery_percent"), int):
+    min_battery = _number(payload.get("min_battery_percent"))
+    if min_battery is None:
         failures.append("min_battery")
+    elif min_battery <= 25:
+        failures.append("min_battery_low")
+    if min_battery is not None and min_battery <= 10:
+        failures.append("min_battery_critical")
     if not isinstance(payload.get("max_temp_c"), (int, float)):
         failures.append("max_temp")
     if payload.get("charging_seen") is not True:
