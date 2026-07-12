@@ -464,12 +464,19 @@ def _position_report_failures(payload: dict) -> list[str]:
     source = str(payload.get("source") or "")
     lat = _number(payload.get("lat"))
     lon = _number(payload.get("lon"))
+    gpsd_host = str(payload.get("gpsd_host") or "")
+    gpsd_port = _integer(payload.get("gpsd_port"))
     if not _has_text(payload.get("checked_at")):
         failures.append("checked_at")
     if mode not in {"static", "gpsd"}:
         failures.append("mode")
     if source != mode:
         failures.append("source")
+    if mode == "gpsd":
+        if not gpsd_host:
+            failures.append("gpsd_host")
+        if gpsd_port is None or gpsd_port <= 0:
+            failures.append("gpsd_port")
     if lat is None or not -90 <= lat <= 90:
         failures.append("lat")
     if lon is None or not -180 <= lon <= 180:

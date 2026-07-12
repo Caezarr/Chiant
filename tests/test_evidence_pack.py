@@ -242,6 +242,24 @@ def test_evidence_pack_rejects_runtime_report_with_failures(tmp_path: Path):
     assert "failures=failures" in item.detail
 
 
+def test_evidence_pack_rejects_gpsd_position_without_endpoint(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["position_runtime"].read_text())
+    payload["mode"] = "gpsd"
+    payload["source"] = "gpsd"
+    payload["gpsd_host"] = ""
+    payload["gpsd_port"] = None
+    paths["position_runtime"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "position_runtime"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "gpsd_host" in item.detail
+    assert "gpsd_port" in item.detail
+
+
 def test_evidence_pack_rejects_systemd_runtime_without_main_pid(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["systemd_runtime"].read_text())
@@ -1034,6 +1052,8 @@ def _position_runtime_payload() -> dict:
         "source": "static",
         "lat": 50.6371,
         "lon": 3.0633,
+        "gpsd_host": None,
+        "gpsd_port": None,
         "checked_at": "2026-01-01T00:00:00+00:00",
         "failures": [],
     }

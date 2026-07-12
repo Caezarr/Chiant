@@ -186,6 +186,8 @@ def _patch_runtime_reports(monkeypatch) -> None:
             source="static",
             lat=50.6371,
             lon=3.0633,
+            gpsd_host=None,
+            gpsd_port=None,
             checked_at=checked_at,
             failures=[],
         ),

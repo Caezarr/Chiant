@@ -836,6 +836,47 @@ def test_production_readiness_rejects_wrong_position_runtime(tmp_path: Path):
     assert "lat_delta=0.362900" in check.detail
 
 
+def test_production_readiness_rejects_gpsd_position_for_other_endpoint(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["position"].read_text())
+    payload["mode"] = "gpsd"
+    payload["source"] = "gpsd"
+    payload["gpsd_host"] = "gps-old.local"
+    payload["gpsd_port"] = 2947
+    artifacts["position"].write_text(json.dumps(payload))
+    env = _ready_env()
+    env["POSITION_MODE"] = "gpsd"
+    env["GPSD_HOST"] = "gps-new.local"
+    env["GPSD_PORT"] = "2948"
+
+    report = audit_production_readiness(
+        env=env,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "position_runtime"][0]
+    assert check.ok is False
+    assert "gpsd=gps-old.local/gps-new.local:2947/2948" in check.detail
+
+
 def test_production_readiness_fails_without_camera_runtime_report(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
 
@@ -3065,6 +3106,8 @@ def _write_ready_artifacts(
                 "source": "static",
                 "lat": 50.6371,
                 "lon": 3.0633,
+                "gpsd_host": None,
+                "gpsd_port": None,
                 "checked_at": report_time_iso,
                 "failures": [],
             }

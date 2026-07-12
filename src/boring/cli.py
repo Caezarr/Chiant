@@ -254,6 +254,8 @@ def box_position_check(
         mode=config.position_mode,
         expected_lat=config.lat,
         expected_lon=config.lon,
+        gpsd_host=config.gpsd_host,
+        gpsd_port=config.gpsd_port,
     )
     write_position_report(report, output)
     table = Table(title="Boring Box — position runtime")
@@ -408,6 +410,8 @@ def box_runtime_checks(
         mode=config.position_mode,
         expected_lat=config.lat,
         expected_lon=config.lon,
+        gpsd_host=config.gpsd_host,
+        gpsd_port=config.gpsd_port,
     )
     write_position_report(position, output_dir / "position-check.json")
 
