@@ -953,6 +953,70 @@ def test_production_readiness_rejects_systemd_runtime_without_main_pid(tmp_path:
     assert "main_pid=0" in check.detail
 
 
+def test_production_readiness_rejects_restarted_systemd_runtime(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["systemd"].read_text())
+    payload["n_restarts"] = 3
+    artifacts["systemd"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "systemd_runtime"][0]
+    assert check.ok is False
+    assert "n_restarts=3" in check.detail
+
+
+def test_production_readiness_requires_systemd_restart_count(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["systemd"].read_text())
+    payload.pop("n_restarts")
+    artifacts["systemd"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "systemd_runtime"][0]
+    assert check.ok is False
+    assert "n_restarts=-" in check.detail
+
+
 def test_production_readiness_fails_without_position_runtime_report(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
 
@@ -3601,6 +3665,7 @@ def _write_ready_artifacts(
                 "type": "notify",
                 "watchdog_usec": 30_000_000,
                 "main_pid": 1234,
+                "n_restarts": 0,
                 "exec_start": "/opt/boring/.venv/bin/boring box-run",
                 "user": "boring",
                 "checked_at": report_time_iso,

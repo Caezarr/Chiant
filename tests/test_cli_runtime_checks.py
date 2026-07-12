@@ -236,6 +236,7 @@ def _patch_runtime_reports(monkeypatch) -> None:
             type="notify",
             watchdog_usec=30_000_000,
             main_pid=1234,
+            n_restarts=0,
             exec_start="/opt/boring/.venv/bin/boring box-run",
             user="boring",
             checked_at=checked_at,

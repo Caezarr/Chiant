@@ -24,6 +24,7 @@ class SystemdCheckReport:
     type: str | None
     watchdog_usec: int | None
     main_pid: int | None
+    n_restarts: int | None
     exec_start: str | None
     user: str | None
     checked_at: str
@@ -67,7 +68,7 @@ def run_systemd_check(
             "systemctl",
             "show",
             service,
-            "--property=ActiveState,SubState,UnitFileState,Type,WatchdogUSec,MainPID,ExecStart,User",
+            "--property=ActiveState,SubState,UnitFileState,Type,WatchdogUSec,MainPID,NRestarts,ExecStart,User",
             "--no-pager",
         ]
     )
@@ -79,6 +80,7 @@ def run_systemd_check(
     active_state = properties.get("ActiveState") or active_state
     watchdog_usec = _int_or_none(properties.get("WatchdogUSec"))
     main_pid = _int_or_none(properties.get("MainPID"))
+    n_restarts = _int_or_none(properties.get("NRestarts"))
     failures = _systemd_failures(
         enabled_state=enabled_state,
         active_state=active_state,
@@ -87,6 +89,7 @@ def run_systemd_check(
         service_type=properties.get("Type"),
         watchdog_usec=watchdog_usec,
         main_pid=main_pid,
+        n_restarts=n_restarts,
         exec_start=properties.get("ExecStart"),
         user=properties.get("User"),
     )
@@ -101,6 +104,7 @@ def run_systemd_check(
         type=properties.get("Type"),
         watchdog_usec=watchdog_usec,
         main_pid=main_pid,
+        n_restarts=n_restarts,
         exec_start=properties.get("ExecStart"),
         user=properties.get("User"),
         checked_at=checked_at,
@@ -136,6 +140,7 @@ def _systemd_failures(
     service_type: str | None,
     watchdog_usec: int | None,
     main_pid: int | None,
+    n_restarts: int | None,
     exec_start: str | None,
     user: str | None,
 ) -> list[str]:
@@ -154,6 +159,10 @@ def _systemd_failures(
         failures.append(f"watchdog_usec={watchdog_usec or 0}")
     if main_pid is None or main_pid <= 0:
         failures.append(f"main_pid={main_pid or 0}")
+    if n_restarts is None:
+        failures.append("n_restarts=-")
+    elif n_restarts != 0:
+        failures.append(f"n_restarts={n_restarts}")
     if "boring box-run" not in (exec_start or ""):
         failures.append("exec_start")
     if user != "boring":
