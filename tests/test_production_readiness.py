@@ -37,6 +37,35 @@ def test_production_readiness_passes_with_all_artifacts(tmp_path: Path):
     assert all(check.ok for check in report.checks)
 
 
+def test_production_readiness_report_records_generation_time(tmp_path: Path):
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    artifacts = _write_ready_artifacts(tmp_path, report_time=now)
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        now=now,
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.generated_at == "2026-07-12T08:00:00+00:00"
+    assert report.to_dict()["generated_at"] == report.generated_at
+
+
 def test_production_readiness_fails_when_burn_in_too_short(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path, burn_in_hours=2)
 
