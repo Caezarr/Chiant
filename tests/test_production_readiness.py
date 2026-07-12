@@ -985,6 +985,13 @@ def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Pa
         + "\n"
         + json.dumps(
             {
+                "ts": (now - timedelta(hours=10)).isoformat(),
+                "event": "heartbeat",
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
                 "ts": now.isoformat(),
                 "event": "heartbeat",
             }
@@ -1010,7 +1017,7 @@ def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Pa
     assert report.passed is True
     check = [check for check in report.checks if check.name == "runtime_event_log"][0]
     assert check.ok is True
-    assert "scanned=1" in check.detail
+    assert "scanned=2" in check.detail
     assert "heartbeat=True" in check.detail
 
 
@@ -1078,7 +1085,79 @@ def test_production_readiness_rejects_stale_runtime_heartbeat(tmp_path: Path):
     assert report.passed is False
     check = [check for check in report.checks if check.name == "runtime_event_log"][0]
     assert check.ok is False
-    assert "heartbeat_gap=3600s/1800s" in check.detail
+    assert "heartbeat_start_gap=32400s/1800s" in check.detail
+
+
+def test_production_readiness_rejects_runtime_heartbeat_missing_start_coverage(
+    tmp_path: Path,
+):
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    artifacts = _write_ready_artifacts(tmp_path, report_time=now)
+    artifacts["events"].write_text(
+        json.dumps(
+            {
+                "ts": now.isoformat(),
+                "event": "heartbeat",
+            }
+        )
+        + "\n"
+    )
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=artifacts["events"],
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    assert check.ok is False
+    assert "heartbeat_start_gap=36000s/1800s" in check.detail
+
+
+def test_production_readiness_rejects_runtime_heartbeat_missing_end_coverage(
+    tmp_path: Path,
+):
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    artifacts = _write_ready_artifacts(tmp_path, report_time=now)
+    artifacts["events"].write_text(
+        json.dumps(
+            {
+                "ts": (now - timedelta(hours=10)).isoformat(),
+                "event": "heartbeat",
+            }
+        )
+        + "\n"
+    )
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=artifacts["events"],
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    assert check.ok is False
+    assert "heartbeat_end_gap=36000s/1800s" in check.detail
 
 
 def test_production_readiness_rejects_blocking_runtime_event(tmp_path: Path):
@@ -1393,6 +1472,15 @@ def _write_ready_artifacts(
     events = tmp_path / "events.jsonl"
     events.write_text(
         json.dumps(
+            {
+                "ts": (report_time - timedelta(hours=burn_in_hours)).isoformat(),
+                "event": "heartbeat",
+                "model_path": str(model),
+                "payment_dry_run": False,
+            }
+        )
+        + "\n"
+        + json.dumps(
             {
                 "ts": report_time.isoformat(),
                 "event": "heartbeat",

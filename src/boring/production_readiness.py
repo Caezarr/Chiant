@@ -601,6 +601,7 @@ def _check_runtime_event_log(
     failures: list[str] = []
     scanned = 0
     heartbeat_seen = False
+    earliest_heartbeat: datetime | None = None
     latest_heartbeat: datetime | None = None
     for line_number, raw_line in enumerate(event_log_path.read_text().splitlines(), start=1):
         if not raw_line.strip():
@@ -623,6 +624,8 @@ def _check_runtime_event_log(
             heartbeat_seen = True
             if timestamp is not None:
                 timestamp = timestamp.astimezone(timezone.utc)
+                if earliest_heartbeat is None or timestamp < earliest_heartbeat:
+                    earliest_heartbeat = timestamp
                 if latest_heartbeat is None or timestamp > latest_heartbeat:
                     latest_heartbeat = timestamp
         if name in _BLOCKING_RUNTIME_EVENTS:
@@ -630,21 +633,30 @@ def _check_runtime_event_log(
         elif name == "network_recovery_attempted" and event.get("ok") is False:
             failures.append(f"network_recovery_failed@line{line_number}")
 
-    heartbeat_gap_seconds = (
+    heartbeat_start_gap_seconds = (
+        (earliest_heartbeat - started_at).total_seconds()
+        if started_at is not None and earliest_heartbeat is not None
+        else None
+    )
+    heartbeat_end_gap_seconds = (
         (ended_at - latest_heartbeat).total_seconds()
         if ended_at is not None and latest_heartbeat is not None
         else None
     )
-    heartbeat_recent = (
-        heartbeat_gap_seconds is not None and heartbeat_gap_seconds <= max_heartbeat_gap_seconds
+    heartbeat_covers_window = (
+        heartbeat_start_gap_seconds is not None
+        and heartbeat_end_gap_seconds is not None
+        and heartbeat_start_gap_seconds <= max_heartbeat_gap_seconds
+        and heartbeat_end_gap_seconds <= max_heartbeat_gap_seconds
     )
     return ProductionCheck(
         "runtime_event_log",
-        scanned > 0 and heartbeat_seen and heartbeat_recent and not failures,
+        scanned > 0 and heartbeat_seen and heartbeat_covers_window and not failures,
         (
             f"scanned={scanned}, since={started_at.isoformat() if started_at else '-'}, "
             f"heartbeat={heartbeat_seen}, "
-            f"heartbeat_gap={_format_seconds(heartbeat_gap_seconds)}/{max_heartbeat_gap_seconds:.0f}s, "
+            f"heartbeat_start_gap={_format_seconds(heartbeat_start_gap_seconds)}/{max_heartbeat_gap_seconds:.0f}s, "
+            f"heartbeat_end_gap={_format_seconds(heartbeat_end_gap_seconds)}/{max_heartbeat_gap_seconds:.0f}s, "
             f"failures={', '.join(failures) if failures else '-'}"
         ),
     )
