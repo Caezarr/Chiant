@@ -52,6 +52,7 @@ def audit_production_readiness(
     position_report_path: Path = Path("reports/position-check.json"),
     camera_report_path: Path = Path("reports/camera-check.json"),
     network_report_path: Path = Path("reports/network-check.json"),
+    power_report_path: Path = Path("reports/power-check.json"),
     vision_eval_report_path: Path = Path("reports/vision-eval.json"),
     benchmark_report_path: Path = Path("reports/vision-benchmark.json"),
     autopay_smoke_report_path: Path = Path("reports/autopay-smoke.json"),
@@ -70,6 +71,7 @@ def audit_production_readiness(
     require_position_report: bool = True,
     require_camera_report: bool = True,
     require_network_report: bool = True,
+    require_power_report: bool = True,
     min_burn_in_hours: float = 10.0,
     now: datetime | None = None,
 ) -> ProductionReadinessReport:
@@ -116,6 +118,11 @@ def audit_production_readiness(
             network_report_path,
             values,
             require_network_report=require_network_report,
+        ),
+        _check_power_report(
+            power_report_path,
+            values,
+            require_power_report=require_power_report,
         ),
         _check_vision_eval_report(
             vision_eval_report_path,
@@ -499,6 +506,68 @@ def _check_network_report(
         (
             f"passed={passed}, target={target or '-'}/{expected_target}, "
             f"online={online}, recovery_command={recovery_configured}, "
+            f"failures={failures_text}"
+        ),
+    )
+
+
+def _check_power_report(
+    path: Path,
+    env: Mapping[str, str],
+    *,
+    require_power_report: bool,
+) -> ProductionCheck:
+    if not require_power_report:
+        return ProductionCheck(
+            "power_runtime",
+            True,
+            "required=false" if not path.exists() else str(path),
+        )
+    if not path.exists():
+        return ProductionCheck("power_runtime", False, f"missing {path}")
+    try:
+        payload = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return ProductionCheck("power_runtime", False, f"invalid json {path}")
+
+    passed = bool(payload.get("passed"))
+    percent = _json_int(payload.get("battery_percent"))
+    charging = payload.get("charging")
+    source = str(payload.get("source") or "")
+    capacity_wh = _json_float(payload.get("battery_capacity_wh"))
+    expected_capacity_wh = _env_float(env, "BATTERY_CAPACITY_WH")
+    estimated_runtime = _json_float(payload.get("estimated_runtime_hours"))
+    required_runtime = _json_float(payload.get("required_runtime_hours")) or (
+        _env_float(env, "REQUIRED_RUNTIME_HOURS") or 10.0
+    )
+    battery_critical = _env_int(env, "BATTERY_CRITICAL_PERCENT", 10)
+    failures = payload.get("failures")
+    failures_text = (
+        ",".join(str(failure) for failure in failures) if isinstance(failures, list) else "-"
+    )
+    capacity_ok = (
+        expected_capacity_wh is not None
+        and capacity_wh is not None
+        and abs(capacity_wh - expected_capacity_wh) <= 1.0
+    )
+    ok = (
+        passed
+        and source
+        and percent is not None
+        and percent > battery_critical
+        and isinstance(charging, bool)
+        and capacity_ok
+        and estimated_runtime is not None
+        and estimated_runtime >= required_runtime
+    )
+    return ProductionCheck(
+        "power_runtime",
+        ok,
+        (
+            f"passed={passed}, source={source or '-'}, battery={percent if percent is not None else '-'}%, "
+            f"charging={charging if isinstance(charging, bool) else '-'}, "
+            f"capacity={capacity_wh or 0:.1f}/{expected_capacity_wh or 0:.1f}Wh, "
+            f"runtime={estimated_runtime or 0:.1f}/{required_runtime:.1f}h, "
             f"failures={failures_text}"
         ),
     )
