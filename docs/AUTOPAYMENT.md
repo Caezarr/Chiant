@@ -103,7 +103,7 @@ Le paiement reel ne doit jamais partir si :
 Avant beta, `process_trigger` doit verifier `get_active_session()` avant `start_session()`.
 Avant paiement reel, `autopay-ready` doit passer, puis `autopay-smoke` doit produire `reports/autopay-smoke.json`.
 
-`MAX_SESSION_AMOUNT_CENTS` limite une session individuelle. `MAX_DAILY_AMOUNT_CENTS` limite le total journalier persistant dans `BOX_STATE_PATH`; le compteur survit donc a un reboot systemd. Si le provider retourne une session au-dessus du plafond, le runtime tente `stop_session()` immediatement et notifie l'utilisateur.
+`MAX_SESSION_AMOUNT_CENTS` limite une session individuelle. `MAX_DAILY_AMOUNT_CENTS` limite le total journalier persistant dans `BOX_STATE_PATH`; le compteur survit donc a un reboot systemd. `box-run` et le pipeline historique `boring run` relisent aussi `BOX_STATE_PATH` avant paiement pour initialiser le cooldown et le total journalier; si l'etat local est corrompu, ils bloquent l'autopaiement en fail-closed. Si le provider retourne une session au-dessus du plafond, le runtime tente `stop_session()` immediatement et notifie l'utilisateur.
 
 ## Contrat produit
 

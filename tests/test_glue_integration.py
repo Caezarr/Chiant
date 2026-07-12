@@ -10,7 +10,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from boring.glue import PaymentCooldown, PaymentLimits, process_trigger
+from boring.glue import _cooldown_from_state, _payment_limits_from_state
 from boring.payment.base import ParkingSession, PaymentProvider
+from boring.state import BoxStateStore
 
 
 @dataclass
@@ -117,6 +119,45 @@ def test_cooldown_can_be_seeded_from_persisted_state():
     cooldown = PaymentCooldown(cooldown_minutes=10, last_payment=datetime.now())
 
     assert cooldown.allow() is False
+
+
+def test_pipeline_cooldown_uses_persisted_last_payment(tmp_path):
+    store = BoxStateStore(tmp_path / "state.json")
+    store.record_session(_session("S1", datetime.now(), 300))
+
+    cooldown = _cooldown_from_state(store, cooldown_minutes=10)
+
+    assert cooldown.allow() is False
+
+
+def test_pipeline_payment_limits_use_persisted_daily_total(tmp_path):
+    store = BoxStateStore(tmp_path / "state.json")
+    today = datetime.now()
+    store.record_session(_session("S1", today, 400))
+    store.record_session(_session("S2", today, 500))
+
+    limits = _payment_limits_from_state(
+        store,
+        max_session_amount_cents=500,
+        max_daily_amount_cents=1500,
+    )
+
+    assert limits.max_session_amount_cents == 500
+    assert limits.max_daily_amount_cents == 1500
+    assert limits.already_paid_today_cents == 900
+
+
+def test_pipeline_payment_guards_fail_closed_on_corrupt_state(tmp_path):
+    path = tmp_path / "state.json"
+    path.write_text("{not-json")
+    store = BoxStateStore(path)
+
+    try:
+        _cooldown_from_state(store, cooldown_minutes=10)
+    except RuntimeError as exc:
+        assert "invalid state file" in str(exc)
+    else:
+        raise AssertionError("corrupt state should block pipeline cooldown")
 
 
 def test_trigger_respects_cooldown():
@@ -290,3 +331,15 @@ def test_trigger_failure_then_success_allowed():
         on_notify=notif,
     )
     assert result is not None
+
+
+def _session(session_id: str, start: datetime, amount_cents: int) -> ParkingSession:
+    return ParkingSession(
+        provider="mock",
+        session_id=session_id,
+        vehicle_plate="AB-123-CD",
+        location_id="ZONE",
+        start=start,
+        end=start + timedelta(minutes=15),
+        amount_cents=amount_cents,
+    )
