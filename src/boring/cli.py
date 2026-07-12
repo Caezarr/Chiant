@@ -34,6 +34,8 @@ from boring.evidence_pack import (
 from boring.glue import make_payment_provider, run_pipeline
 from boring.notification_readiness import run_notification_test
 from boring.notification_readiness import write_report as write_notification_report
+from boring.network_readiness import run_network_check
+from boring.network_readiness import write_report as write_network_report
 from boring.position import make_position_provider
 from boring.position_readiness import run_position_check
 from boring.position_readiness import write_report as write_position_report
@@ -291,6 +293,38 @@ def box_camera_check(
     raise typer.Exit(0 if report.passed else 1)
 
 
+@app.command("box-network-check")
+def box_network_check(
+    output: Path = typer.Option(
+        Path("reports/network-check.json"),
+        help="Rapport JSON de reseau runtime.",
+    ),
+    timeout: float = typer.Option(3.0, help="Timeout de connexion en secondes."),
+) -> None:
+    """Verifie que la box joint la cible reseau necessaire a l'autopaiement."""
+    config = BoxConfig.from_env()
+    report = run_network_check(
+        target=config.network_probe_target,
+        timeout_seconds=timeout,
+        recovery_command=config.network_recovery_command,
+    )
+    write_network_report(report, output)
+    table = Table(title="Boring Box — network runtime")
+    table.add_column("Signal", style="bold")
+    table.add_column("Valeur")
+    table.add_row("Target", report.target)
+    table.add_row("Online", "yes" if report.online else "no")
+    table.add_row(
+        "Recovery command", "configured" if report.recovery_command_configured else "missing"
+    )
+    table.add_row("Failures", ", ".join(report.failures) if report.failures else "-")
+    table.add_row("Error", report.error or "-")
+    table.add_row("Passed", "yes" if report.passed else "no")
+    console.print(table)
+    console.print(f"[dim]Rapport: {output}[/dim]")
+    raise typer.Exit(0 if report.passed else 1)
+
+
 @app.command("box-ready")
 def box_ready(
     dataset: Path = typer.Option(Path("datasets/control_vehicle_v1"), help="Dataset YOLOv8."),
@@ -322,6 +356,10 @@ def box_ready(
     camera_report: Path = typer.Option(
         Path("reports/camera-check.json"),
         help="Rapport produit par box-camera-check.",
+    ),
+    network_report: Path = typer.Option(
+        Path("reports/network-check.json"),
+        help="Rapport produit par box-network-check.",
     ),
     vision_eval_report: Path = typer.Option(
         Path("reports/vision-eval.json"),
@@ -390,6 +428,10 @@ def box_ready(
         False,
         help="Ne pas exiger le rapport box-camera-check.",
     ),
+    allow_missing_network_report: bool = typer.Option(
+        False,
+        help="Ne pas exiger le rapport box-network-check.",
+    ),
 ) -> None:
     """Gate final avant installation voiture / systemd."""
     report = audit_production_readiness(
@@ -402,6 +444,7 @@ def box_ready(
         systemd_report_path=systemd_report,
         position_report_path=position_report,
         camera_report_path=camera_report,
+        network_report_path=network_report,
         vision_eval_report_path=vision_eval_report,
         benchmark_report_path=benchmark_report,
         autopay_smoke_report_path=autopay_smoke_report,
@@ -419,6 +462,7 @@ def box_ready(
         require_systemd_report=not allow_missing_systemd_report,
         require_position_report=not allow_missing_position_report,
         require_camera_report=not allow_missing_camera_report,
+        require_network_report=not allow_missing_network_report,
         min_burn_in_hours=min_burn_in_hours,
     )
     write_production_report(report, output)
