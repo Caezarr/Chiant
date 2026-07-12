@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import configparser
-import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass, field
@@ -16,6 +15,7 @@ from boring.autopay_readiness import audit_autopay_readiness
 from boring.config import BoxConfig
 from boring.hardware_profile import audit_hardware_profile
 from boring.power_budget import build_power_budget
+from boring.readiness_json import parse_report_timestamp, sha256_text
 from boring.runtime_events import BLOCKING_RUNTIME_EVENTS
 from boring.storage import DiskSpaceMonitor
 from boring.vision_readiness import audit_vision_readiness
@@ -899,7 +899,7 @@ def _notification_webhook_hash(env: Mapping[str, str]) -> str | None:
     webhook = (env.get("BORING_NOTIFY_WEBHOOK_URL") or env.get("NTFY_WEBHOOK_URL") or "").strip()
     if not webhook:
         return None
-    return hashlib.sha256(webhook.encode("utf-8")).hexdigest()
+    return sha256_text(webhook)
 
 
 def _check_notification_report(
@@ -929,7 +929,7 @@ def _check_notification_report(
     title = str(payload.get("title") or "")
     message = str(payload.get("message") or "")
     sound = payload.get("sound") is True
-    tested_at = _parse_timestamp(payload.get("tested_at"))
+    tested_at = parse_report_timestamp(payload.get("tested_at"))
     error = payload.get("error")
     host_ok = expected_webhook_host is None or host == expected_webhook_host
     hash_ok = expected_webhook_hash is None or webhook_hash == expected_webhook_hash
@@ -1348,8 +1348,8 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
     expected_discharging_seen = bool(report.get("discharging_seen"))
     expected_max_temp = _json_float(report.get("max_temp_c"))
     expected_max_sample_gap = _json_float(report.get("max_sample_gap_seconds"))
-    started_at = _parse_timestamp(report.get("started_at"))
-    ended_at = _parse_timestamp(report.get("ended_at"))
+    started_at = parse_report_timestamp(report.get("started_at"))
+    ended_at = parse_report_timestamp(report.get("ended_at"))
     invalid_lines = 0
     scanned = 0
     camera_failures = 0
@@ -1370,7 +1370,7 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
             invalid_lines += 1
             continue
         scanned += 1
-        timestamp = _parse_timestamp(sample.get("ts"))
+        timestamp = parse_report_timestamp(sample.get("ts"))
         if timestamp is None:
             invalid_lines += 1
             continue
@@ -1516,7 +1516,7 @@ def _check_runtime_event_log(
         if not isinstance(event, dict):
             failures.append(f"line{line_number}=invalid_payload")
             continue
-        timestamp = _parse_timestamp(event.get("ts"))
+        timestamp = parse_report_timestamp(event.get("ts"))
         if started_at is not None and timestamp is not None:
             if timestamp.astimezone(timezone.utc) < started_at:
                 continue
@@ -1581,7 +1581,9 @@ def _burn_in_window(path: Path) -> tuple[datetime | None, datetime | None]:
         return None, None
     if not isinstance(payload, dict):
         return None, None
-    return _parse_timestamp(payload.get("started_at")), _parse_timestamp(payload.get("ended_at"))
+    return parse_report_timestamp(payload.get("started_at")), parse_report_timestamp(
+        payload.get("ended_at")
+    )
 
 
 def _check_report_freshness(
@@ -1672,32 +1674,10 @@ def _check_report_freshness(
 def _report_timestamp(payload: Mapping[str, object]) -> datetime | None:
     for key in ("checked_at", "tested_at", "generated_at", "ended_at"):
         value = payload.get(key)
-        timestamp = _parse_timestamp(value)
+        timestamp = parse_report_timestamp(value)
         if timestamp is not None:
             return timestamp
     return None
-
-
-def _parse_timestamp(value: object) -> datetime | None:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return datetime.fromtimestamp(float(value), tz=timezone.utc)
-    if not isinstance(value, str) or not value.strip():
-        return None
-    raw = value.strip()
-    if raw.endswith("Z"):
-        raw = raw[:-1] + "+00:00"
-    try:
-        parsed = datetime.fromisoformat(raw)
-    except ValueError:
-        try:
-            return datetime.fromtimestamp(float(raw), tz=timezone.utc)
-        except ValueError:
-            return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed
 
 
 def _env_float(env: Mapping[str, str], name: str) -> float | None:
