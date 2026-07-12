@@ -29,6 +29,7 @@ class VisionEvalReport:
     false_positives: int = 0
     false_negatives: int = 0
     invalid_images: int = 0
+    invalid_labels: int = 0
     dataset_path: str = ""
     generated_at: str = ""
 
@@ -52,6 +53,7 @@ def build_report(
     false_positives: int = 0,
     false_negatives: int = 0,
     invalid_images: int = 0,
+    invalid_labels: int = 0,
     dataset_path: str = "",
 ) -> VisionEvalReport:
     passed = (
@@ -61,6 +63,7 @@ def build_report(
         and frames_evaluated > 0
         and true_positives > 0
         and invalid_images == 0
+        and invalid_labels == 0
     )
     return VisionEvalReport(
         model_path=model_path,
@@ -78,6 +81,7 @@ def build_report(
         false_positives=false_positives,
         false_negatives=false_negatives,
         invalid_images=invalid_images,
+        invalid_labels=invalid_labels,
         dataset_path=dataset_path,
         generated_at=datetime.now(timezone.utc).isoformat(),
     )
@@ -95,7 +99,8 @@ def evaluate_yolo_dataset(
     min_recall: float = 0.90,
     max_false_positive_per_hour: float = 1.0,
 ) -> VisionEvalReport:
-    class_index = _required_class_index(dataset_path / "data.yaml", required_class)
+    class_map = _extract_yaml_classes(dataset_path / "data.yaml")
+    class_index = _required_class_index(class_map, required_class)
     image_dir = dataset_path / split / "images"
     label_dir = dataset_path / split / "labels"
     images = sorted(
@@ -105,13 +110,20 @@ def evaluate_yolo_dataset(
     false_positives = 0
     false_negatives = 0
     invalid_images = 0
+    invalid_labels = 0
     frames_evaluated = 0
     for index, image_path in enumerate(images):
         frame = cv2.imread(str(image_path))
         if frame is None:
             invalid_images += 1
             continue
-        expected = _label_has_class(label_dir / f"{image_path.stem}.txt", class_index)
+        label_result = _read_label_file(
+            label_dir / f"{image_path.stem}.txt",
+            class_index,
+            class_map,
+        )
+        invalid_labels += label_result.invalid_lines
+        expected = label_result.has_required_class
         detected = bool(
             detector.detect_frame(frame, timestamp=float(index) * frame_interval_seconds)
         )
@@ -147,6 +159,7 @@ def evaluate_yolo_dataset(
         false_positives=false_positives,
         false_negatives=false_negatives,
         invalid_images=invalid_images,
+        invalid_labels=invalid_labels,
     )
 
 
@@ -155,28 +168,56 @@ def write_report(report: VisionEvalReport, output: Path) -> None:
     output.write_text(json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
 
 
-def _required_class_index(data_yaml: Path, required_class: str) -> int:
-    classes = _extract_yaml_classes(data_yaml)
+def _required_class_index(classes: dict[int, str], required_class: str) -> int:
     for index, name in classes.items():
         if name == required_class:
             return index
-    raise ValueError(f"class {required_class!r} missing from {data_yaml}")
+    raise ValueError(f"class {required_class!r} missing from data.yaml")
 
 
-def _label_has_class(label_path: Path, class_index: int) -> bool:
+@dataclass(frozen=True)
+class LabelFileResult:
+    has_required_class: bool
+    invalid_lines: int
+
+
+def _read_label_file(
+    label_path: Path,
+    class_index: int,
+    class_map: dict[int, str],
+) -> LabelFileResult:
     if not label_path.exists():
-        return False
+        return LabelFileResult(False, 0)
+    has_required_class = False
+    invalid_lines = 0
     for raw_line in label_path.read_text().splitlines():
         line = raw_line.strip()
         if not line:
             continue
-        first = line.split(maxsplit=1)[0]
-        try:
-            if int(float(first)) == class_index:
-                return True
-        except ValueError:
+        parsed_class = _parse_yolo_label_class(line, class_map)
+        if parsed_class is None:
+            invalid_lines += 1
             continue
-    return False
+        if parsed_class == class_index:
+            has_required_class = True
+    return LabelFileResult(has_required_class, invalid_lines)
+
+
+def _parse_yolo_label_class(line: str, class_map: dict[int, str]) -> int | None:
+    parts = line.split()
+    if len(parts) != 5:
+        return None
+    try:
+        raw_class_index = float(parts[0])
+        if not raw_class_index.is_integer():
+            return None
+        class_index = int(raw_class_index)
+        values = [float(value) for value in parts[1:]]
+    except ValueError:
+        return None
+    if class_index not in class_map or not all(0.0 <= value <= 1.0 for value in values):
+        return None
+    return class_index
 
 
 def _extract_yaml_classes(data_yaml: Path) -> dict[int, str]:

@@ -61,7 +61,8 @@ def test_evidence_pack_requires_complete_vision_eval(tmp_path: Path):
     item = [item for item in pack.items if item.name == "vision_eval"][0]
     assert item.passed is True
     assert "frames=10800" in item.detail
-    assert "invalid=0" in item.detail
+    assert "invalid_images=0" in item.detail
+    assert "invalid_labels=0" in item.detail
     assert "model=ok" in item.detail
     assert "dataset=ok" in item.detail
 
@@ -545,7 +546,21 @@ def test_evidence_pack_rejects_vision_eval_with_invalid_images(tmp_path: Path):
     item = [item for item in pack.items if item.name == "vision_eval"][0]
     assert pack.passed is False
     assert item.passed is False
-    assert "invalid=1" in item.detail
+    assert "invalid_images=1" in item.detail
+
+
+def test_evidence_pack_rejects_vision_eval_with_invalid_labels(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_eval"].read_text())
+    payload["invalid_labels"] = 1
+    paths["vision_eval"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "invalid_labels=1" in item.detail
 
 
 def test_evidence_pack_rejects_vision_eval_without_true_positives(tmp_path: Path):
@@ -1262,6 +1277,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
                 "false_positives": 1,
                 "false_negatives": 7,
                 "invalid_images": 0,
+                "invalid_labels": 0,
                 "generated_at": "2026-01-01T00:00:00+00:00",
             }
         )

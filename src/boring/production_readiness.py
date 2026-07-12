@@ -1047,6 +1047,7 @@ def _check_vision_eval_report(
     false_positives = int(payload.get("false_positives") or 0)
     false_negatives = int(payload.get("false_negatives") or 0)
     invalid_images = int(payload.get("invalid_images") or 0)
+    invalid_labels = int(payload.get("invalid_labels") or 0)
     precision = _json_float(payload.get("precision")) or 0.0
     expected_recall = _ratio(true_positives, true_positives + false_negatives)
     expected_precision = _ratio(true_positives, true_positives + false_positives)
@@ -1076,6 +1077,7 @@ def _check_vision_eval_report(
         and frames_evaluated > 0
         and true_positives > 0
         and invalid_images == 0
+        and invalid_labels == 0
         and metrics_consistent
         and model_ok
         and dataset_ok
@@ -1089,7 +1091,8 @@ def _check_vision_eval_report(
             f"fp_per_hour={false_positive_per_hour:.2f}/{max_false_positive_per_hour:.2f}, "
             f"hours={evaluated_hours:.1f}, frames={frames_evaluated}, "
             f"true_positives={true_positives}, false_positives={false_positives}, "
-            f"false_negatives={false_negatives}, invalid={invalid_images}, "
+            f"false_negatives={false_negatives}, invalid_images={invalid_images}, "
+            f"invalid_labels={invalid_labels}, "
             f"metrics_consistent={metrics_consistent}, "
             f"class={required_class or '-'}/control_vehicle, "
             f"model={report_model or '-'}/{expected_model_path or '-'}, "
