@@ -73,6 +73,7 @@ def audit_vision_readiness(
     ]
     if require_license_review:
         checks.append(_check_baseline_license_review(baseline_manifest))
+    checks.append(_check_baseline_source_trace(baseline_manifest))
     checks.extend(
         [
             _check_yolo_dataset(
@@ -186,6 +187,48 @@ def _check_baseline_license_review(manifest: Path) -> VisionCheck:
         ok,
         f"approved={approved}, unknown_or_unreviewed={unknown}, bad_lines={bad_lines}",
     )
+
+
+def _check_baseline_source_trace(manifest: Path) -> VisionCheck:
+    if not manifest.exists():
+        return VisionCheck("baseline_source_trace", False, f"missing {manifest}")
+    traced = 0
+    missing_source = 0
+    missing_locator = 0
+    bad_lines = 0
+    for line in manifest.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            bad_lines += 1
+            continue
+        source = str(payload.get("source") or "").strip()
+        locator = _manifest_locator(payload)
+        if not source:
+            missing_source += 1
+        if not locator:
+            missing_locator += 1
+        if source and locator:
+            traced += 1
+    ok = traced > 0 and missing_source == 0 and missing_locator == 0 and bad_lines == 0
+    return VisionCheck(
+        "baseline_source_trace",
+        ok,
+        (
+            f"traced={traced}, missing_source={missing_source}, "
+            f"missing_locator={missing_locator}, bad_lines={bad_lines}"
+        ),
+    )
+
+
+def _manifest_locator(payload: dict) -> str:
+    for key in ("url", "source_url", "source_page", "image_id", "path"):
+        value = str(payload.get(key) or "").strip()
+        if value:
+            return value
+    return ""
 
 
 def _check_yolo_dataset(
