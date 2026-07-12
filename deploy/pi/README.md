@@ -20,10 +20,7 @@ sudo ./deploy/pi/install.sh
 cd /opt/boring
 uv sync --no-dev
 uv run boring box-doctor
-uv run boring box-camera-check --output reports/camera-check.json
-uv run boring box-position-check --output reports/position-check.json
-uv run boring box-network-check --output reports/network-check.json
-uv run boring box-power-check --output reports/power-check.json
+uv run boring box-runtime-checks --output-dir reports
 uv run boring box-burn-in --minutes 120 --interval 60 --output burn-in/pi-first-run
 uv run boring autopay-smoke --yes --output reports/autopay-smoke.json
 uv run boring box-notify-test --output reports/notification-test.json
@@ -50,6 +47,7 @@ uv run boring box-burn-in --minutes 120 --interval 60 --output burn-in/pi-daylig
 `box-doctor` doit afficher `OK camera accessible` avant installation systemd. Do not set `PAYMENT_DRY_RUN=false` before a real PayByPhone HAR has been validated and `autopay-smoke` has passed with a minimal paid session.
 `hardware-profile.json` doit representer le boitier reel : `preset_id` (`pi4-low-cost` ou `pi5-production`), RAM, camera, stockage endurance, UPS expose via `/sys/class/power_supply`, batterie, charge voiture, reseau et FPS runtime. Ne garde pas l'exemple tel quel si le hardware differe. Les champs `power.battery_capacity_wh` et `power.vehicle_charge_watts` doivent rester coherents avec `BATTERY_CAPACITY_WH` et `VEHICLE_CHARGE_WATTS` dans `.env`.
 `NETWORK_RECOVERY_COMMAND` doit correspondre au reseau reel du boitier. L'exemple `sh /opt/boring/deploy/pi/network-recover.example.sh` relance la connectivite via `nmcli`; remplace-le par un script dedie si tu utilises un modem 4G ou un routeur Wi-Fi dedie.
+`box-runtime-checks` ecrit `reports/camera-check.json`, `reports/position-check.json`, `reports/network-check.json` et `reports/power-check.json`.
 `box-camera-check` ecrit `reports/camera-check.json`. La camera doit s'ouvrir, retourner une frame et respecter la resolution minimale, 640x480 par defaut.
 `box-position-check` ecrit `reports/position-check.json`. En `POSITION_MODE=static`, il verifie `BOX_LAT/BOX_LON`; en `POSITION_MODE=gpsd`, il doit obtenir une position depuis gpsd.
 `box-network-check` ecrit `reports/network-check.json`. La cible `NETWORK_PROBE_TARGET` doit etre joignable et `NETWORK_RECOVERY_COMMAND` doit etre configure.
