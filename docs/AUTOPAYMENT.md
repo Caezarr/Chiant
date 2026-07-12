@@ -66,7 +66,7 @@ La commande ecrit `reports/autopay-readiness.json` et verifie localement :
 - hints HAR presents (`API_BASE`, `AUTH_URL`, `CLIENT_ID`, `RATE_OPTION_ID`, `PAYMENT_METHOD_ID`)
 - `PAYBYPHONE_LOCATION_ID` optionnel pour forcer une zone connue si la resolution GPS est ambigue
 - position/geofence disponible, avec `PARKING_ZONES_PATH` present et non vide quand `BOX_REQUIRE_GEOFENCE=true`
-- `scripts/paybyphone_endpoints.json` present avec `config_hints`
+- `scripts/paybyphone_endpoints.json` present avec tous les `config_hints` critiques
 - flow HAR critique complet : auth, resolution zone, start session, session active, stop session
 
 Pour une repetition sans risque avant de basculer :
