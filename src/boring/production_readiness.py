@@ -6,7 +6,7 @@ import configparser
 import hashlib
 import json
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Mapping
@@ -30,6 +30,7 @@ class ProductionCheck:
 @dataclass(frozen=True)
 class ProductionReadinessReport:
     checks: list[ProductionCheck]
+    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     @property
     def passed(self) -> bool:
@@ -192,7 +193,7 @@ def audit_production_readiness(
             require_notification_test=require_notification_test,
         ),
     ]
-    return ProductionReadinessReport(checks)
+    return ProductionReadinessReport(checks, generated_at=checked_at.isoformat())
 
 
 def write_report(report: ProductionReadinessReport, output: Path) -> None:

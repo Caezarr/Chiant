@@ -46,6 +46,7 @@ RUNTIME_REPORTS = {
 }
 
 FRESHNESS_REPORTS = (
+    "box_ready",
     "systemd_runtime",
     "position_runtime",
     "camera_runtime",
