@@ -13,6 +13,7 @@ from typing import Iterable
 @dataclass(frozen=True)
 class VisionBenchmarkReport:
     model_path: str
+    target_labels: tuple[str, ...]
     device: str
     frames_processed: int
     detections_seen: int
@@ -28,6 +29,7 @@ def run_vision_benchmark(
     detector,
     frames: Iterable[tuple[float, object]],
     model_path: str,
+    target_labels: tuple[str, ...] = ("control_vehicle",),
     device: str,
     min_fps: float,
     max_frames: int,
@@ -47,6 +49,7 @@ def run_vision_benchmark(
     measured_fps = frames_processed / duration if duration > 0 else 0.0
     return VisionBenchmarkReport(
         model_path=model_path,
+        target_labels=target_labels,
         device=device,
         frames_processed=frames_processed,
         detections_seen=detections_seen,

@@ -554,6 +554,20 @@ def test_evidence_pack_rejects_vision_benchmark_without_detections(tmp_path: Pat
     assert "detections=0" in item.detail
 
 
+def test_evidence_pack_rejects_vision_benchmark_for_other_target(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["vision_benchmark"].read_text())
+    payload["target_labels"] = ["car"]
+    paths["vision_benchmark"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "vision_benchmark"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "target=car/control_vehicle" in item.detail
+
+
 def test_write_pack_includes_passed(tmp_path: Path):
     pack = build_evidence_pack(_write_evidence(tmp_path))
     output = tmp_path / "reports" / "evidence-pack.json"
@@ -1014,6 +1028,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
             {
                 "passed": True,
                 "model_path": "models/best.pt",
+                "target_labels": ["control_vehicle"],
                 "device": "cpu",
                 "frames_processed": 120,
                 "detections_seen": 12,

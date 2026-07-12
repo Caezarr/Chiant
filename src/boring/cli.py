@@ -832,6 +832,7 @@ def vision_benchmark(
         detector=detector,
         frames=iter_frames(device_index=camera, fps=None),
         model_path=str(model),
+        target_labels=labels or ("control_vehicle",),
         device=device,
         min_fps=min_fps,
         max_frames=frames,

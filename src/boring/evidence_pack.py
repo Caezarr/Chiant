@@ -1227,6 +1227,8 @@ def _read_vision_benchmark(name: str, path: Path, raw: bytes) -> EvidenceItem:
     min_fps = _number(payload.get("min_fps")) if isinstance(payload, dict) else None
     model_path = str(payload.get("model_path") or "") if isinstance(payload, dict) else ""
     device = str(payload.get("device") or "") if isinstance(payload, dict) else ""
+    target_labels = payload.get("target_labels") if isinstance(payload, dict) else None
+    target_ok = isinstance(target_labels, list) and "control_vehicle" in target_labels
     ok = (
         passed
         and frames_processed is not None
@@ -1236,6 +1238,7 @@ def _read_vision_benchmark(name: str, path: Path, raw: bytes) -> EvidenceItem:
         and measured_fps is not None
         and min_fps is not None
         and measured_fps >= min_fps
+        and target_ok
         and bool(model_path)
         and bool(device)
     )
@@ -1251,6 +1254,7 @@ def _read_vision_benchmark(name: str, path: Path, raw: bytes) -> EvidenceItem:
         detail=(
             f"passed={passed}, fps={_fmt(measured_fps)}/{_fmt(min_fps)}, "
             f"frames={frames_processed}, detections={detections_seen}, "
+            f"target={','.join(str(label) for label in target_labels) if isinstance(target_labels, list) else '-'}/control_vehicle, "
             f"model={'ok' if model_path else 'missing'}, "
             f"device={'ok' if device else 'missing'}"
         ),
