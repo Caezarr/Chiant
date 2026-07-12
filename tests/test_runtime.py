@@ -380,6 +380,58 @@ def test_check_power_does_not_alert_low_battery_while_charging(tmp_path: Path, m
     assert not (tmp_path / "events.jsonl").exists()
 
 
+def test_check_power_blocks_when_battery_sensor_is_missing(tmp_path: Path, monkeypatch):
+    calls = []
+
+    def fake_notify(title: str, message: str, sound: bool = True) -> None:
+        calls.append((title, message, sound))
+
+    monkeypatch.setattr("boring.runtime.notify", fake_notify)
+    config = BoxConfig(power_check_seconds=1)
+    state = RuntimeState(last_power_check=-10)
+    power = _FakePower([None, None])
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    _check_power(0, power, state, config, event_log)
+    _check_power(2, power, state, config, event_log)
+
+    assert state.battery_critical_active is True
+    assert state.battery_saver_active is True
+    assert state.battery_sensor_missing_alert_sent is True
+    assert calls == [
+        (
+            "Boring Box — jauge batterie absente",
+            "Autopaiement bloque jusqu'au retour de la jauge.",
+            True,
+        )
+    ]
+    assert (tmp_path / "events.jsonl").read_text().count("battery_sensor_missing") == 1
+
+
+def test_check_power_logs_battery_sensor_recovery(tmp_path: Path, monkeypatch):
+    calls = []
+
+    def fake_notify(title: str, message: str, sound: bool = True) -> None:
+        calls.append((title, message, sound))
+
+    monkeypatch.setattr("boring.runtime.notify", fake_notify)
+    config = BoxConfig(power_check_seconds=1)
+    state = RuntimeState(last_power_check=-10)
+    power = _FakePower([None, BatteryStatus(80, True, "bat")])
+    event_log = EventLog(tmp_path / "events.jsonl")
+
+    _check_power(0, power, state, config, event_log)
+    _check_power(2, power, state, config, event_log)
+
+    assert state.battery_sensor_missing_alert_sent is False
+    assert state.battery_critical_active is False
+    assert state.battery_saver_active is False
+    assert calls[1] == ("Boring Box — jauge batterie revenue", "80% restants", False)
+    events = (tmp_path / "events.jsonl").read_text()
+    assert "battery_sensor_missing" in events
+    assert "battery_sensor_recovered" in events
+
+
 def test_check_thermal_notifies_warning_then_recovered(tmp_path: Path, monkeypatch):
     calls = []
 
@@ -466,10 +518,10 @@ class _FakeNetwork:
 
 
 class _FakePower:
-    def __init__(self, statuses: list[BatteryStatus]) -> None:
+    def __init__(self, statuses: list[BatteryStatus | None]) -> None:
         self.statuses = statuses
 
-    def read(self) -> BatteryStatus:
+    def read(self) -> BatteryStatus | None:
         return self.statuses.pop(0)
 
 
