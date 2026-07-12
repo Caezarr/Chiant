@@ -248,6 +248,26 @@ def test_autopay_smoke_refuses_dry_run_provider():
     assert provider.session is None
 
 
+def test_autopay_smoke_refuses_without_stop_after_before_starting_session():
+    provider = FakeProvider()
+
+    report = run_autopay_smoke(
+        provider=provider,
+        plate="AB-123-CD",
+        lat=50.6371,
+        lon=3.0633,
+        duration_minutes=15,
+        stop_after=False,
+    )
+
+    assert report.passed is False
+    assert report.stopped is False
+    assert report.stop_verified is False
+    assert report.error == "stop_after must be true for production smoke"
+    assert provider.session is None
+    assert provider.stopped_session_id is None
+
+
 def test_autopay_smoke_refuses_to_start_when_session_already_exists():
     provider = FakeProvider(active_before=True)
 
