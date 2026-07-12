@@ -48,6 +48,14 @@ def test_autopay_smoke_cli_uses_env_credentials_and_duration(tmp_path, monkeypat
     monkeypatch.setenv("PAYBYPHONE_USERNAME", "user@example.test")
     monkeypatch.setenv("PAYBYPHONE_PASSWORD", "secret")
     monkeypatch.setenv("DEFAULT_DURATION_MINUTES", "7")
+    monkeypatch.setenv("MAX_SESSION_AMOUNT_CENTS", "500")
+    captured = {}
+
+    def run_smoke_spy(**kwargs):
+        captured.update(kwargs)
+        return _run_real_autopay_smoke(**kwargs)
+
+    monkeypatch.setattr("boring.cli.run_autopay_smoke", run_smoke_spy)
 
     result = runner.invoke(
         app,
@@ -67,6 +75,7 @@ def test_autopay_smoke_cli_uses_env_credentials_and_duration(tmp_path, monkeypat
 
     assert result.exit_code == 0
     assert provider.login_args == ("user@example.test", "secret")
+    assert captured["max_session_amount_cents"] == 500
     payload = json.loads((tmp_path / "autopay-smoke.json").read_text())
     assert payload["passed"] is True
     assert payload["duration_minutes"] == 7
@@ -134,6 +143,12 @@ class _CliPaymentProvider(PaymentProvider):
 
     def stop_session(self, session_id: str) -> None:
         self.session = None
+
+
+def _run_real_autopay_smoke(**kwargs):
+    from boring.autopay_smoke import run_autopay_smoke
+
+    return run_autopay_smoke(**kwargs)
 
 
 def _patch_runtime_reports(monkeypatch) -> None:

@@ -946,6 +946,11 @@ def autopay_smoke(
     ),
     lat: float = typer.Option(None, envvar="BOX_LAT", help="Latitude test."),
     lon: float = typer.Option(None, envvar="BOX_LON", help="Longitude test."),
+    max_amount_cents: int = typer.Option(
+        500,
+        envvar="MAX_SESSION_AMOUNT_CENTS",
+        help="Montant maximal autorise pour la session smoke.",
+    ),
     stop_after: bool = typer.Option(True, help="Arreter la session apres verification."),
     yes: bool = typer.Option(False, "--yes", help="Confirme le paiement reel minimal."),
 ) -> None:
@@ -964,6 +969,7 @@ def autopay_smoke(
         lat=lat,
         lon=lon,
         duration_minutes=duration,
+        max_session_amount_cents=max_amount_cents,
         stop_after=stop_after,
     )
     write_autopay_smoke_report(report, output)
