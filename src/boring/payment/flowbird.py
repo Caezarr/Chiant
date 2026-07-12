@@ -16,10 +16,6 @@ from boring.payment.stub import DryRunParkingProvider
 DEFAULT_BASE_URL = os.getenv("FLOWBIRD_API_BASE", "https://api.flowbird.com")
 
 
-class FlowbirdAPIError(RuntimeError):
-    pass
-
-
 class FlowbirdClient(DryRunParkingProvider):
     name = "flowbird"
     display_name = "Flowbird"

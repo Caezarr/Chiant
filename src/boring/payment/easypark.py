@@ -19,10 +19,6 @@ from boring.payment.stub import DryRunParkingProvider
 DEFAULT_BASE_URL = os.getenv("EASYPARK_API_BASE", "https://api.easypark.com")
 
 
-class EasyParkAPIError(RuntimeError):
-    pass
-
-
 class EasyParkClient(DryRunParkingProvider):
     name = "easypark"
     display_name = "EasyPark"
