@@ -64,6 +64,49 @@ def test_evidence_pack_requires_complete_vision_eval(tmp_path: Path):
     assert "dataset=ok" in item.detail
 
 
+def test_evidence_pack_requires_complete_hardware_profile(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "hardware_profile"][0]
+    assert item.passed is True
+    assert "preset=pi5-production" in item.detail
+    assert "board=raspberry-pi-5" in item.detail
+    assert "checks=ok" in item.detail
+
+
+def test_evidence_pack_rejects_hardware_profile_without_preset(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["hardware_profile"].read_text())
+    del payload["preset_id"]
+    paths["hardware_profile"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "hardware_profile"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "preset=-" in item.detail
+    assert "checks=hardware_preset" in item.detail
+
+
+def test_evidence_pack_rejects_hardware_profile_without_vehicle_charge(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["hardware_profile"].read_text())
+    payload["power"]["vehicle_charge_watts"] = 0
+    paths["hardware_profile"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "hardware_profile"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "vehicle_charge=-" in item.detail
+    assert "hardware_preset" in item.detail
+    assert "power_hardware" in item.detail
+
+
 def test_evidence_pack_rejects_vision_eval_without_frames(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["vision_eval"].read_text())
@@ -546,5 +589,22 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
             }
         )
     )
-    paths["hardware_profile"].write_text(json.dumps({"board": {"model": "raspberry-pi-5"}}))
+    paths["hardware_profile"].write_text(
+        json.dumps(
+            {
+                "profile_id": "pi5-test-001",
+                "preset_id": "pi5-production",
+                "board": {"model": "raspberry-pi-5", "ram_gb": 8},
+                "camera": {"type": "usb-uvc", "device": "/dev/video0"},
+                "storage": {"capacity_gb": 64, "endurance": True},
+                "power": {
+                    "ups_power_supply": True,
+                    "battery_capacity_wh": 100,
+                    "vehicle_charge_watts": 30,
+                },
+                "network": {"mode": "hotspot"},
+                "runtime": {"detection_fps": 2.0, "min_benchmark_fps": 2.0},
+            }
+        )
+    )
     return paths

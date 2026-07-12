@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from boring.hardware_profile import audit_hardware_profile
 from boring.runtime_events import BLOCKING_RUNTIME_EVENTS
 
 
@@ -77,6 +78,7 @@ def evidence_item_ok(item: EvidenceItem) -> bool:
     if item.name in {
         "autopay_smoke",
         "burn_in_samples",
+        "hardware_profile",
         "notification_test",
         "paybyphone_endpoints",
         "runtime_events",
@@ -84,8 +86,6 @@ def evidence_item_ok(item: EvidenceItem) -> bool:
         "vision_eval",
     }:
         return item.passed is True
-    if item.name == "hardware_profile":
-        return item.passed is not False
     return item.passed is True
 
 
@@ -99,6 +99,8 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
         return _read_autopay_smoke(name, path, raw)
     if name == "burn_in_samples":
         return _read_burn_in_samples(name, path, raw)
+    if name == "hardware_profile":
+        return _read_hardware_profile(name, path, raw)
     if name == "notification_test":
         return _read_notification_test(name, path, raw)
     if name == "paybyphone_endpoints":
@@ -134,6 +136,57 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
         sha256=hashlib.sha256(raw).hexdigest(),
         format=_format(name),
         detail=_detail(payload),
+    )
+
+
+def _read_hardware_profile(name: str, path: Path, raw: bytes) -> EvidenceItem:
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        return EvidenceItem(
+            name,
+            str(path),
+            True,
+            False,
+            None,
+            len(raw),
+            hashlib.sha256(raw).hexdigest(),
+            _format(name),
+            "invalid json",
+        )
+    if not isinstance(payload, dict):
+        return EvidenceItem(
+            name=name,
+            path=str(path),
+            present=True,
+            valid_json=True,
+            passed=False,
+            size_bytes=len(raw),
+            sha256=hashlib.sha256(raw).hexdigest(),
+            format=_format(name),
+            detail="json is not an object",
+        )
+
+    report = audit_hardware_profile(path)
+    failed = [check.name for check in report.checks if not check.ok]
+    board = payload.get("board") or {}
+    power = payload.get("power") or {}
+    return EvidenceItem(
+        name=name,
+        path=str(path),
+        present=True,
+        valid_json=True,
+        passed=report.passed,
+        size_bytes=len(raw),
+        sha256=hashlib.sha256(raw).hexdigest(),
+        format=_format(name),
+        detail=(
+            f"preset={payload.get('preset_id') or '-'}, "
+            f"board={board.get('model') or '-'}, "
+            f"battery={power.get('battery_capacity_wh') or '-'}Wh, "
+            f"vehicle_charge={power.get('vehicle_charge_watts') or '-'}W, "
+            f"checks={','.join(failed) if failed else 'ok'}"
+        ),
     )
 
 
