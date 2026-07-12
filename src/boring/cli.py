@@ -198,6 +198,10 @@ def box_ready(
         Path("deploy/pi/hardware-profile.json"),
         help="Profil materiel de la box installee.",
     ),
+    service_unit: Path = typer.Option(
+        Path("deploy/systemd/boring-box.service"),
+        help="Unite systemd installee pour le service headless.",
+    ),
     vision_eval_report: Path = typer.Option(
         Path("reports/vision-eval.json"),
         help="Rapport qualite modele terrain.",
@@ -261,6 +265,7 @@ def box_ready(
         baseline_manifest=baseline_manifest,
         endpoints_path=endpoints,
         hardware_profile_path=hardware_profile,
+        service_unit_path=service_unit,
         vision_eval_report_path=vision_eval_report,
         benchmark_report_path=benchmark_report,
         autopay_smoke_report_path=autopay_smoke_report,

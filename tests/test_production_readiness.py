@@ -244,6 +244,74 @@ def test_production_readiness_fails_without_hardware_profile(tmp_path: Path):
     assert any(check.name == "hardware" and not check.ok for check in report.checks)
 
 
+def test_production_readiness_fails_without_systemd_service(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        service_unit_path=tmp_path / "missing.service",
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "systemd_service"][0]
+    assert check.ok is False
+    assert "missing" in check.detail
+
+
+def test_production_readiness_rejects_unsafe_systemd_service(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    bad_service = tmp_path / "deploy" / "systemd" / "bad.service"
+    bad_service.parent.mkdir(parents=True, exist_ok=True)
+    bad_service.write_text(
+        "\n".join(
+            [
+                "[Service]",
+                "Type=simple",
+                "ExecStart=/usr/bin/env uv run boring box-run",
+                "Restart=on-failure",
+                "User=root",
+                "",
+                "[Install]",
+                "WantedBy=default.target",
+            ]
+        )
+    )
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        service_unit_path=bad_service,
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "systemd_service"][0]
+    assert check.ok is False
+    assert "Type=simple" in check.detail
+    assert "WatchdogSec=-" in check.detail
+    assert "User=root" in check.detail
+
+
 def test_production_readiness_fails_when_vehicle_charge_cannot_recover(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     env = _ready_env()
