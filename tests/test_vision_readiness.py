@@ -74,8 +74,35 @@ def test_audit_vision_readiness_fails_without_positive_labels(tmp_path: Path):
     assert report.passed is False
     check = [check for check in report.checks if check.name == "yolo_dataset"][0]
     assert check.ok is False
-    assert "train_positive_labels=0" in check.detail
-    assert "valid_positive_labels=0" in check.detail
+    assert "train_positive_labels=0/1" in check.detail
+    assert "valid_positive_labels=0/1" in check.detail
+
+
+def test_audit_vision_readiness_requires_enough_positive_label_coverage(tmp_path: Path):
+    manifest = _write_manifest(tmp_path, positives=200, negatives=500)
+    dataset = _write_dataset(
+        tmp_path,
+        train=300,
+        valid=50,
+        names="names: ['control_vehicle']",
+        train_positive_labels=1,
+        valid_positive_labels=1,
+    )
+    model = tmp_path / "models" / "best.pt"
+    model.parent.mkdir()
+    model.write_bytes(b"model")
+
+    report = audit_vision_readiness(
+        dataset_path=dataset,
+        model_path=model,
+        baseline_manifest=manifest,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "yolo_dataset"][0]
+    assert check.ok is False
+    assert "train_positive_labels=1/60" in check.detail
+    assert "valid_positive_labels=1/10" in check.detail
 
 
 def test_audit_vision_readiness_fails_with_invalid_yolo_labels(tmp_path: Path):
@@ -310,6 +337,8 @@ def _write_dataset(
     valid: int,
     names: str,
     write_labels: bool = True,
+    train_positive_labels: int | None = None,
+    valid_positive_labels: int | None = None,
 ) -> Path:
     dataset = tmp_path / "datasets" / "control_vehicle_v1"
     train_dir = dataset / "train" / "images"
@@ -322,12 +351,14 @@ def _write_dataset(
         train_label_dir.mkdir(parents=True)
         valid_label_dir.mkdir(parents=True)
     (dataset / "data.yaml").write_text(names + "\n")
+    train_positive_limit = train if train_positive_labels is None else train_positive_labels
+    valid_positive_limit = valid if valid_positive_labels is None else valid_positive_labels
     for index in range(train):
         (train_dir / f"train-{index}.jpg").write_bytes(b"image")
-        if write_labels:
+        if write_labels and index < train_positive_limit:
             (train_label_dir / f"train-{index}.txt").write_text("0 0.5 0.5 0.2 0.2\n")
     for index in range(valid):
         (valid_dir / f"valid-{index}.jpg").write_bytes(b"image")
-        if write_labels:
+        if write_labels and index < valid_positive_limit:
             (valid_label_dir / f"valid-{index}.txt").write_text("0 0.5 0.5 0.2 0.2\n")
     return dataset
