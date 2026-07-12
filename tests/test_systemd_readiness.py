@@ -17,6 +17,7 @@ def test_systemd_check_passes_for_installed_running_service():
     assert report.sub_state == "running"
     assert report.watchdog_usec == 30_000_000
     assert report.main_pid == 1234
+    assert report.n_restarts == 0
     assert report.failures == []
 
 
@@ -44,6 +45,13 @@ def test_systemd_check_fails_without_main_pid():
     assert "main_pid=0" in report.failures
 
 
+def test_systemd_check_fails_after_watchdog_restarts():
+    report = run_systemd_check(runner=_fake_runner(n_restarts=2))
+
+    assert report.passed is False
+    assert "n_restarts=2" in report.failures
+
+
 def test_write_systemd_report_includes_passed(tmp_path: Path):
     report = run_systemd_check(runner=_fake_runner(), now=_now())
     output = tmp_path / "reports" / "systemd-check.json"
@@ -59,6 +67,7 @@ def _fake_runner(
     active: str = "active",
     sub: str = "running",
     main_pid: int = 1234,
+    n_restarts: int = 0,
     enabled_error: bool = False,
 ):
     def run(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
@@ -86,6 +95,7 @@ def _fake_runner(
                         "Type=notify",
                         "WatchdogUSec=30000000",
                         f"MainPID={main_pid}",
+                        f"NRestarts={n_restarts}",
                         "ExecStart={ path=/opt/boring/.venv/bin/boring ; argv[]=/opt/boring/.venv/bin/boring box-run ; }",
                         "User=boring",
                     ]

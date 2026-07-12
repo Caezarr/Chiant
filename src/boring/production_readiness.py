@@ -360,6 +360,7 @@ def _check_systemd_report(path: Path, *, require_systemd_report: bool) -> Produc
     service_type = str(payload.get("type") or "")
     watchdog_usec = _json_float(payload.get("watchdog_usec")) or 0
     main_pid = _json_int(payload.get("main_pid")) or 0
+    n_restarts = _json_int(payload.get("n_restarts"))
     exec_start = str(payload.get("exec_start") or "")
     user = str(payload.get("user") or "")
     failures = payload.get("failures")
@@ -376,6 +377,7 @@ def _check_systemd_report(path: Path, *, require_systemd_report: bool) -> Produc
         and service_type == "notify"
         and watchdog_usec > 0
         and main_pid > 0
+        and n_restarts == 0
         and "boring box-run" in exec_start
         and user == "boring"
     )
@@ -386,7 +388,8 @@ def _check_systemd_report(path: Path, *, require_systemd_report: bool) -> Produc
             f"passed={passed}, service={service or '-'}, enabled={enabled or '-'}, "
             f"active={active or '-'}, sub={sub or '-'}, unit_file={unit_file or '-'}, "
             f"type={service_type or '-'}, watchdog_usec={watchdog_usec}, "
-            f"main_pid={main_pid}, user={user or '-'}, failures={failures_text}"
+            f"main_pid={main_pid}, n_restarts={n_restarts if n_restarts is not None else '-'}, "
+            f"user={user or '-'}, failures={failures_text}"
         ),
     )
 

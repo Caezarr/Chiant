@@ -992,6 +992,11 @@ def _systemd_report_failures(payload: dict) -> list[str]:
     main_pid = _integer(payload.get("main_pid"))
     if main_pid is None or main_pid <= 0:
         failures.append("main_pid")
+    n_restarts = _integer(payload.get("n_restarts"))
+    if n_restarts is None:
+        failures.append("n_restarts")
+    elif n_restarts != 0:
+        failures.append("restarted")
     if "boring box-run" not in str(payload.get("exec_start") or ""):
         failures.append("exec_start")
     if payload.get("user") != "boring":

@@ -224,6 +224,7 @@ def box_systemd_check(
     table.add_row(
         "Watchdog usec", "-" if report.watchdog_usec is None else str(report.watchdog_usec)
     )
+    table.add_row("Restarts", "-" if report.n_restarts is None else str(report.n_restarts))
     table.add_row("User", report.user or "-")
     table.add_row("Failures", ", ".join(report.failures) if report.failures else "-")
     table.add_row("Error", report.error or "-")

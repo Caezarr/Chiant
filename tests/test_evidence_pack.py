@@ -401,6 +401,35 @@ def test_evidence_pack_rejects_systemd_runtime_without_main_pid(tmp_path: Path):
     assert "main_pid" in item.detail
 
 
+def test_evidence_pack_rejects_restarted_systemd_runtime(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["systemd_runtime"].read_text())
+    payload["n_restarts"] = 1
+    payload["passed"] = True
+    paths["systemd_runtime"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "systemd_runtime"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "restarted" in item.detail
+
+
+def test_evidence_pack_requires_systemd_restart_count(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["systemd_runtime"].read_text())
+    payload.pop("n_restarts")
+    paths["systemd_runtime"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "systemd_runtime"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "n_restarts" in item.detail
+
+
 def test_evidence_pack_rejects_network_report_without_recovery_command(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["network_runtime"].read_text())
@@ -1542,6 +1571,7 @@ def _systemd_runtime_payload() -> dict:
         "type": "notify",
         "watchdog_usec": 30_000_000,
         "main_pid": 1234,
+        "n_restarts": 0,
         "exec_start": "/opt/boring/.venv/bin/boring box-run",
         "user": "boring",
         "checked_at": "2026-01-01T00:00:00+00:00",
