@@ -721,17 +721,34 @@ def _check_notification_report(
     passed = bool(payload.get("passed"))
     status_code = payload.get("status_code")
     host = str(payload.get("webhook_host") or "unknown")
+    title = str(payload.get("title") or "")
+    message = str(payload.get("message") or "")
     error = payload.get("error")
     host_ok = expected_webhook_host is None or host == expected_webhook_host
-    ok = passed and isinstance(status_code, int) and 200 <= status_code < 300 and host_ok
+    battery_message_ok = _is_battery_notification_text(f"{title} {message}")
+    ok = (
+        passed
+        and isinstance(status_code, int)
+        and 200 <= status_code < 300
+        and host_ok
+        and battery_message_ok
+    )
     return ProductionCheck(
         "notification_test",
         ok,
         (
             f"passed={passed}, status={status_code}, host={host}, "
-            f"expected_host={expected_webhook_host or '-'}, error={error or '-'}"
+            f"expected_host={expected_webhook_host or '-'}, "
+            f"battery_message={battery_message_ok}, error={error or '-'}"
         ),
     )
+
+
+def _is_battery_notification_text(value: str) -> bool:
+    normalized = value.lower()
+    has_battery = any(token in normalized for token in ("batterie", "battery"))
+    has_low = any(token in normalized for token in ("faible", "low", "manquer"))
+    return has_battery and has_low
 
 
 def _check_autopay_smoke_report(
