@@ -638,6 +638,7 @@ def autopay_smoke(
     table.add_row("Dry-run", "yes" if report.dry_run else "no")
     table.add_row("Zone", report.zone_id or "-")
     table.add_row("Session", report.session_id or "-")
+    table.add_row("Duration", f"{report.duration_minutes} min")
     table.add_row("Amount", "-" if report.amount_cents is None else f"{report.amount_cents} cents")
     table.add_row("Active verified", "yes" if report.active_session_verified else "no")
     table.add_row("Stopped", "yes" if report.stopped else "no")

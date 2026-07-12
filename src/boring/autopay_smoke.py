@@ -19,6 +19,7 @@ class AutopaySmokeReport:
     zone_id: str | None
     session_id: str | None
     amount_cents: int | None
+    duration_minutes: int
     active_session_verified: bool
     stopped: bool
     stop_verified: bool
@@ -45,6 +46,7 @@ def run_autopay_smoke(
             provider=provider,
             dry_run=dry_run,
             plate=plate,
+            duration_minutes=duration_minutes,
             tested_at=tested_at,
             error="PAYMENT_DRY_RUN must be false",
         )
@@ -55,6 +57,7 @@ def run_autopay_smoke(
                 provider=provider,
                 dry_run=dry_run,
                 plate=plate,
+                duration_minutes=duration_minutes,
                 tested_at=tested_at,
                 session_id=active_before.session_id,
                 amount_cents=active_before.amount_cents,
@@ -81,6 +84,7 @@ def run_autopay_smoke(
             provider=provider,
             dry_run=dry_run,
             plate=plate,
+            duration_minutes=duration_minutes,
             tested_at=tested_at,
             zone_id=zone_id,
             session_id=session.session_id,
@@ -95,6 +99,7 @@ def run_autopay_smoke(
             provider=provider,
             dry_run=dry_run,
             plate=plate,
+            duration_minutes=duration_minutes,
             tested_at=tested_at,
             error=str(exc),
         )
@@ -110,6 +115,7 @@ def _report(
     provider: PaymentProvider,
     dry_run: bool,
     plate: str,
+    duration_minutes: int,
     tested_at: str,
     zone_id: str | None = None,
     session_id: str | None = None,
@@ -128,6 +134,7 @@ def _report(
         zone_id=zone_id,
         session_id=session_id,
         amount_cents=amount_cents,
+        duration_minutes=duration_minutes,
         active_session_verified=active_session_verified,
         stopped=stopped,
         stop_verified=stop_verified,

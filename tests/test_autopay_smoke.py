@@ -80,6 +80,7 @@ def test_autopay_smoke_starts_verifies_and_stops_real_session():
     assert report.zone_id == "zone-1"
     assert report.session_id == "session-1"
     assert report.amount_cents == 120
+    assert report.duration_minutes == 15
     assert report.active_session_verified is True
     assert report.stopped is True
     assert report.stop_verified is True
