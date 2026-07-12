@@ -484,6 +484,19 @@ def _notify_power(
         )
 
 
+def _notify_runtime_alert(
+    title: str,
+    message: str,
+    *,
+    event_log: EventLog | None,
+    sound: bool = True,
+    **context,
+) -> None:
+    sent = notify(title, message, sound=sound)
+    if sent is False and event_log is not None:
+        event_log.write("notification_failed", title=title, **context)
+
+
 def _check_thermal(
     now: float,
     thermal: LinuxThermalMonitor,
@@ -516,7 +529,14 @@ def _check_thermal(
                 source=status.source,
                 label=status.label,
             )
-        notify("Boring Box — temperature critique", detail, sound=True)
+        _notify_runtime_alert(
+            "Boring Box — temperature critique",
+            detail,
+            event_log=event_log,
+            sound=True,
+            temp_c=status.temp_c,
+            source=status.source,
+        )
         state.thermal_critical_alert_sent = True
         state.thermal_warning_alert_sent = True
     elif status.temp_c >= config.thermal_warning_c and not state.thermal_warning_alert_sent:
@@ -527,7 +547,14 @@ def _check_thermal(
                 source=status.source,
                 label=status.label,
             )
-        notify("Boring Box — temperature elevee", detail, sound=True)
+        _notify_runtime_alert(
+            "Boring Box — temperature elevee",
+            detail,
+            event_log=event_log,
+            sound=True,
+            temp_c=status.temp_c,
+            source=status.source,
+        )
         state.thermal_warning_alert_sent = True
     elif status.temp_c < config.thermal_warning_c:
         if state.thermal_warning_alert_sent or state.thermal_critical_alert_sent:
@@ -571,10 +598,13 @@ def _check_network(
     if not status.online and not state.network_offline_alert_sent:
         if event_log is not None:
             event_log.write("network_offline", target=status.target, error=status.error)
-        notify(
+        _notify_runtime_alert(
             "Boring Box — reseau indisponible",
             f"Autopaiement risque d'echouer ({status.target})",
+            event_log=event_log,
             sound=True,
+            target=status.target,
+            error=status.error,
         )
         state.network_offline_alert_sent = True
     if not status.online:
@@ -613,10 +643,13 @@ def _attempt_network_recovery(
             stderr=result.stderr[-500:] if result.stderr else "",
         )
     if not result.ok:
-        notify(
+        _notify_runtime_alert(
             "Boring Box — recovery reseau echoue",
             result.error or result.stderr or f"exit={result.returncode}",
+            event_log=event_log,
             sound=True,
+            command=result.command,
+            returncode=result.returncode,
         )
 
 
@@ -641,10 +674,13 @@ def _check_disk(
                 free_mb=status.free_mb,
                 min_free_mb=config.disk_min_free_mb,
             )
-        notify(
+        _notify_runtime_alert(
             "Boring Box — stockage faible",
             f"{status.free_mb}MB libres sur {status.path}",
+            event_log=event_log,
             sound=True,
+            path=status.path,
+            free_mb=status.free_mb,
         )
         state.disk_low_alert_sent = True
     elif status.free_mb >= config.disk_min_free_mb and state.disk_low_alert_sent:
@@ -673,10 +709,13 @@ def _handle_trigger(
             plate=config.vehicle_plate,
             detection_count=detection_count,
         )
-        notify(
+        _notify_runtime_alert(
             "Boring Box — paiement bloque",
             "Batterie critique: recharge le boitier avant autopaiement.",
+            event_log=event_log,
             sound=True,
+            reason="battery_critical",
+            plate=config.vehicle_plate,
         )
         return None
 
@@ -686,20 +725,26 @@ def _handle_trigger(
             plate=config.vehicle_plate,
             detection_count=detection_count,
         )
-        notify(
+        _notify_runtime_alert(
             "Boring Box — paiement bloque",
             "Reseau indisponible: impossible de payer automatiquement.",
+            event_log=event_log,
             sound=True,
+            reason="network_offline",
+            plate=config.vehicle_plate,
         )
         return None
 
     position = position_provider.current()
     if position is None:
         event_log.write("payment_skipped_no_position", plate=config.vehicle_plate)
-        notify(
+        _notify_runtime_alert(
             "Boring Box — paiement bloque",
             "Position indisponible: impossible de verifier la zone payante.",
+            event_log=event_log,
             sound=True,
+            reason="no_position",
+            plate=config.vehicle_plate,
         )
         return None
 
@@ -721,10 +766,13 @@ def _handle_trigger(
             plate=config.vehicle_plate,
             error=str(exc),
         )
-        notify(
+        _notify_runtime_alert(
             "Boring Box — paiement bloque",
             "Etat local illisible: verifier /var/lib/boring/state.json avant autopaiement.",
+            event_log=event_log,
             sound=True,
+            reason="state_corrupt",
+            plate=config.vehicle_plate,
         )
         return None
 
