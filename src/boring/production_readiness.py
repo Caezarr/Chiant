@@ -59,6 +59,7 @@ def audit_production_readiness(
     autopay_smoke_report_path: Path = Path("reports/autopay-smoke.json"),
     notification_report_path: Path = Path("reports/notification-test.json"),
     burn_in_report_path: Path = Path("burn-in/report.json"),
+    state_path: Path = Path("/var/lib/boring/state.json"),
     storage_path: Path = Path("/var/lib/boring/events.jsonl"),
     require_edge_export: bool = True,
     require_real_payment: bool = True,
@@ -146,6 +147,7 @@ def audit_production_readiness(
             expected_webhook_host=_notification_webhook_host(values),
             require_notification_test=require_notification_test,
         ),
+        _check_state_path(values, state_path),
         _check_disk_space(values, storage_path),
         _check_burn_in_report(
             values,
@@ -596,6 +598,53 @@ def _check_disk_space(env: Mapping[str, str], path: Path) -> ProductionCheck:
         ok,
         f"{status.free_mb}MB free / required {min_free_mb:.0f}MB on {status.path}",
     )
+
+
+def _check_state_path(env: Mapping[str, str], path: Path) -> ProductionCheck:
+    configured = Path(env.get("BOX_STATE_PATH") or path)
+    if not configured.is_absolute():
+        return ProductionCheck(
+            "state_path", False, f"BOX_STATE_PATH must be absolute: {configured}"
+        )
+    parent = configured.parent
+    if not parent.exists():
+        return ProductionCheck("state_path", False, f"missing parent {parent}")
+    if not parent.is_dir():
+        return ProductionCheck("state_path", False, f"parent is not a directory: {parent}")
+
+    suffix = f"{configured.name}.readiness.{os.getpid()}"
+    tmp_path = parent / f".{suffix}.tmp"
+    check_path = parent / f".{suffix}.check"
+    try:
+        with tmp_path.open("w") as fp:
+            fp.write("ready\n")
+            fp.flush()
+            os.fsync(fp.fileno())
+        os.replace(tmp_path, check_path)
+        _fsync_directory(parent)
+        check_path.unlink()
+    except OSError as exc:
+        return ProductionCheck("state_path", False, f"cannot write atomically in {parent}: {exc}")
+    finally:
+        for leftover in (tmp_path, check_path):
+            try:
+                leftover.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError:
+                pass
+    return ProductionCheck("state_path", True, f"atomic write ok: {configured}")
+
+
+def _fsync_directory(path: Path) -> None:
+    try:
+        fd = os.open(path, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def _check_network_recovery(
