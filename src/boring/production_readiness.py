@@ -51,6 +51,7 @@ def audit_production_readiness(
     systemd_report_path: Path = Path("reports/systemd-check.json"),
     position_report_path: Path = Path("reports/position-check.json"),
     camera_report_path: Path = Path("reports/camera-check.json"),
+    network_report_path: Path = Path("reports/network-check.json"),
     vision_eval_report_path: Path = Path("reports/vision-eval.json"),
     benchmark_report_path: Path = Path("reports/vision-benchmark.json"),
     autopay_smoke_report_path: Path = Path("reports/autopay-smoke.json"),
@@ -68,6 +69,7 @@ def audit_production_readiness(
     require_systemd_report: bool = True,
     require_position_report: bool = True,
     require_camera_report: bool = True,
+    require_network_report: bool = True,
     min_burn_in_hours: float = 10.0,
     now: datetime | None = None,
 ) -> ProductionReadinessReport:
@@ -109,6 +111,11 @@ def audit_production_readiness(
             camera_report_path,
             values,
             require_camera_report=require_camera_report,
+        ),
+        _check_network_report(
+            network_report_path,
+            values,
+            require_network_report=require_network_report,
         ),
         _check_vision_eval_report(
             vision_eval_report_path,
@@ -453,6 +460,46 @@ def _check_camera_report(
             f"passed={passed}, device={device_index}/{expected_device}, "
             f"resolution={_format_resolution(width, height)}, "
             f"minimum={min_width}x{min_height}, failures={failures_text}"
+        ),
+    )
+
+
+def _check_network_report(
+    path: Path,
+    env: Mapping[str, str],
+    *,
+    require_network_report: bool,
+) -> ProductionCheck:
+    if not require_network_report:
+        return ProductionCheck(
+            "network_runtime",
+            True,
+            "required=false" if not path.exists() else str(path),
+        )
+    if not path.exists():
+        return ProductionCheck("network_runtime", False, f"missing {path}")
+    try:
+        payload = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return ProductionCheck("network_runtime", False, f"invalid json {path}")
+
+    passed = bool(payload.get("passed"))
+    target = str(payload.get("target") or "")
+    expected_target = (env.get("NETWORK_PROBE_TARGET") or "1.1.1.1:443").strip()
+    online = bool(payload.get("online"))
+    recovery_configured = bool(payload.get("recovery_command_configured"))
+    failures = payload.get("failures")
+    failures_text = (
+        ",".join(str(failure) for failure in failures) if isinstance(failures, list) else "-"
+    )
+    ok = passed and online and target == expected_target and recovery_configured
+    return ProductionCheck(
+        "network_runtime",
+        ok,
+        (
+            f"passed={passed}, target={target or '-'}/{expected_target}, "
+            f"online={online}, recovery_command={recovery_configured}, "
+            f"failures={failures_text}"
         ),
     )
 

@@ -22,6 +22,7 @@ uv sync --no-dev
 uv run boring box-doctor
 uv run boring box-camera-check --output reports/camera-check.json
 uv run boring box-position-check --output reports/position-check.json
+uv run boring box-network-check --output reports/network-check.json
 uv run boring box-burn-in --minutes 120 --interval 60 --output burn-in/pi-first-run
 uv run boring autopay-smoke --yes --output reports/autopay-smoke.json
 uv run boring box-notify-test --output reports/notification-test.json
@@ -50,8 +51,9 @@ uv run boring box-burn-in --minutes 120 --interval 60 --output burn-in/pi-daylig
 `NETWORK_RECOVERY_COMMAND` doit correspondre au reseau reel du boitier. L'exemple `sh /opt/boring/deploy/pi/network-recover.example.sh` relance la connectivite via `nmcli`; remplace-le par un script dedie si tu utilises un modem 4G ou un routeur Wi-Fi dedie.
 `box-camera-check` ecrit `reports/camera-check.json`. La camera doit s'ouvrir, retourner une frame et respecter la resolution minimale, 640x480 par defaut.
 `box-position-check` ecrit `reports/position-check.json`. En `POSITION_MODE=static`, il verifie `BOX_LAT/BOX_LON`; en `POSITION_MODE=gpsd`, il doit obtenir une position depuis gpsd.
+`box-network-check` ecrit `reports/network-check.json`. La cible `NETWORK_PROBE_TARGET` doit etre joignable et `NETWORK_RECOVERY_COMMAND` doit etre configure.
 `box-burn-in` ecrit `report.json` et `samples.jsonl`. Avant beta terrain, garder un rapport avec `passed=true`, `camera_failures=0`, `network_failures=0`, `charging_seen=true`, `discharging_seen=true`, `max_temp_c` present et sous `THERMAL_CRITICAL_C`, pas de batterie critique et pas de temperature critique.
 `box-systemd-check` ecrit `reports/systemd-check.json` apres installation et demarrage du service. Il doit voir `boring-box.service` enabled, active/running, `Type=notify`, watchdog actif et utilisateur `boring`.
-`box-ready` est le gate final : pour une vraie promesse 10h, relancer avec `--min-burn-in-hours 10` sur un burn-in voiture complet et un `reports/autopay-smoke.json` issu d'un paiement reel minimal. Les rapports critiques doivent etre recents; par defaut `BOX_READINESS_MAX_REPORT_AGE_HOURS=72`. `BOX_EVENT_LOG_PATH` est requis en prod; il doit contenir des `heartbeat` proches du debut et de la fin du burn-in, et les evenements runtime bloquants font echouer le gate. Les rapports `box-camera-check`, `box-position-check` et `box-systemd-check` sont requis par defaut.
+`box-ready` est le gate final : pour une vraie promesse 10h, relancer avec `--min-burn-in-hours 10` sur un burn-in voiture complet et un `reports/autopay-smoke.json` issu d'un paiement reel minimal. Les rapports critiques doivent etre recents; par defaut `BOX_READINESS_MAX_REPORT_AGE_HOURS=72`. `BOX_EVENT_LOG_PATH` est requis en prod; il doit contenir des `heartbeat` proches du debut et de la fin du burn-in, et les evenements runtime bloquants font echouer le gate. Les rapports `box-camera-check`, `box-position-check`, `box-network-check` et `box-systemd-check` sont requis par defaut.
 `box-evidence-pack` regroupe les rapports terrain dans `reports/evidence-pack.json`; sauf profil hardware, chaque preuve doit exposer `passed=true`. Le pack inclut aussi `size_bytes` et `sha256` pour chaque rapport present.
 L'unit systemd utilise `Type=notify` et `WatchdogSec=120`: si la boucle interne ne ping plus systemd, le service est redemarre automatiquement.
