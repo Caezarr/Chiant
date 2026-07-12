@@ -801,6 +801,26 @@ def test_evidence_pack_requires_complete_autopay_smoke(tmp_path: Path):
     assert "session=ok" in item.detail
     assert "session_zone=zone-1/zone-1" in item.detail
 
+    alignment = [item for item in pack.items if item.name == "autopay_provider_alignment"][0]
+    assert alignment.passed is True
+    assert "provider=paybyphone/paybyphone" in alignment.detail
+    assert "hints=ok" in alignment.detail
+    assert "flow=ok" in alignment.detail
+
+
+def test_evidence_pack_rejects_autopay_smoke_for_other_provider(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["autopay_smoke"].read_text())
+    payload["provider"] = "easypark"
+    paths["autopay_smoke"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    alignment = [item for item in pack.items if item.name == "autopay_provider_alignment"][0]
+    assert pack.passed is False
+    assert alignment.passed is False
+    assert "provider=easypark/paybyphone" in alignment.detail
+
 
 def test_evidence_pack_rejects_autopay_smoke_dry_run(tmp_path: Path):
     paths = _write_evidence(tmp_path)
