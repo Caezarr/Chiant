@@ -207,9 +207,10 @@ usable_wh = BATTERY_CAPACITY_WH * (1 - POWER_RESERVE_PERCENT / 100)
 parked_runtime_h = usable_wh / ESTIMATED_DRAW_WATTS
 charge_surplus_w = VEHICLE_CHARGE_WATTS - ESTIMATED_DRAW_WATTS
 daily_recovered_wh = charge_surplus_w * DAILY_DRIVE_RECHARGE_HOURS * CHARGE_EFFICIENCY
+required_recharge_h = (ESTIMATED_DRAW_WATTS * REQUIRED_RUNTIME_HOURS) / (charge_surplus_w * CHARGE_EFFICIENCY)
 ```
 
-Le gate passe seulement si `parked_runtime_h >= REQUIRED_RUNTIME_HOURS` et si la recharge voiture fournit plus que la consommation instantanee de la box. Exemple Pi 5 prudent : `100 Wh`, `8 W`, reserve `15%` donne `85 Wh utiles`, soit `10.6h` gare. Avec une entree voiture `30 W`, le surplus est `22 W`; une heure de roulage recupere environ `18.7 Wh` a `85%` de rendement.
+Le gate passe seulement si `parked_runtime_h >= REQUIRED_RUNTIME_HOURS` et si la recharge voiture fournit plus que la consommation instantanee de la box. Le rapport affiche aussi `required_recharge`: le temps de roulage necessaire pour recuperer une journee de `REQUIRED_RUNTIME_HOURS`. Exemple Pi 5 prudent : `100 Wh`, `8 W`, reserve `15%` donne `85 Wh utiles`, soit `10.6h` gare. Avec une entree voiture `30 W`, le surplus est `22 W`; une heure de roulage recupere environ `18.7 Wh` a `85%` de rendement, donc il faut environ `4.3h` de roulage pour recuperer une journee de 10h consommee a 8W.
 
 Reglages de depart :
 

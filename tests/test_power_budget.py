@@ -21,6 +21,9 @@ def test_power_budget_passes_with_usable_capacity_and_vehicle_recharge():
     assert budget.parked_runtime_hours == 10.625
     assert budget.charge_surplus_watts == 22
     assert budget.daily_recovered_wh == pytest.approx(18.7)
+    assert budget.required_runtime_energy_wh == 80
+    assert budget.daily_recharge_coverage_ratio == pytest.approx(18.7 / 80)
+    assert budget.required_drive_recharge_hours == pytest.approx(80 / (22 * 0.85))
     assert budget.passed is True
 
 
@@ -53,4 +56,21 @@ def test_power_budget_fails_when_capacity_does_not_cover_required_day():
     assert budget is not None
     assert budget.parked_runtime_hours < 10
     assert budget.has_vehicle_recharge is True
+    assert budget.passed is False
+
+
+def test_power_budget_reports_missing_recharge_recovery_when_no_surplus():
+    budget = build_power_budget(
+        capacity_wh=100,
+        draw_watts=8,
+        required_runtime_hours=10,
+        reserve_percent=15,
+        vehicle_charge_watts=8,
+        daily_drive_recharge_hours=1,
+    )
+
+    assert budget is not None
+    assert budget.charge_surplus_watts == 0
+    assert budget.required_drive_recharge_hours is None
+    assert budget.daily_recharge_coverage_ratio == 0
     assert budget.passed is False

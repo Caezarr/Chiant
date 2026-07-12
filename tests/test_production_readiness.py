@@ -1508,7 +1508,10 @@ def test_production_readiness_fails_when_vehicle_charge_cannot_recover(tmp_path:
     )
 
     assert report.passed is False
-    assert any(check.name == "power_budget" and not check.ok for check in report.checks)
+    check = [check for check in report.checks if check.name == "power_budget"][0]
+    assert check.ok is False
+    assert "required_recharge=-" in check.detail
+    assert "daily_recharge_coverage=0%" in check.detail
 
 
 def test_production_readiness_fails_when_hardware_and_env_power_disagree(tmp_path: Path):
