@@ -55,6 +55,8 @@ def audit_vision_readiness(
     min_negative_sources: int = 2,
     min_train_images: int = 300,
     min_valid_images: int = 50,
+    min_train_positive_labels: int | None = None,
+    min_valid_positive_labels: int | None = None,
     required_class: str = "control_vehicle",
     require_edge_export: bool = False,
     require_license_review: bool = True,
@@ -80,6 +82,16 @@ def audit_vision_readiness(
                 dataset_path,
                 min_train_images=min_train_images,
                 min_valid_images=min_valid_images,
+                min_train_positive_labels=(
+                    min_train_positive_labels
+                    if min_train_positive_labels is not None
+                    else max(1, min_train_images // 5)
+                ),
+                min_valid_positive_labels=(
+                    min_valid_positive_labels
+                    if min_valid_positive_labels is not None
+                    else max(1, min_valid_images // 5)
+                ),
                 required_class=required_class,
             ),
             _check_model(model_path),
@@ -236,6 +248,8 @@ def _check_yolo_dataset(
     *,
     min_train_images: int,
     min_valid_images: int,
+    min_train_positive_labels: int,
+    min_valid_positive_labels: int,
     required_class: str,
 ) -> VisionCheck:
     data_yaml = dataset / "data.yaml"
@@ -254,7 +268,10 @@ def _check_yolo_dataset(
     )
     train_invalid_labels = _count_invalid_labels(dataset / "train", class_map)
     valid_invalid_labels = _count_invalid_labels(dataset / "valid", class_map)
-    labels_ok = train_positive_labels > 0 and valid_positive_labels > 0
+    labels_ok = (
+        train_positive_labels >= min_train_positive_labels
+        and valid_positive_labels >= min_valid_positive_labels
+    )
     label_format_ok = train_invalid_labels == 0 and valid_invalid_labels == 0
     ok = (
         train_images >= min_train_images
@@ -270,8 +287,8 @@ def _check_yolo_dataset(
             f"train_images={train_images}/{min_train_images}, "
             f"valid_images={valid_images}/{min_valid_images}, "
             f"class={required_class if has_class else 'missing'}, "
-            f"train_positive_labels={train_positive_labels}, "
-            f"valid_positive_labels={valid_positive_labels}, "
+            f"train_positive_labels={train_positive_labels}/{min_train_positive_labels}, "
+            f"valid_positive_labels={valid_positive_labels}/{min_valid_positive_labels}, "
             f"invalid_labels={train_invalid_labels + valid_invalid_labels}"
         ),
     )
