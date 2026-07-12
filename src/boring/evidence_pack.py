@@ -74,7 +74,12 @@ def default_evidence_paths() -> dict[str, Path]:
 def evidence_item_ok(item: EvidenceItem) -> bool:
     if not item.present or not item.valid_json:
         return False
-    if item.name in {"burn_in_samples", "paybyphone_endpoints", "runtime_events"}:
+    if item.name in {
+        "autopay_smoke",
+        "burn_in_samples",
+        "paybyphone_endpoints",
+        "runtime_events",
+    }:
         return item.passed is True
     if item.name == "hardware_profile":
         return item.passed is not False
@@ -87,6 +92,8 @@ def _read_item(name: str, path: Path) -> EvidenceItem:
             name, str(path), False, False, None, None, None, _format(name), "missing"
         )
     raw = path.read_bytes()
+    if name == "autopay_smoke":
+        return _read_autopay_smoke(name, path, raw)
     if name == "burn_in_samples":
         return _read_burn_in_samples(name, path, raw)
     if name == "paybyphone_endpoints":
@@ -265,6 +272,62 @@ def _read_paybyphone_endpoints(name: str, path: Path, raw: bytes) -> EvidenceIte
         detail=(
             f"missing_hints={','.join(missing_hints) if missing_hints else '-'}, "
             f"missing_flow={','.join(missing_flow) if missing_flow else '-'}"
+        ),
+    )
+
+
+def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        return EvidenceItem(
+            name,
+            str(path),
+            True,
+            False,
+            None,
+            len(raw),
+            hashlib.sha256(raw).hexdigest(),
+            _format(name),
+            "invalid json",
+        )
+    passed = payload.get("passed") is True if isinstance(payload, dict) else False
+    dry_run = payload.get("dry_run") is True if isinstance(payload, dict) else True
+    amount_cents = payload.get("amount_cents") if isinstance(payload, dict) else None
+    amount_ok = isinstance(amount_cents, int) and amount_cents > 0
+    active_verified = (
+        payload.get("active_session_verified") is True if isinstance(payload, dict) else False
+    )
+    stopped = payload.get("stopped") is True if isinstance(payload, dict) else False
+    stop_verified = payload.get("stop_verified") is True if isinstance(payload, dict) else False
+    provider = payload.get("provider") if isinstance(payload, dict) else None
+    session_id = payload.get("session_id") if isinstance(payload, dict) else None
+    zone_id = payload.get("zone_id") if isinstance(payload, dict) else None
+    complete = (
+        passed
+        and not dry_run
+        and amount_ok
+        and active_verified
+        and stopped
+        and stop_verified
+        and bool(provider)
+        and bool(session_id)
+        and bool(zone_id)
+    )
+    return EvidenceItem(
+        name=name,
+        path=str(path),
+        present=True,
+        valid_json=True,
+        passed=complete,
+        size_bytes=len(raw),
+        sha256=hashlib.sha256(raw).hexdigest(),
+        format=_format(name),
+        detail=(
+            f"passed={passed}, dry_run={dry_run}, amount={amount_cents}, "
+            f"active={active_verified}, stopped={stopped}, stop_verified={stop_verified}, "
+            f"provider={'ok' if provider else 'missing'}, "
+            f"session={'ok' if session_id else 'missing'}, zone={'ok' if zone_id else 'missing'}"
         ),
     )
 

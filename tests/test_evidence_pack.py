@@ -95,6 +95,60 @@ def test_evidence_pack_digest_changes_when_report_changes(tmp_path: Path):
     assert first_autopay.sha256 != second_autopay.sha256
 
 
+def test_evidence_pack_requires_complete_autopay_smoke(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    assert item.passed is True
+    assert "dry_run=False" in item.detail
+    assert "stop_verified=True" in item.detail
+    assert "session=ok" in item.detail
+
+
+def test_evidence_pack_rejects_autopay_smoke_dry_run(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["autopay_smoke"].read_text())
+    payload["dry_run"] = True
+    paths["autopay_smoke"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "dry_run=True" in item.detail
+
+
+def test_evidence_pack_rejects_autopay_smoke_without_verified_stop(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["autopay_smoke"].read_text())
+    payload["stop_verified"] = False
+    paths["autopay_smoke"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "stop_verified=False" in item.detail
+
+
+def test_evidence_pack_rejects_autopay_smoke_without_session_id(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["autopay_smoke"].read_text())
+    payload["session_id"] = None
+    paths["autopay_smoke"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "session=missing" in item.detail
+
+
 def test_evidence_pack_includes_runtime_events_jsonl(tmp_path: Path):
     paths = _write_evidence(tmp_path)
 
@@ -274,6 +328,27 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
     for path in paths.values():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"passed": True}))
+    paths["autopay_smoke"].write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "provider": "paybyphone",
+                "dry_run": False,
+                "plate": "AB-123-CD",
+                "zone_id": "zone-1",
+                "session_id": "session-1",
+                "amount_cents": 120,
+                "duration_minutes": 15,
+                "lat": 50.6371,
+                "lon": 3.0633,
+                "active_session_verified": True,
+                "stopped": True,
+                "stop_verified": True,
+                "tested_at": "2026-01-01T00:00:00+00:00",
+                "error": None,
+            }
+        )
+    )
     paths["runtime_events"].write_text(
         json.dumps({"ts": "2026-01-01T00:00:00+00:00", "event": "heartbeat"}) + "\n"
     )
