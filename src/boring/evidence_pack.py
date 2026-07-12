@@ -45,6 +45,19 @@ RUNTIME_REPORTS = {
     "systemd_runtime",
 }
 
+FRESHNESS_REPORTS = (
+    "systemd_runtime",
+    "position_runtime",
+    "camera_runtime",
+    "network_runtime",
+    "power_runtime",
+    "vision_eval",
+    "vision_benchmark",
+    "autopay_smoke",
+    "notification_test",
+    "burn_in",
+)
+
 
 @dataclass(frozen=True)
 class EvidenceItem:
@@ -74,7 +87,12 @@ class EvidencePack:
         return payload
 
 
-def build_evidence_pack(paths: dict[str, Path]) -> EvidencePack:
+def build_evidence_pack(
+    paths: dict[str, Path],
+    *,
+    max_report_age_hours: float | None = None,
+    now: datetime | None = None,
+) -> EvidencePack:
     items = [
         _read_item(
             name,
@@ -85,6 +103,14 @@ def build_evidence_pack(paths: dict[str, Path]) -> EvidencePack:
     ]
     if "burn_in" in paths and "runtime_events" in paths:
         items.append(_read_runtime_alignment(paths["burn_in"], paths["runtime_events"]))
+    if max_report_age_hours is not None:
+        items.append(
+            _read_report_freshness(
+                paths,
+                max_age_hours=max_report_age_hours,
+                now=now or datetime.now(timezone.utc),
+            )
+        )
     return EvidencePack(
         generated_at=datetime.now(timezone.utc).isoformat(),
         items=items,
@@ -367,6 +393,85 @@ def _read_runtime_alignment(
             f"invalid_lines={invalid_lines}"
         ),
     )
+
+
+def _read_report_freshness(
+    paths: dict[str, Path],
+    *,
+    max_age_hours: float,
+    now: datetime,
+) -> EvidenceItem:
+    if max_age_hours <= 0:
+        return EvidenceItem(
+            "report_freshness",
+            "aggregate",
+            True,
+            True,
+            True,
+            None,
+            None,
+            _format("report_freshness"),
+            "disabled",
+        )
+
+    failures: list[str] = []
+    ages: list[str] = []
+    raw_parts: list[bytes] = []
+    for name in FRESHNESS_REPORTS:
+        path = paths.get(name)
+        if path is None:
+            continue
+        try:
+            raw = path.read_bytes()
+        except FileNotFoundError:
+            failures.append(f"{name}=missing")
+            continue
+        raw_parts.append(raw)
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except json.JSONDecodeError:
+            failures.append(f"{name}=invalid_json")
+            continue
+        if not isinstance(payload, dict):
+            failures.append(f"{name}=invalid_payload")
+            continue
+        timestamp = _report_timestamp(payload)
+        if timestamp is None:
+            failures.append(f"{name}=missing_timestamp")
+            continue
+        age_hours = (
+            now.astimezone(timezone.utc) - timestamp.astimezone(timezone.utc)
+        ).total_seconds() / 3600
+        ages.append(f"{name}={age_hours:.1f}h")
+        if age_hours < -0.1:
+            failures.append(f"{name}=future_timestamp")
+        elif age_hours > max_age_hours:
+            failures.append(f"{name}={age_hours:.1f}h>{max_age_hours:.1f}h")
+
+    raw = b"".join(raw_parts)
+    return EvidenceItem(
+        "report_freshness",
+        "aggregate",
+        True,
+        not any("invalid_json" in failure for failure in failures),
+        not failures,
+        len(raw) if raw_parts else None,
+        hashlib.sha256(raw).hexdigest() if raw_parts else None,
+        _format("report_freshness"),
+        (
+            f"max_age={max_age_hours:.1f}h, "
+            f"ages={', '.join(ages) if ages else '-'}, "
+            f"failures={', '.join(failures) if failures else '-'}"
+        ),
+    )
+
+
+def _report_timestamp(payload: dict) -> datetime | None:
+    for key in ("checked_at", "tested_at", "generated_at", "ended_at"):
+        timestamp = _parse_evidence_timestamp(payload.get(key))
+        if timestamp is not None:
+            return timestamp
+    return None
 
 
 def _runtime_report_failures(name: str, payload: dict) -> list[str]:

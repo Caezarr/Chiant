@@ -99,7 +99,7 @@ git clone https://github.com/Caezarr/Chiant.git
 cd Chiant
 cp .env.example .env          # → renseigne ASSISTED_IMESSAGE_RECIPIENT au minimum
 make dev                      # uv sync + outils dev
-make test                     # 364 tests doivent passer
+make test                     # 367 tests doivent passer
 make zones                    # télécharge / met à jour les zones Lille
 make scrape-baseline          # images web candidates control_vehicle
 make scrape-negatives         # hard negatives gratuits
@@ -119,7 +119,7 @@ uv run boring box-notify-test --output reports/notification-test.json
 sudo systemctl enable --now boring-box
 uv run boring box-systemd-check --output reports/systemd-check.json
 uv run boring box-ready --hardware-profile deploy/pi/hardware-profile.json --vision-eval-report reports/vision-eval.json --benchmark-report reports/vision-benchmark.json --autopay-smoke-report reports/autopay-smoke.json --notification-report reports/notification-test.json --burn-in-report burn-in/report.json
-uv run boring box-evidence-pack --output reports/evidence-pack.json
+uv run boring box-evidence-pack --output reports/evidence-pack.json  # refuse les rapports >72h
 uv run boring contest-fps --subject "FPS-X" --reason "Test"  # smoke test contestation
 ```
 
@@ -142,7 +142,7 @@ Architecture boîtier : [docs/BOX.md](docs/BOX.md). Déploiement Pi : [deploy/pi
 - Vertical 2 — **`boring.contest`** : génération RAPO automatique + escalade CCSP
 - CLI complète : `capture / detect / run / pay-now / contest-fps`
 - Runtime headless boîtier : `box-run / box-doctor`, config Pi 4 / Pi 5 documentée
-- Tests pytest (364/364), CI GitHub Actions, pre-commit hooks
+- Tests pytest (367/367), CI GitHub Actions, pre-commit hooks
 
 ### Ce qui manque ⏳
 - Modèle custom `control_vehicle` (besoin captation terrain — cf. HUMAN-TODO #1-3)
