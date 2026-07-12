@@ -777,7 +777,18 @@ def _handle_trigger(
         return None
 
     def on_success(session) -> None:
-        state_store.record_session(session)
+        try:
+            state_store.record_session(session)
+        except Exception as exc:
+            event_log.write(
+                "payment_state_persist_failed",
+                provider=session.provider,
+                session_id=session.session_id,
+                plate=session.vehicle_plate,
+                amount_cents=session.amount_cents,
+                error=str(exc),
+            )
+            raise
         event_log.write(
             "payment_success",
             provider=session.provider,
