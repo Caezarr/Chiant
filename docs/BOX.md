@@ -57,7 +57,7 @@ La commande sonde camera, batterie, temperature et reseau, puis ecrit :
 - `samples.jsonl` : une ligne par sonde.
 - `report.json` : verdict synthetique, max temperature, min batterie, delta batterie, recharge vue, echecs camera/reseau.
 
-Le burn-in echoue si la camera ou le reseau tombent, si la batterie passe en critique, ou si la temperature atteint `THERMAL_CRITICAL_C`. Le rapport doit contenir `max_temp_c`; sans sonde thermique lisible, `box-ready` refuse la preuve. Pour un premier proto, faire au moins 2h branche puis 2h sur batterie afin que `charging_seen=true` et `discharging_seen=true`. Avant promesse 10h, faire un run complet en conditions voiture.
+Le burn-in echoue si la camera ou le reseau tombent, si la batterie passe en critique, ou si la temperature atteint `THERMAL_CRITICAL_C`. Pour la readiness production, `box-ready` refuse aussi un burn-in qui a vu la batterie faible: une promesse 10h ne doit pas deja declencher l'alerte low battery pendant la preuve. Le rapport doit contenir `max_temp_c`; sans sonde thermique lisible, `box-ready` refuse la preuve. Pour un premier proto, faire au moins 2h branche puis 2h sur batterie afin que `charging_seen=true` et `discharging_seen=true`. Avant promesse 10h, faire un run complet en conditions voiture.
 
 Gate final avant systemd / installation voiture :
 

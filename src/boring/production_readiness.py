@@ -989,6 +989,7 @@ def _check_burn_in_report(
     battery_delta = _json_float(payload.get("battery_delta_percent"))
     max_temp_c = _json_float(payload.get("max_temp_c"))
     thermal_critical_c = _env_float(env, "THERMAL_CRITICAL_C") or 85.0
+    battery_low = bool(payload.get("battery_low_seen"))
     battery_critical = bool(payload.get("battery_critical_seen"))
     thermal_critical = bool(payload.get("thermal_critical_seen"))
     charging_seen = bool(payload.get("charging_seen"))
@@ -1007,6 +1008,7 @@ def _check_burn_in_report(
         and battery_delta is not None
         and max_temp_c is not None
         and max_temp_c < thermal_critical_c
+        and not battery_low
         and not battery_critical
         and not thermal_critical
         and charging_ok
@@ -1021,7 +1023,8 @@ def _check_burn_in_report(
             f"camera_failures={camera_failures}, network_failures={network_failures}, "
             f"battery={_format_battery(start_battery, end_battery, min_battery, battery_delta)}, "
             f"max_temp={_format_temp(max_temp_c)}/{thermal_critical_c:.1f}C, "
-            f"battery_critical={battery_critical}, thermal_critical={thermal_critical}, "
+            f"battery_low={battery_low}, battery_critical={battery_critical}, "
+            f"thermal_critical={thermal_critical}, "
             f"charging_seen={charging_seen}, discharging_seen={discharging_seen}"
         ),
     )
