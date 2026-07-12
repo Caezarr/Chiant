@@ -543,6 +543,9 @@ def _check_network_report(
     passed = bool(payload.get("passed"))
     target = str(payload.get("target") or "")
     expected_target = (env.get("NETWORK_PROBE_TARGET") or "1.1.1.1:443").strip()
+    timeout_seconds = _json_float(payload.get("timeout_seconds"))
+    expected_timeout = _env_float(env, "NETWORK_PROBE_TIMEOUT_SECONDS") or 3.0
+    timeout_ok = timeout_seconds is not None and abs(timeout_seconds - expected_timeout) <= 0.1
     online = bool(payload.get("online"))
     recovery_configured = bool(payload.get("recovery_command_configured"))
     recovery_command = str(payload.get("recovery_command") or "").strip()
@@ -560,6 +563,7 @@ def _check_network_report(
         passed
         and online
         and target == expected_target
+        and timeout_ok
         and recovery_configured
         and recovery_command_ok
     )
@@ -568,6 +572,7 @@ def _check_network_report(
         ok,
         (
             f"passed={passed}, target={target or '-'}/{expected_target}, "
+            f"timeout={timeout_seconds or 0:.1f}/{expected_timeout:.1f}s, "
             f"online={online}, recovery_command={recovery_configured}, "
             f"command={recovery_command or '-'}/{expected_recovery_command or '-'}, "
             f"failures={failures_text}"
