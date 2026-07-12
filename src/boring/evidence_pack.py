@@ -903,6 +903,7 @@ def _power_report_failures(payload: dict) -> list[str]:
     battery_percent = _integer(payload.get("battery_percent"))
     battery_capacity_wh = _number(payload.get("battery_capacity_wh"))
     available_battery_wh = _number(payload.get("available_battery_wh"))
+    critical_reserve_wh = _number(payload.get("critical_reserve_wh"))
     estimated_draw_watts = _number(payload.get("estimated_draw_watts"))
     estimated_runtime_hours = _number(payload.get("estimated_runtime_hours"))
     required_runtime_hours = _number(payload.get("required_runtime_hours"))
@@ -921,11 +922,26 @@ def _power_report_failures(payload: dict) -> list[str]:
         failures.append("source")
     if battery_capacity_wh is None:
         failures.append("battery_capacity")
+    expected_reserve_wh = (
+        battery_capacity_wh * (battery_critical_percent / 100)
+        if battery_capacity_wh is not None
+        and battery_critical_percent is not None
+        and 0 <= battery_critical_percent <= 100
+        else None
+    )
+    if (
+        critical_reserve_wh is None
+        or expected_reserve_wh is None
+        or abs(critical_reserve_wh - expected_reserve_wh) > 0.1
+    ):
+        failures.append("critical_reserve")
     expected_available_wh = (
-        battery_capacity_wh * (battery_percent / 100)
+        battery_capacity_wh * (max(0, battery_percent - battery_critical_percent) / 100)
         if battery_capacity_wh is not None
         and battery_percent is not None
+        and battery_critical_percent is not None
         and 0 <= battery_percent <= 100
+        and 0 <= battery_critical_percent <= 100
         else None
     )
     if (

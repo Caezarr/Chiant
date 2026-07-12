@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from boring.power import LinuxPowerSupplyMonitor, LinuxThermalMonitor, estimate_runtime_hours
+from boring.power import (
+    LinuxPowerSupplyMonitor,
+    LinuxThermalMonitor,
+    estimate_available_capacity_wh,
+    estimate_runtime_hours,
+)
 
 
 def test_linux_power_supply_monitor_reads_battery(tmp_path: Path):
@@ -53,3 +58,9 @@ def test_estimate_runtime_hours():
     assert estimate_runtime_hours(100, 8) == 12.5
     assert estimate_runtime_hours(None, 8) is None
     assert estimate_runtime_hours(100, 0) is None
+
+
+def test_estimate_available_capacity_wh_keeps_critical_reserve():
+    assert estimate_available_capacity_wh(100, 82, battery_floor_percent=10) == 72
+    assert estimate_available_capacity_wh(100, 8, battery_floor_percent=10) == 0
+    assert estimate_available_capacity_wh(100, None, battery_floor_percent=10) is None

@@ -620,6 +620,7 @@ def _check_power_report(
     source = str(payload.get("source") or "")
     capacity_wh = _json_float(payload.get("battery_capacity_wh"))
     available_wh = _json_float(payload.get("available_battery_wh"))
+    critical_reserve_wh = _json_float(payload.get("critical_reserve_wh"))
     expected_capacity_wh = _env_float(env, "BATTERY_CAPACITY_WH")
     estimated_draw = _json_float(payload.get("estimated_draw_watts"))
     expected_draw = _env_float(env, "ESTIMATED_DRAW_WATTS") or 8.0
@@ -642,9 +643,25 @@ def _check_power_report(
         required_runtime is not None and abs(required_runtime - expected_required_runtime) <= 0.1
     )
     critical_threshold_ok = report_battery_critical == battery_critical
+    expected_reserve_wh = (
+        capacity_wh * (report_battery_critical / 100)
+        if capacity_wh is not None
+        and report_battery_critical is not None
+        and 0 <= report_battery_critical <= 100
+        else None
+    )
+    reserve_ok = (
+        critical_reserve_wh is not None
+        and expected_reserve_wh is not None
+        and abs(critical_reserve_wh - expected_reserve_wh) <= 0.1
+    )
     expected_available_wh = (
-        capacity_wh * (percent / 100)
-        if capacity_wh is not None and percent is not None and 0 <= percent <= 100
+        capacity_wh * (max(0, percent - report_battery_critical) / 100)
+        if capacity_wh is not None
+        and percent is not None
+        and report_battery_critical is not None
+        and 0 <= percent <= 100
+        and 0 <= report_battery_critical <= 100
         else None
     )
     expected_runtime = (
@@ -672,6 +689,7 @@ def _check_power_report(
         and draw_ok
         and required_runtime_ok
         and critical_threshold_ok
+        and reserve_ok
         and available_ok
         and runtime_consistent
         and estimated_runtime is not None
@@ -685,6 +703,7 @@ def _check_power_report(
             f"charging={charging if isinstance(charging, bool) else '-'}, "
             f"capacity={capacity_wh or 0:.1f}/{expected_capacity_wh or 0:.1f}Wh, "
             f"draw={estimated_draw or 0:.1f}/{expected_draw:.1f}W, "
+            f"reserve={critical_reserve_wh or 0:.1f}/{expected_reserve_wh or 0:.1f}Wh, "
             f"available={available_wh or 0:.1f}/{expected_available_wh or 0:.1f}Wh, "
             f"runtime={estimated_runtime or 0:.1f}/{expected_required_runtime:.1f}h, "
             f"required={required_runtime or 0:.1f}/{expected_required_runtime:.1f}h, "
