@@ -269,6 +269,22 @@ def test_evidence_pack_rejects_low_battery_burn_in(tmp_path: Path):
     assert "battery_low" in item.detail
 
 
+def test_evidence_pack_recomputes_low_battery_from_burn_in_minimum(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["burn_in"].read_text())
+    payload["min_battery_percent"] = 24
+    payload["battery_low_seen"] = False
+    payload["battery_critical_seen"] = False
+    paths["burn_in"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "burn_in"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "min_battery_low" in item.detail
+
+
 def test_evidence_pack_rejects_hardware_profile_without_preset(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["hardware_profile"].read_text())
