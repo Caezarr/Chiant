@@ -61,6 +61,40 @@ def test_write_pack_includes_passed(tmp_path: Path):
     assert payload["items"]
 
 
+def test_evidence_pack_includes_file_digest_and_size(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+
+    pack = build_evidence_pack(paths)
+
+    autopay = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    assert autopay.size_bytes == paths["autopay_smoke"].stat().st_size
+    assert autopay.sha256
+    assert len(autopay.sha256) == 64
+
+
+def test_evidence_pack_omits_digest_for_missing_report(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    paths["burn_in"].unlink()
+
+    pack = build_evidence_pack(paths)
+
+    missing = [item for item in pack.items if item.name == "burn_in"][0]
+    assert missing.size_bytes is None
+    assert missing.sha256 is None
+
+
+def test_evidence_pack_digest_changes_when_report_changes(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    first = build_evidence_pack(paths)
+    first_autopay = [item for item in first.items if item.name == "autopay_smoke"][0]
+
+    paths["autopay_smoke"].write_text(json.dumps({"passed": True, "session_id": "new"}))
+    second = build_evidence_pack(paths)
+    second_autopay = [item for item in second.items if item.name == "autopay_smoke"][0]
+
+    assert first_autopay.sha256 != second_autopay.sha256
+
+
 def test_default_evidence_paths_include_box_ready():
     paths = default_evidence_paths()
 

@@ -77,7 +77,7 @@ uv run boring box-evidence-pack --output reports/evidence-pack.json
 
 Si `BOX_EVENT_LOG_PATH` existe, `box-ready` scanne aussi le journal runtime depuis `burn-in.started_at` et refuse les evenements bloquants: crash service, batterie critique, temperature critique, stockage faible, reseau offline, notification ratee, paiement bloque offline/sans position/batterie critique, ou recovery reseau echoue.
 
-`box-evidence-pack` regroupe ensuite les rapports terrain dans `reports/evidence-pack.json` pour audit, partage ou support.
+`box-evidence-pack` regroupe ensuite les rapports terrain dans `reports/evidence-pack.json` pour audit, partage ou support. Chaque item inclut `size_bytes` et `sha256`; si un rapport est modifie apres generation du pack, son empreinte ne correspond plus.
 
 Pour une repetition sans paiement reel :
 
