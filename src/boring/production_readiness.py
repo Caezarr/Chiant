@@ -78,6 +78,7 @@ def audit_production_readiness(
         _summary_check("autopay", autopay.passed, _failed_names(autopay.checks)),
         _check_autopay_smoke_report(
             autopay_smoke_report_path,
+            env=values,
             require_autopay_smoke=require_autopay_smoke,
         ),
         _summary_check("hardware", hardware.passed, _failed_names(hardware.checks)),
@@ -294,6 +295,7 @@ def _check_notification_report(
 def _check_autopay_smoke_report(
     path: Path,
     *,
+    env: Mapping[str, str],
     require_autopay_smoke: bool,
 ) -> ProductionCheck:
     if not require_autopay_smoke:
@@ -317,15 +319,35 @@ def _check_autopay_smoke_report(
     amount_cents = payload.get("amount_cents")
     amount_ok = isinstance(amount_cents, int) and amount_cents > 0
     provider = str(payload.get("provider") or "unknown")
+    expected_provider = (env.get("PAYMENT_PROVIDER") or "paybyphone").strip().lower()
+    provider_ok = provider.lower() == expected_provider
+    plate = str(payload.get("plate") or "")
+    expected_plate = (env.get("DEFAULT_VEHICLE_PLATE") or "AA-000-AA").strip()
+    plate_ok = plate == expected_plate
+    zone_id = payload.get("zone_id")
+    expected_zone_id = (env.get("PAYBYPHONE_LOCATION_ID") or "").strip()
+    zone_ok = not expected_zone_id or zone_id == expected_zone_id
     error = payload.get("error")
-    ok = passed and not dry_run and active_verified and stopped and stop_verified and amount_ok
+    ok = (
+        passed
+        and not dry_run
+        and active_verified
+        and stopped
+        and stop_verified
+        and amount_ok
+        and provider_ok
+        and plate_ok
+        and zone_ok
+    )
     return ProductionCheck(
         "autopay_smoke",
         ok,
         (
             f"passed={passed}, dry_run={dry_run}, active={active_verified}, "
             f"stopped={stopped}, stop_verified={stop_verified}, "
-            f"amount={amount_cents}, provider={provider}, "
+            f"amount={amount_cents}, provider={provider}/{expected_provider}, "
+            f"plate={plate or '-'}/{expected_plate}, "
+            f"zone={zone_id or '-'}/{expected_zone_id or '-'}, "
             f"error={error or '-'}"
         ),
     )
