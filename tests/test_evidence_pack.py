@@ -76,6 +76,62 @@ def test_evidence_pack_requires_complete_hardware_profile(tmp_path: Path):
     assert "checks=ok" in item.detail
 
 
+def test_evidence_pack_requires_complete_box_ready_report(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "box_ready"][0]
+    assert item.passed is True
+    assert "checks=22" in item.detail
+    assert "missing=-" in item.detail
+    assert "failed=-" in item.detail
+
+
+def test_evidence_pack_rejects_box_ready_without_checks(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    paths["box_ready"].write_text(json.dumps({"passed": True}))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "box_ready"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert item.detail == "checks=missing"
+
+
+def test_evidence_pack_rejects_box_ready_with_failed_required_check(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["box_ready"].read_text())
+    check = [check for check in payload["checks"] if check["name"] == "autopay_smoke"][0]
+    check["ok"] = False
+    check["detail"] = "missing reports/autopay-smoke.json"
+    paths["box_ready"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "box_ready"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "failed=autopay_smoke" in item.detail
+
+
+def test_evidence_pack_rejects_box_ready_missing_required_check(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["box_ready"].read_text())
+    payload["checks"] = [
+        check for check in payload["checks"] if check["name"] != "runtime_event_log"
+    ]
+    paths["box_ready"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "box_ready"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "missing=runtime_event_log" in item.detail
+
+
 def test_evidence_pack_rejects_hardware_profile_without_preset(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["hardware_profile"].read_text())
@@ -480,6 +536,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
     for path in paths.values():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"passed": True}))
+    paths["box_ready"].write_text(json.dumps(_box_ready_payload()))
     paths["vision_eval"].write_text(
         json.dumps(
             {
@@ -608,3 +665,34 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
         )
     )
     return paths
+
+
+def _box_ready_payload() -> dict:
+    check_names = [
+        "vision",
+        "autopay",
+        "autopay_smoke",
+        "hardware",
+        "hardware_env_consistency",
+        "systemd_service",
+        "systemd_runtime",
+        "position_runtime",
+        "camera_runtime",
+        "network_runtime",
+        "power_runtime",
+        "vision_eval",
+        "vision_benchmark",
+        "power_budget",
+        "network_recovery",
+        "notification_webhook",
+        "notification_test",
+        "disk_space",
+        "burn_in",
+        "burn_in_samples",
+        "runtime_event_log",
+        "report_freshness",
+    ]
+    return {
+        "passed": True,
+        "checks": [{"name": name, "ok": True, "detail": "ok"} for name in check_names],
+    }
