@@ -933,6 +933,8 @@ def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
     provider = payload.get("provider") if isinstance(payload, dict) else None
     session_id = payload.get("session_id") if isinstance(payload, dict) else None
     zone_id = payload.get("zone_id") if isinstance(payload, dict) else None
+    session_location_id = payload.get("session_location_id") if isinstance(payload, dict) else None
+    session_zone_ok = bool(zone_id) and session_location_id == zone_id
     complete = (
         passed
         and not dry_run
@@ -943,6 +945,7 @@ def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
         and bool(provider)
         and bool(session_id)
         and bool(zone_id)
+        and session_zone_ok
     )
     return EvidenceItem(
         name=name,
@@ -957,7 +960,8 @@ def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
             f"passed={passed}, dry_run={dry_run}, amount={amount_cents}, "
             f"active={active_verified}, stopped={stopped}, stop_verified={stop_verified}, "
             f"provider={'ok' if provider else 'missing'}, "
-            f"session={'ok' if session_id else 'missing'}, zone={'ok' if zone_id else 'missing'}"
+            f"session={'ok' if session_id else 'missing'}, zone={'ok' if zone_id else 'missing'}, "
+            f"session_zone={session_location_id or '-'}/{zone_id or '-'}"
         ),
     )
 

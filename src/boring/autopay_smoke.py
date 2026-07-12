@@ -17,6 +17,7 @@ class AutopaySmokeReport:
     dry_run: bool
     plate: str
     zone_id: str | None
+    session_location_id: str | None
     session_id: str | None
     amount_cents: int | None
     duration_minutes: int
@@ -78,7 +79,13 @@ def run_autopay_smoke(
         zone_id = provider.get_zone_id(lat, lon)
         session = provider.start_session(plate, zone_id, duration_minutes)
         active_after = provider.get_active_session(plate)
-        active_verified = active_after is not None and active_after.session_id == session.session_id
+        session_location_ok = session.location_id == zone_id
+        active_verified = (
+            active_after is not None
+            and active_after.session_id == session.session_id
+            and active_after.vehicle_plate == plate
+            and active_after.location_id == session.location_id
+        )
         if stop_after:
             provider.stop_session(session.session_id)
             stopped = True
@@ -91,12 +98,15 @@ def run_autopay_smoke(
         passed = (
             amount_ok
             and max_amount_ok
+            and session_location_ok
             and active_verified
             and (stopped and stop_verified if stop_after else True)
         )
         error = None
         if amount_ok and not max_amount_ok:
             error = f"session amount exceeds MAX_SESSION_AMOUNT_CENTS: {session.amount_cents}"
+        elif not session_location_ok:
+            error = f"session location mismatch: {session.location_id}/{zone_id}"
         return _report(
             provider=provider,
             dry_run=dry_run,
@@ -106,6 +116,7 @@ def run_autopay_smoke(
             lon=lon,
             tested_at=tested_at,
             zone_id=zone_id,
+            session_location_id=session.location_id,
             session_id=session.session_id,
             amount_cents=session.amount_cents,
             active_session_verified=active_verified,
@@ -132,6 +143,7 @@ def run_autopay_smoke(
             lat=lat,
             lon=lon,
             zone_id=zone_id,
+            session_location_id=session.location_id if session is not None else None,
             session_id=session.session_id if session is not None else None,
             amount_cents=session.amount_cents if session is not None else None,
             stopped=stopped,
@@ -156,6 +168,7 @@ def _report(
     lon: float,
     tested_at: str,
     zone_id: str | None = None,
+    session_location_id: str | None = None,
     session_id: str | None = None,
     amount_cents: int | None = None,
     active_session_verified: bool = False,
@@ -170,6 +183,7 @@ def _report(
         dry_run=dry_run,
         plate=plate,
         zone_id=zone_id,
+        session_location_id=session_location_id,
         session_id=session_id,
         amount_cents=amount_cents,
         duration_minutes=duration_minutes,

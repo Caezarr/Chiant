@@ -469,6 +469,7 @@ def test_evidence_pack_requires_complete_autopay_smoke(tmp_path: Path):
     assert "dry_run=False" in item.detail
     assert "stop_verified=True" in item.detail
     assert "session=ok" in item.detail
+    assert "session_zone=zone-1/zone-1" in item.detail
 
 
 def test_evidence_pack_rejects_autopay_smoke_dry_run(tmp_path: Path):
@@ -511,6 +512,22 @@ def test_evidence_pack_rejects_autopay_smoke_without_session_id(tmp_path: Path):
     assert pack.passed is False
     assert item.passed is False
     assert "session=missing" in item.detail
+
+
+def test_evidence_pack_rejects_autopay_smoke_with_mismatched_session_zone(
+    tmp_path: Path,
+):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["autopay_smoke"].read_text())
+    payload["session_location_id"] = "zone-other"
+    paths["autopay_smoke"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "session_zone=zone-other/zone-1" in item.detail
 
 
 def test_evidence_pack_requires_complete_notification_test(tmp_path: Path):
@@ -822,6 +839,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
                 "dry_run": False,
                 "plate": "AB-123-CD",
                 "zone_id": "zone-1",
+                "session_location_id": "zone-1",
                 "session_id": "session-1",
                 "amount_cents": 120,
                 "duration_minutes": 15,

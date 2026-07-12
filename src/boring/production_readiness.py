@@ -843,8 +843,10 @@ def _check_autopay_smoke_report(
     expected_plate = (env.get("DEFAULT_VEHICLE_PLATE") or "AA-000-AA").strip()
     plate_ok = plate == expected_plate
     zone_id = payload.get("zone_id")
+    session_location_id = payload.get("session_location_id")
+    session_zone_ok = bool(zone_id) and session_location_id == zone_id
     expected_zone_id = (env.get("PAYBYPHONE_LOCATION_ID") or "").strip()
-    zone_ok = not expected_zone_id or zone_id == expected_zone_id
+    zone_ok = session_zone_ok and (not expected_zone_id or zone_id == expected_zone_id)
     error = payload.get("error")
     ok = (
         passed
@@ -872,6 +874,7 @@ def _check_autopay_smoke_report(
             f"provider={provider}/{expected_provider}, "
             f"plate={plate or '-'}/{expected_plate}, "
             f"zone={zone_id or '-'}/{expected_zone_id or '-'}, "
+            f"session_zone={session_location_id or '-'}/{zone_id or '-'}, "
             f"error={error or '-'}"
         ),
     )
