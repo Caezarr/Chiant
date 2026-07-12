@@ -39,6 +39,8 @@ from boring.network_readiness import write_report as write_network_report
 from boring.position import make_position_provider
 from boring.position_readiness import run_position_check
 from boring.position_readiness import write_report as write_position_report
+from boring.power_readiness import run_power_check
+from boring.power_readiness import write_report as write_power_report
 from boring.production_readiness import audit_production_readiness
 from boring.production_readiness import write_report as write_production_report
 from boring.runtime import box_doctor, run_box_service
@@ -325,6 +327,43 @@ def box_network_check(
     raise typer.Exit(0 if report.passed else 1)
 
 
+@app.command("box-power-check")
+def box_power_check(
+    output: Path = typer.Option(
+        Path("reports/power-check.json"),
+        help="Rapport JSON energie runtime.",
+    ),
+) -> None:
+    """Verifie que la jauge batterie/UPS est exploitable pour une box 10h."""
+    config = BoxConfig.from_env()
+    report = run_power_check(
+        battery_capacity_wh=config.battery_capacity_wh,
+        estimated_draw_watts=config.estimated_draw_watts,
+        required_runtime_hours=config.required_runtime_hours,
+        battery_critical_percent=config.battery_critical_percent,
+    )
+    write_power_report(report, output)
+    table = Table(title="Boring Box — power runtime")
+    table.add_column("Signal", style="bold")
+    table.add_column("Valeur")
+    table.add_row("Source", report.source or "-")
+    table.add_row(
+        "Battery", "-" if report.battery_percent is None else f"{report.battery_percent}%"
+    )
+    table.add_row(
+        "Charging", "-" if report.charging is None else ("yes" if report.charging else "no")
+    )
+    table.add_row(
+        "Runtime",
+        "-" if report.estimated_runtime_hours is None else f"{report.estimated_runtime_hours:.1f}h",
+    )
+    table.add_row("Failures", ", ".join(report.failures) if report.failures else "-")
+    table.add_row("Passed", "yes" if report.passed else "no")
+    console.print(table)
+    console.print(f"[dim]Rapport: {output}[/dim]")
+    raise typer.Exit(0 if report.passed else 1)
+
+
 @app.command("box-ready")
 def box_ready(
     dataset: Path = typer.Option(Path("datasets/control_vehicle_v1"), help="Dataset YOLOv8."),
@@ -360,6 +399,10 @@ def box_ready(
     network_report: Path = typer.Option(
         Path("reports/network-check.json"),
         help="Rapport produit par box-network-check.",
+    ),
+    power_report: Path = typer.Option(
+        Path("reports/power-check.json"),
+        help="Rapport produit par box-power-check.",
     ),
     vision_eval_report: Path = typer.Option(
         Path("reports/vision-eval.json"),
@@ -432,6 +475,10 @@ def box_ready(
         False,
         help="Ne pas exiger le rapport box-network-check.",
     ),
+    allow_missing_power_report: bool = typer.Option(
+        False,
+        help="Ne pas exiger le rapport box-power-check.",
+    ),
 ) -> None:
     """Gate final avant installation voiture / systemd."""
     report = audit_production_readiness(
@@ -445,6 +492,7 @@ def box_ready(
         position_report_path=position_report,
         camera_report_path=camera_report,
         network_report_path=network_report,
+        power_report_path=power_report,
         vision_eval_report_path=vision_eval_report,
         benchmark_report_path=benchmark_report,
         autopay_smoke_report_path=autopay_smoke_report,
@@ -463,6 +511,7 @@ def box_ready(
         require_position_report=not allow_missing_position_report,
         require_camera_report=not allow_missing_camera_report,
         require_network_report=not allow_missing_network_report,
+        require_power_report=not allow_missing_power_report,
         min_burn_in_hours=min_burn_in_hours,
     )
     write_production_report(report, output)

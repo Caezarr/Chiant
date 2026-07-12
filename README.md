@@ -22,7 +22,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/Status-pre--alpha-orange" alt="Status">
   <img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Tests-240%2F240-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-247%2F247-brightgreen" alt="Tests">
 </p>
 
 ---
@@ -99,7 +99,7 @@ git clone https://github.com/Caezarr/Chiant.git
 cd Chiant
 cp .env.example .env          # → renseigne ASSISTED_IMESSAGE_RECIPIENT au minimum
 make dev                      # uv sync + outils dev
-make test                     # 240 tests doivent passer
+make test                     # 247 tests doivent passer
 make zones                    # télécharge / met à jour les zones Lille
 make scrape-baseline          # images web candidates control_vehicle
 make scrape-negatives         # hard negatives gratuits
@@ -116,6 +116,7 @@ cp deploy/pi/hardware-profile.example.json deploy/pi/hardware-profile.json
 uv run boring box-camera-check --output reports/camera-check.json
 uv run boring box-position-check --output reports/position-check.json
 uv run boring box-network-check --output reports/network-check.json
+uv run boring box-power-check --output reports/power-check.json
 uv run boring box-burn-in --minutes 120 --interval 60    # preuve terrain Pi
 uv run boring box-notify-test --output reports/notification-test.json
 sudo systemctl enable --now boring-box
@@ -125,7 +126,7 @@ uv run boring box-evidence-pack --output reports/evidence-pack.json
 uv run boring contest-fps --subject "FPS-X" --reason "Test"  # smoke test contestation
 ```
 
-Pour `box-ready` en mode prod, lance aussi `autopay-smoke` avec `PAYMENT_DRY_RUN=false`, configure `NETWORK_RECOVERY_COMMAND`, `BORING_NOTIFY_WEBHOOK_URL` ou `NTFY_WEBHOOK_URL`, puis lance `box-camera-check`, `box-position-check`, `box-network-check`, `box-notify-test` et `box-systemd-check`; sans preuve d'autopaiement reel minimal, camera runtime, position runtime, reseau joignable, recovery reseau, notification 2xx et service systemd actif, le boitier n'est pas installable.
+Pour `box-ready` en mode prod, lance aussi `autopay-smoke` avec `PAYMENT_DRY_RUN=false`, configure `NETWORK_RECOVERY_COMMAND`, `BORING_NOTIFY_WEBHOOK_URL` ou `NTFY_WEBHOOK_URL`, puis lance `box-camera-check`, `box-position-check`, `box-network-check`, `box-power-check`, `box-notify-test` et `box-systemd-check`; sans preuve d'autopaiement reel minimal, camera runtime, position runtime, reseau joignable, jauge batterie runtime, recovery reseau, notification 2xx et service systemd actif, le boitier n'est pas installable.
 
 Si tu veux contribuer ou build ton propre boîtier : lis [HUMAN-TODO.md](HUMAN-TODO.md) pour les étapes humaines (captation Lille, annotation, training, reverse PayByPhone via HAR).
 Architecture boîtier : [docs/BOX.md](docs/BOX.md). Déploiement Pi : [deploy/pi/README.md](deploy/pi/README.md). Dataset vision : [docs/DATASETS.md](docs/DATASETS.md). Autopaiement : [docs/AUTOPAYMENT.md](docs/AUTOPAYMENT.md).
@@ -144,7 +145,7 @@ Architecture boîtier : [docs/BOX.md](docs/BOX.md). Déploiement Pi : [deploy/pi
 - Vertical 2 — **`boring.contest`** : génération RAPO automatique + escalade CCSP
 - CLI complète : `capture / detect / run / pay-now / contest-fps`
 - Runtime headless boîtier : `box-run / box-doctor`, config Pi 4 / Pi 5 documentée
-- Tests pytest (240/240), CI GitHub Actions, pre-commit hooks
+- Tests pytest (247/247), CI GitHub Actions, pre-commit hooks
 
 ### Ce qui manque ⏳
 - Modèle custom `control_vehicle` (besoin captation terrain — cf. HUMAN-TODO #1-3)

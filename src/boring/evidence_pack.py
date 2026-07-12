@@ -56,6 +56,7 @@ def default_evidence_paths() -> dict[str, Path]:
         "position_runtime": Path("reports/position-check.json"),
         "camera_runtime": Path("reports/camera-check.json"),
         "network_runtime": Path("reports/network-check.json"),
+        "power_runtime": Path("reports/power-check.json"),
         "vision_eval": Path("reports/vision-eval.json"),
         "vision_benchmark": Path("reports/vision-benchmark.json"),
         "autopay_smoke": Path("reports/autopay-smoke.json"),
