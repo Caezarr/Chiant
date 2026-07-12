@@ -86,8 +86,23 @@ def test_evidence_pack_requires_complete_box_ready_report(tmp_path: Path):
     item = [item for item in pack.items if item.name == "box_ready"][0]
     assert item.passed is True
     assert "checks=22" in item.detail
+    assert "generated_at=ok" in item.detail
     assert "missing=-" in item.detail
     assert "failed=-" in item.detail
+
+
+def test_evidence_pack_rejects_box_ready_without_generated_at(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["box_ready"].read_text())
+    payload.pop("generated_at")
+    paths["box_ready"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "box_ready"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "generated_at=missing" in item.detail
 
 
 def test_evidence_pack_rejects_box_ready_without_checks(tmp_path: Path):
