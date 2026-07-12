@@ -292,6 +292,34 @@ def test_production_readiness_fails_when_vision_eval_uses_other_model(tmp_path: 
     assert "other.pt" in check.detail
 
 
+def test_production_readiness_fails_when_vision_eval_uses_other_dataset(tmp_path: Path):
+    artifacts = _write_ready_artifacts(tmp_path)
+    other_dataset = tmp_path / "datasets" / "other-control-vehicle"
+    payload = json.loads(artifacts["vision_eval"].read_text())
+    payload["dataset_path"] = str(other_dataset)
+    artifacts["vision_eval"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "vision_eval"][0]
+    assert check.ok is False
+    assert "other-control-vehicle" in check.detail
+
+
 def test_production_readiness_fails_when_benchmark_fails(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path, benchmark_passed=False, benchmark_fps=0.5)
 
@@ -1061,6 +1089,7 @@ def _write_ready_artifacts(
         json.dumps(
             {
                 "model_path": str(model),
+                "dataset_path": str(dataset),
                 "dataset_id": "field-pi5-daylight-v1",
                 "recall": vision_recall,
                 "precision": 0.98,

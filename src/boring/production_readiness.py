@@ -86,7 +86,11 @@ def audit_production_readiness(
         ),
         _summary_check("hardware", hardware.passed, _failed_names(hardware.checks)),
         _check_hardware_env_consistency(values, hardware_profile_path),
-        _check_vision_eval_report(vision_eval_report_path, expected_model_path=model_path),
+        _check_vision_eval_report(
+            vision_eval_report_path,
+            expected_model_path=model_path,
+            expected_dataset_path=dataset_path,
+        ),
         _check_benchmark_report(
             benchmark_report_path,
             required_min_fps=_hardware_required_benchmark_fps(hardware_profile_path),
@@ -445,6 +449,7 @@ def _check_vision_eval_report(
     path: Path,
     *,
     expected_model_path: Path | None = None,
+    expected_dataset_path: Path | None = None,
 ) -> ProductionCheck:
     if not path.exists():
         return ProductionCheck("vision_eval", False, f"missing {path}")
@@ -463,6 +468,11 @@ def _check_vision_eval_report(
     invalid_images = int(payload.get("invalid_images") or 0)
     report_model = str(payload.get("model_path") or "")
     model_ok = expected_model_path is None or _same_path(report_model, expected_model_path)
+    report_dataset = str(payload.get("dataset_path") or "")
+    dataset_ok = expected_dataset_path is None or _same_path(
+        report_dataset,
+        expected_dataset_path,
+    )
     ok = (
         passed
         and recall >= min_recall
@@ -471,6 +481,7 @@ def _check_vision_eval_report(
         and frames_evaluated > 0
         and invalid_images == 0
         and model_ok
+        and dataset_ok
     )
     return ProductionCheck(
         "vision_eval",
@@ -479,7 +490,9 @@ def _check_vision_eval_report(
             f"passed={passed}, recall={recall:.3f}/{min_recall:.3f}, "
             f"fp_per_hour={false_positive_per_hour:.2f}/{max_false_positive_per_hour:.2f}, "
             f"hours={evaluated_hours:.1f}, frames={frames_evaluated}, "
-            f"invalid={invalid_images}, model={report_model or '-'}/{expected_model_path or '-'}"
+            f"invalid={invalid_images}, "
+            f"model={report_model or '-'}/{expected_model_path or '-'}, "
+            f"dataset={report_dataset or '-'}/{expected_dataset_path or '-'}"
         ),
     )
 

@@ -28,6 +28,7 @@ def test_vision_eval_report_passes_with_required_metrics(tmp_path: Path):
         precision=0.98,
         false_positive_per_hour=0.5,
         evaluated_hours=3.0,
+        dataset_path="datasets/control_vehicle_v1",
     )
 
     assert report.passed is True
@@ -37,6 +38,7 @@ def test_vision_eval_report_passes_with_required_metrics(tmp_path: Path):
     payload = json.loads(output.read_text())
     assert payload["passed"] is True
     assert payload["min_recall"] == 0.90
+    assert payload["dataset_path"] == "datasets/control_vehicle_v1"
 
 
 def test_vision_eval_report_fails_when_false_positive_rate_is_high():
@@ -75,6 +77,7 @@ def test_evaluate_yolo_dataset_computes_metrics_from_labels(tmp_path: Path):
     assert report.precision == 0.5
     assert report.false_positive_per_hour == 1.0
     assert report.evaluated_hours == 1.0
+    assert report.dataset_path == str(dataset)
     assert report.passed is True
 
 
