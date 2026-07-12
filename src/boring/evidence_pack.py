@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass
@@ -10,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from boring.hardware_profile import audit_hardware_profile
+from boring.readiness_json import parse_report_timestamp, sha256_bytes
 from boring.runtime_events import BLOCKING_RUNTIME_EVENTS
 
 REQUIRED_BOX_READY_CHECKS = {
@@ -221,7 +221,7 @@ def _read_item(
             False,
             None,
             len(raw),
-            hashlib.sha256(raw).hexdigest(),
+            sha256_bytes(raw),
             _format(name),
             "invalid json",
         )
@@ -233,7 +233,7 @@ def _read_item(
         valid_json=True,
         passed=passed if isinstance(passed, bool) else None,
         size_bytes=len(raw),
-        sha256=hashlib.sha256(raw).hexdigest(),
+        sha256=sha256_bytes(raw),
         format=_format(name),
         detail=_detail(payload),
     )
@@ -250,7 +250,7 @@ def _read_runtime_report(name: str, path: Path, raw: bytes) -> EvidenceItem:
             False,
             None,
             len(raw),
-            hashlib.sha256(raw).hexdigest(),
+            sha256_bytes(raw),
             _format(name),
             "invalid json",
         )
@@ -262,7 +262,7 @@ def _read_runtime_report(name: str, path: Path, raw: bytes) -> EvidenceItem:
             valid_json=True,
             passed=False,
             size_bytes=len(raw),
-            sha256=hashlib.sha256(raw).hexdigest(),
+            sha256=sha256_bytes(raw),
             format=_format(name),
             detail="json is not an object",
         )
@@ -275,7 +275,7 @@ def _read_runtime_report(name: str, path: Path, raw: bytes) -> EvidenceItem:
         valid_json=True,
         passed=not failures,
         size_bytes=len(raw),
-        sha256=hashlib.sha256(raw).hexdigest(),
+        sha256=sha256_bytes(raw),
         format=_format(name),
         detail=(
             f"passed={payload.get('passed') is True}, "
@@ -336,8 +336,8 @@ def _read_runtime_alignment(
             "burn_in=json is not an object",
         )
 
-    started_at = _parse_evidence_timestamp(burn_in.get("started_at"))
-    ended_at = _parse_evidence_timestamp(burn_in.get("ended_at"))
+    started_at = parse_report_timestamp(burn_in.get("started_at"))
+    ended_at = parse_report_timestamp(burn_in.get("ended_at"))
     invalid_lines = 0
     scanned = 0
     earliest_heartbeat: datetime | None = None
@@ -357,7 +357,7 @@ def _read_runtime_alignment(
         if not isinstance(event, dict):
             invalid_lines += 1
             continue
-        timestamp = _parse_evidence_timestamp(event.get("ts"))
+        timestamp = parse_report_timestamp(event.get("ts"))
         if started_at is not None and timestamp is not None and timestamp < started_at:
             continue
         scanned += 1
@@ -401,7 +401,7 @@ def _read_runtime_alignment(
         invalid_lines == 0,
         passed,
         len(raw),
-        hashlib.sha256(raw).hexdigest(),
+        sha256_bytes(raw),
         _format("runtime_alignment"),
         (
             f"scanned={scanned}, since={started_at.isoformat() if started_at else '-'}, "
@@ -488,7 +488,7 @@ def _read_hardware_benchmark_alignment(
         True,
         passed,
         len(raw),
-        hashlib.sha256(raw).hexdigest(),
+        sha256_bytes(raw),
         _format("hardware_benchmark_alignment"),
         (
             f"benchmark_passed={benchmark_passed}, "
@@ -581,7 +581,7 @@ def _read_hardware_camera_alignment(
         True,
         passed,
         len(raw),
-        hashlib.sha256(raw).hexdigest(),
+        sha256_bytes(raw),
         _format("hardware_camera_alignment"),
         (
             f"camera_passed={camera_passed}, "
@@ -660,7 +660,7 @@ def _read_vision_model_alignment(
         True,
         passed,
         len(raw),
-        hashlib.sha256(raw).hexdigest(),
+        sha256_bytes(raw),
         _format("vision_model_alignment"),
         (
             f"eval_model={eval_model or '-'}, "
@@ -737,7 +737,7 @@ def _read_vision_artifact_alignment(
         True,
         passed,
         len(raw),
-        hashlib.sha256(raw).hexdigest(),
+        sha256_bytes(raw),
         _format("vision_artifact_alignment"),
         (
             f"eval_model={'ok' if model_exists else 'missing'}, "
@@ -784,7 +784,7 @@ def _read_edge_export(name: str, model_path: Path) -> EvidenceItem:
         True,
         True,
         len(raw),
-        hashlib.sha256(raw).hexdigest(),
+        sha256_bytes(raw),
         _format(name),
         f"exports={', '.join(str(candidate) for candidate in non_empty)}",
     )
@@ -851,7 +851,7 @@ def _read_report_freshness(
         not any("invalid_json" in failure for failure in failures),
         not failures,
         len(raw) if raw_parts else None,
-        hashlib.sha256(raw).hexdigest() if raw_parts else None,
+        sha256_bytes(raw) if raw_parts else None,
         _format("report_freshness"),
         (
             f"max_age={max_age_hours:.1f}h, "
@@ -863,7 +863,7 @@ def _read_report_freshness(
 
 def _report_timestamp(payload: dict) -> datetime | None:
     for key in ("checked_at", "tested_at", "generated_at", "ended_at"):
-        timestamp = _parse_evidence_timestamp(payload.get(key))
+        timestamp = parse_report_timestamp(payload.get(key))
         if timestamp is not None:
             return timestamp
     return None
@@ -1149,7 +1149,7 @@ def _read_box_ready(name: str, path: Path, raw: bytes) -> EvidenceItem:
             False,
             None,
             len(raw),
-            hashlib.sha256(raw).hexdigest(),
+            sha256_bytes(raw),
             _format(name),
             "invalid json",
         )
@@ -1161,7 +1161,7 @@ def _read_box_ready(name: str, path: Path, raw: bytes) -> EvidenceItem:
             valid_json=True,
             passed=False,
             size_bytes=len(raw),
-            sha256=hashlib.sha256(raw).hexdigest(),
+            sha256=sha256_bytes(raw),
             format=_format(name),
             detail="json is not an object",
         )
@@ -1175,7 +1175,7 @@ def _read_box_ready(name: str, path: Path, raw: bytes) -> EvidenceItem:
             valid_json=True,
             passed=False,
             size_bytes=len(raw),
-            sha256=hashlib.sha256(raw).hexdigest(),
+            sha256=sha256_bytes(raw),
             format=_format(name),
             detail="checks=missing",
         )
@@ -1195,7 +1195,7 @@ def _read_box_ready(name: str, path: Path, raw: bytes) -> EvidenceItem:
 
     missing = sorted(REQUIRED_BOX_READY_CHECKS - set(check_status))
     failed = sorted(name for name in REQUIRED_BOX_READY_CHECKS if check_status.get(name) is False)
-    generated_at = _parse_evidence_timestamp(payload.get("generated_at"))
+    generated_at = parse_report_timestamp(payload.get("generated_at"))
     timestamp_ok = generated_at is not None
     passed = (
         payload.get("passed") is True
@@ -1211,7 +1211,7 @@ def _read_box_ready(name: str, path: Path, raw: bytes) -> EvidenceItem:
         valid_json=True,
         passed=passed,
         size_bytes=len(raw),
-        sha256=hashlib.sha256(raw).hexdigest(),
+        sha256=sha256_bytes(raw),
         format=_format(name),
         detail=(
             f"passed={payload.get('passed') is True}, checks={len(check_status)}, "
@@ -1233,7 +1233,7 @@ def _read_hardware_profile(name: str, path: Path, raw: bytes) -> EvidenceItem:
             False,
             None,
             len(raw),
-            hashlib.sha256(raw).hexdigest(),
+            sha256_bytes(raw),
             _format(name),
             "invalid json",
         )
@@ -1245,7 +1245,7 @@ def _read_hardware_profile(name: str, path: Path, raw: bytes) -> EvidenceItem:
             valid_json=True,
             passed=False,
             size_bytes=len(raw),
-            sha256=hashlib.sha256(raw).hexdigest(),
+            sha256=sha256_bytes(raw),
             format=_format(name),
             detail="json is not an object",
         )
@@ -1261,7 +1261,7 @@ def _read_hardware_profile(name: str, path: Path, raw: bytes) -> EvidenceItem:
         valid_json=True,
         passed=report.passed,
         size_bytes=len(raw),
-        sha256=hashlib.sha256(raw).hexdigest(),
+        sha256=sha256_bytes(raw),
         format=_format(name),
         detail=(
             f"preset={payload.get('preset_id') or '-'}, "
@@ -1307,7 +1307,7 @@ def _read_runtime_events(name: str, path: Path, raw: bytes) -> EvidenceItem:
         valid_json=invalid_lines == 0,
         passed=passed,
         size_bytes=len(raw),
-        sha256=hashlib.sha256(raw).hexdigest(),
+        sha256=sha256_bytes(raw),
         format=_format(name),
         detail=(
             f"scanned={scanned}, heartbeat={heartbeat_seen}, "
@@ -1343,7 +1343,7 @@ def _read_burn_in_samples(
             invalid_lines += 1
             continue
         scanned += 1
-        timestamp = _parse_evidence_timestamp(payload.get("ts"))
+        timestamp = parse_report_timestamp(payload.get("ts"))
         if timestamp is None:
             invalid_lines += 1
             continue
@@ -1374,8 +1374,8 @@ def _read_burn_in_samples(
     expected_discharging_seen = report.get("discharging_seen") if report else None
     expected_max_temp = _number(report.get("max_temp_c")) if report else None
     expected_max_sample_gap = _number(report.get("max_sample_gap_seconds")) if report else None
-    started_at = _parse_evidence_timestamp(report.get("started_at")) if report else None
-    ended_at = _parse_evidence_timestamp(report.get("ended_at")) if report else None
+    started_at = parse_report_timestamp(report.get("started_at")) if report else None
+    ended_at = parse_report_timestamp(report.get("ended_at")) if report else None
 
     start_battery = battery_values[0] if battery_values else None
     end_battery = battery_values[-1] if battery_values else None
@@ -1448,7 +1448,7 @@ def _read_burn_in_samples(
         valid_json=invalid_lines == 0,
         passed=passed,
         size_bytes=len(raw),
-        sha256=hashlib.sha256(raw).hexdigest(),
+        sha256=sha256_bytes(raw),
         format=_format(name),
         detail=(
             f"report={'ok' if report_ok else 'missing'}, "
@@ -1503,7 +1503,7 @@ def _read_paybyphone_endpoints(name: str, path: Path, raw: bytes) -> EvidenceIte
             False,
             None,
             len(raw),
-            hashlib.sha256(raw).hexdigest(),
+            sha256_bytes(raw),
             _format(name),
             "invalid json",
         )
@@ -1535,7 +1535,7 @@ def _read_paybyphone_endpoints(name: str, path: Path, raw: bytes) -> EvidenceIte
         valid_json=True,
         passed=passed,
         size_bytes=len(raw),
-        sha256=hashlib.sha256(raw).hexdigest(),
+        sha256=sha256_bytes(raw),
         format=_format(name),
         detail=(
             f"missing_hints={','.join(missing_hints) if missing_hints else '-'}, "
@@ -1621,7 +1621,7 @@ def _read_autopay_provider_alignment(
         True,
         passed,
         len(raw),
-        hashlib.sha256(raw).hexdigest(),
+        sha256_bytes(raw),
         _format("autopay_provider_alignment"),
         (
             f"provider={provider or '-'}/paybyphone, "
@@ -1642,7 +1642,7 @@ def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
             False,
             None,
             len(raw),
-            hashlib.sha256(raw).hexdigest(),
+            sha256_bytes(raw),
             _format(name),
             "invalid json",
         )
@@ -1704,7 +1704,7 @@ def _read_autopay_smoke(name: str, path: Path, raw: bytes) -> EvidenceItem:
         valid_json=True,
         passed=complete,
         size_bytes=len(raw),
-        sha256=hashlib.sha256(raw).hexdigest(),
+        sha256=sha256_bytes(raw),
         format=_format(name),
         detail=(
             f"passed={passed}, dry_run={dry_run}, amount={amount_cents}/{active_amount}, "
@@ -1729,7 +1729,7 @@ def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
             False,
             None,
             len(raw),
-            hashlib.sha256(raw).hexdigest(),
+            sha256_bytes(raw),
             _format(name),
             "invalid json",
         )
@@ -1741,7 +1741,7 @@ def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
     message = str(payload.get("message") or "") if isinstance(payload, dict) else ""
     sound = payload.get("sound") is True if isinstance(payload, dict) else False
     tested_at = (
-        _parse_evidence_timestamp(payload.get("tested_at")) if isinstance(payload, dict) else None
+        parse_report_timestamp(payload.get("tested_at")) if isinstance(payload, dict) else None
     )
     status_ok = isinstance(status_code, int) and 200 <= status_code < 300
     battery_message_ok = _is_battery_notification_text(f"{title} {message}")
@@ -1763,7 +1763,7 @@ def _read_notification_test(name: str, path: Path, raw: bytes) -> EvidenceItem:
         valid_json=True,
         passed=complete,
         size_bytes=len(raw),
-        sha256=hashlib.sha256(raw).hexdigest(),
+        sha256=sha256_bytes(raw),
         format=_format(name),
         detail=(
             f"passed={passed}, status={status_code}, "
@@ -1796,7 +1796,7 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
             False,
             None,
             len(raw),
-            hashlib.sha256(raw).hexdigest(),
+            sha256_bytes(raw),
             _format(name),
             "invalid json",
         )
@@ -1896,7 +1896,7 @@ def _read_vision_eval(name: str, path: Path, raw: bytes) -> EvidenceItem:
         valid_json=True,
         passed=ok,
         size_bytes=len(raw),
-        sha256=hashlib.sha256(raw).hexdigest(),
+        sha256=sha256_bytes(raw),
         format=_format(name),
         detail=(
             f"passed={passed}, recall={_fmt(recall)}/{_fmt(min_recall)}, "
@@ -1926,7 +1926,7 @@ def _read_vision_benchmark(name: str, path: Path, raw: bytes) -> EvidenceItem:
             False,
             None,
             len(raw),
-            hashlib.sha256(raw).hexdigest(),
+            sha256_bytes(raw),
             _format(name),
             "invalid json",
         )
@@ -1963,7 +1963,7 @@ def _read_vision_benchmark(name: str, path: Path, raw: bytes) -> EvidenceItem:
         valid_json=True,
         passed=ok,
         size_bytes=len(raw),
-        sha256=hashlib.sha256(raw).hexdigest(),
+        sha256=sha256_bytes(raw),
         format=_format(name),
         detail=(
             f"passed={passed}, fps={_fmt(measured_fps)}/{_fmt(min_fps)}, "
@@ -2025,28 +2025,6 @@ def _resolution_tuple(value: object) -> tuple[int | None, int | None]:
 
 def _has_text(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
-
-
-def _parse_evidence_timestamp(value: object) -> datetime | None:
-    if isinstance(value, bool) or value is None:
-        return None
-    if isinstance(value, (int, float)):
-        return datetime.fromtimestamp(float(value), tz=timezone.utc)
-    if not isinstance(value, str):
-        return None
-    raw = value.strip()
-    if not raw:
-        return None
-    try:
-        parsed = datetime.fromisoformat(raw)
-    except ValueError:
-        try:
-            return datetime.fromtimestamp(float(raw), tz=timezone.utc)
-        except ValueError:
-            return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
 
 
 def _fmt_seconds(value: float | None) -> str:
