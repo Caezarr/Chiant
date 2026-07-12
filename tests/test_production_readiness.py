@@ -1381,6 +1381,40 @@ def test_production_readiness_rejects_power_runtime_using_full_capacity(
     assert "runtime_consistent=False" in check.detail
 
 
+def test_production_readiness_rejects_power_runtime_without_critical_reserve(
+    tmp_path: Path,
+):
+    artifacts = _write_ready_artifacts(tmp_path)
+    payload = json.loads(artifacts["power"].read_text())
+    payload.pop("critical_reserve_wh")
+    artifacts["power"].write_text(json.dumps(payload))
+
+    report = audit_production_readiness(
+        env=_ready_env(),
+        dataset_path=artifacts["dataset"],
+        model_path=artifacts["model"],
+        baseline_manifest=artifacts["manifest"],
+        endpoints_path=artifacts["endpoints"],
+        hardware_profile_path=artifacts["hardware"],
+        systemd_report_path=artifacts["systemd"],
+        position_report_path=artifacts["position"],
+        camera_report_path=artifacts["camera"],
+        network_report_path=artifacts["network"],
+        power_report_path=artifacts["power"],
+        vision_eval_report_path=artifacts["vision_eval"],
+        benchmark_report_path=artifacts["benchmark"],
+        autopay_smoke_report_path=artifacts["autopay_smoke"],
+        notification_report_path=artifacts["notification"],
+        burn_in_report_path=artifacts["burn_in"],
+        storage_path=tmp_path,
+    )
+
+    assert report.passed is False
+    check = [check for check in report.checks if check.name == "power_runtime"][0]
+    assert check.ok is False
+    assert "reserve=0.0/10.0Wh" in check.detail
+
+
 def test_production_readiness_rejects_power_runtime_for_other_draw(tmp_path: Path):
     artifacts = _write_ready_artifacts(tmp_path)
     payload = json.loads(artifacts["power"].read_text())
@@ -3632,10 +3666,11 @@ def _write_ready_artifacts(
         json.dumps(
             {
                 "passed": True,
-                "battery_percent": 82,
+                "battery_percent": 92,
                 "charging": False,
                 "source": "/sys/class/power_supply/BAT0",
                 "battery_capacity_wh": hardware_battery_wh,
+                "critical_reserve_wh": hardware_battery_wh * 0.10,
                 "available_battery_wh": hardware_battery_wh * 0.82,
                 "estimated_draw_watts": 8.0,
                 "estimated_runtime_hours": (hardware_battery_wh * 0.82) / 8.0,

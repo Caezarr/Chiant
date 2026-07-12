@@ -23,6 +23,7 @@ class PowerCheckReport:
     source: str | None
     battery_capacity_wh: float | None
     available_battery_wh: float | None
+    critical_reserve_wh: float | None
     estimated_draw_watts: float
     estimated_runtime_hours: float | None
     required_runtime_hours: float
@@ -47,6 +48,11 @@ def run_power_check(
     available_battery_wh = estimate_available_capacity_wh(
         battery_capacity_wh,
         status.percent if status else None,
+        battery_critical_percent,
+    )
+    critical_reserve_wh = estimate_available_capacity_wh(
+        battery_capacity_wh,
+        battery_critical_percent,
     )
     runtime_hours = estimate_runtime_hours(available_battery_wh, estimated_draw_watts)
     checked_at = (now or datetime.now(timezone.utc)).isoformat()
@@ -63,6 +69,7 @@ def run_power_check(
         source=status.source if status else None,
         battery_capacity_wh=battery_capacity_wh,
         available_battery_wh=available_battery_wh,
+        critical_reserve_wh=critical_reserve_wh,
         estimated_draw_watts=estimated_draw_watts,
         estimated_runtime_hours=runtime_hours,
         required_runtime_hours=required_runtime_hours,

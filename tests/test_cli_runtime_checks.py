@@ -210,10 +210,11 @@ def _patch_runtime_reports(monkeypatch) -> None:
         "boring.cli.run_power_check",
         lambda **kwargs: PowerCheckReport(
             passed=True,
-            battery_percent=82,
+            battery_percent=92,
             charging=False,
             source="bat",
             battery_capacity_wh=100,
+            critical_reserve_wh=10,
             available_battery_wh=82,
             estimated_draw_watts=8,
             estimated_runtime_hours=10.25,

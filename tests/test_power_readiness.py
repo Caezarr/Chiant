@@ -9,7 +9,7 @@ from boring.power_readiness import run_power_check, write_report
 
 def test_power_check_passes_with_known_battery_and_runtime():
     report = run_power_check(
-        monitor=_StaticPower(BatteryStatus(82, False, "bat")),
+        monitor=_StaticPower(BatteryStatus(95, False, "bat")),
         battery_capacity_wh=100,
         estimated_draw_watts=8,
         required_runtime_hours=10,
@@ -17,9 +17,10 @@ def test_power_check_passes_with_known_battery_and_runtime():
     )
 
     assert report.passed is True
-    assert report.battery_percent == 82
-    assert report.available_battery_wh == 82
-    assert report.estimated_runtime_hours == 10.25
+    assert report.battery_percent == 95
+    assert report.critical_reserve_wh == 10
+    assert report.available_battery_wh == 85
+    assert report.estimated_runtime_hours == 10.625
     assert report.battery_critical_percent == 10
     assert report.failures == []
 
@@ -56,11 +57,12 @@ def test_power_check_fails_when_runtime_is_short():
     )
 
     assert report.passed is False
-    assert report.available_battery_wh == 32
-    assert "runtime=4.0/10.0h" in report.failures
+    assert report.critical_reserve_wh == 4
+    assert report.available_battery_wh == 28
+    assert "runtime=3.5/10.0h" in report.failures
 
 
-def test_power_check_uses_current_battery_percent_for_runtime():
+def test_power_check_uses_capacity_above_critical_threshold_for_runtime():
     report = run_power_check(
         monitor=_StaticPower(BatteryStatus(70, False, "bat")),
         battery_capacity_wh=100,
@@ -69,14 +71,15 @@ def test_power_check_uses_current_battery_percent_for_runtime():
     )
 
     assert report.passed is False
-    assert report.available_battery_wh == 70
-    assert report.estimated_runtime_hours == 8.75
-    assert "runtime=8.8/10.0h" in report.failures
+    assert report.critical_reserve_wh == 10
+    assert report.available_battery_wh == 60
+    assert report.estimated_runtime_hours == 7.5
+    assert "runtime=7.5/10.0h" in report.failures
 
 
 def test_write_power_report_includes_passed(tmp_path: Path):
     report = run_power_check(
-        monitor=_StaticPower(BatteryStatus(82, False, "bat")),
+        monitor=_StaticPower(BatteryStatus(95, False, "bat")),
         battery_capacity_wh=100,
         estimated_draw_watts=8,
         now=_now(),
@@ -86,6 +89,7 @@ def test_write_power_report_includes_passed(tmp_path: Path):
     write_report(report, output)
 
     assert '"passed": true' in output.read_text()
+    assert '"critical_reserve_wh": 10.0' in output.read_text()
     assert '"battery_critical_percent": 10' in output.read_text()
 
 

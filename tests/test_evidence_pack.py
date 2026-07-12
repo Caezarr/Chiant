@@ -261,6 +261,20 @@ def test_evidence_pack_requires_power_runtime_critical_threshold(tmp_path: Path)
     assert "battery_critical_percent" in item.detail
 
 
+def test_evidence_pack_requires_power_runtime_critical_reserve(tmp_path: Path):
+    paths = _write_evidence(tmp_path)
+    payload = json.loads(paths["power_runtime"].read_text())
+    payload.pop("critical_reserve_wh")
+    paths["power_runtime"].write_text(json.dumps(payload))
+
+    pack = build_evidence_pack(paths)
+
+    item = [item for item in pack.items if item.name == "power_runtime"][0]
+    assert pack.passed is False
+    assert item.passed is False
+    assert "critical_reserve" in item.detail
+
+
 def test_evidence_pack_rejects_critical_power_runtime_battery(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["power_runtime"].read_text())
@@ -1502,10 +1516,11 @@ def _network_runtime_payload() -> dict:
 def _power_runtime_payload() -> dict:
     return {
         "passed": True,
-        "battery_percent": 82,
+        "battery_percent": 92,
         "charging": False,
         "source": "/sys/class/power_supply/BAT0",
         "battery_capacity_wh": 100,
+        "critical_reserve_wh": 10,
         "available_battery_wh": 82,
         "estimated_draw_watts": 8,
         "estimated_runtime_hours": 10.25,
