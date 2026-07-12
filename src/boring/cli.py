@@ -626,14 +626,20 @@ def box_ready(
 @app.command("box-evidence-pack")
 def box_evidence_pack(
     output: Path = typer.Option(Path("reports/evidence-pack.json"), help="Pack JSON."),
+    model: Path = typer.Option(
+        Path("models/best.pt"),
+        help="Modele source utilise pour localiser best.onnx/best.tflite.",
+    ),
     max_report_age_hours: float = typer.Option(
         72.0,
         help="Age maximal des rapports terrain; <=0 desactive le gate.",
     ),
 ) -> None:
     """Regroupe les rapports terrain de la box dans un pack auditable."""
+    paths = default_evidence_paths()
+    paths["edge_export"] = model
     pack = build_evidence_pack(
-        default_evidence_paths(),
+        paths,
         max_report_age_hours=max_report_age_hours,
     )
     write_pack(pack, output)

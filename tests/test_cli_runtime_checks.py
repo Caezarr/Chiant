@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 from typer.testing import CliRunner
 
@@ -51,6 +52,38 @@ def test_box_runtime_checks_can_include_systemd(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert json.loads((tmp_path / "systemd-check.json").read_text())["passed"] is True
+
+
+def test_box_evidence_pack_can_override_model_path(tmp_path, monkeypatch):
+    captured = {}
+
+    def build_pack_spy(paths, **kwargs):
+        captured["paths"] = paths
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(items=[], passed=True)
+
+    def write_pack_spy(pack, output):
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text("{}")
+
+    model_path = tmp_path / "custom" / "model.pt"
+    monkeypatch.setattr("boring.cli.build_evidence_pack", build_pack_spy)
+    monkeypatch.setattr("boring.cli.write_pack", write_pack_spy)
+
+    result = runner.invoke(
+        app,
+        [
+            "box-evidence-pack",
+            "--model",
+            str(model_path),
+            "--output",
+            str(tmp_path / "pack.json"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["paths"]["edge_export"] == model_path
+    assert captured["kwargs"]["max_report_age_hours"] == 72.0
 
 
 def test_autopay_smoke_cli_uses_env_credentials_and_duration(tmp_path, monkeypatch):

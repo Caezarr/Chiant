@@ -29,7 +29,7 @@ sudo systemctl start boring-box
 systemctl show boring-box -p Type -p WatchdogUSec -p NRestarts
 uv run boring box-systemd-check --output reports/systemd-check.json
 uv run boring box-ready --hardware-profile deploy/pi/hardware-profile.json --vision-eval-report reports/vision-eval.json --autopay-smoke-report reports/autopay-smoke.json --notification-report reports/notification-test.json --burn-in-report burn-in/pi-first-run/report.json --min-burn-in-hours 2
-uv run boring box-evidence-pack --output reports/evidence-pack.json
+uv run boring box-evidence-pack --model models/best.pt --output reports/evidence-pack.json
 ```
 
 `install.sh` cree l'utilisateur `boring`, prepare `/opt/boring` et `/var/lib/boring`, copie le repo en excluant `.git`, `.venv`, `datasets`, `runs` et `frames`, lance `uv sync --no-dev` sous l'utilisateur `boring`, verifie que la CLI demarre, installe l'unit systemd, puis laisse le service arrete sauf si tu passes `--start`. Passe `--skip-sync` seulement pour une copie/repetition rapide ou si tu as deja synchronise le runtime.
