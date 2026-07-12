@@ -32,6 +32,9 @@ from boring.evidence_pack import (
 from boring.glue import make_payment_provider, run_pipeline
 from boring.notification_readiness import run_notification_test
 from boring.notification_readiness import write_report as write_notification_report
+from boring.position import make_position_provider
+from boring.position_readiness import run_position_check
+from boring.position_readiness import write_report as write_position_report
 from boring.production_readiness import audit_production_readiness
 from boring.production_readiness import write_report as write_production_report
 from boring.runtime import box_doctor, run_box_service
@@ -215,6 +218,43 @@ def box_systemd_check(
     raise typer.Exit(0 if report.passed else 1)
 
 
+@app.command("box-position-check")
+def box_position_check(
+    output: Path = typer.Option(
+        Path("reports/position-check.json"),
+        help="Rapport JSON de position runtime.",
+    ),
+) -> None:
+    """Verifie que la box obtient une position exploitable pour le geofence."""
+    config = BoxConfig.from_env()
+    provider = make_position_provider(
+        config.position_mode,
+        config.lat,
+        config.lon,
+        config.gpsd_host,
+        config.gpsd_port,
+    )
+    report = run_position_check(
+        provider,
+        mode=config.position_mode,
+        expected_lat=config.lat,
+        expected_lon=config.lon,
+    )
+    write_position_report(report, output)
+    table = Table(title="Boring Box — position runtime")
+    table.add_column("Signal", style="bold")
+    table.add_column("Valeur")
+    table.add_row("Mode", report.mode)
+    table.add_row("Source", report.source or "-")
+    table.add_row("Lat", "-" if report.lat is None else f"{report.lat:.6f}")
+    table.add_row("Lon", "-" if report.lon is None else f"{report.lon:.6f}")
+    table.add_row("Failures", ", ".join(report.failures) if report.failures else "-")
+    table.add_row("Passed", "yes" if report.passed else "no")
+    console.print(table)
+    console.print(f"[dim]Rapport: {output}[/dim]")
+    raise typer.Exit(0 if report.passed else 1)
+
+
 @app.command("box-ready")
 def box_ready(
     dataset: Path = typer.Option(Path("datasets/control_vehicle_v1"), help="Dataset YOLOv8."),
@@ -238,6 +278,10 @@ def box_ready(
     systemd_report: Path = typer.Option(
         Path("reports/systemd-check.json"),
         help="Rapport produit par box-systemd-check.",
+    ),
+    position_report: Path = typer.Option(
+        Path("reports/position-check.json"),
+        help="Rapport produit par box-position-check.",
     ),
     vision_eval_report: Path = typer.Option(
         Path("reports/vision-eval.json"),
@@ -298,6 +342,10 @@ def box_ready(
         False,
         help="Ne pas exiger le rapport box-systemd-check.",
     ),
+    allow_missing_position_report: bool = typer.Option(
+        False,
+        help="Ne pas exiger le rapport box-position-check.",
+    ),
 ) -> None:
     """Gate final avant installation voiture / systemd."""
     report = audit_production_readiness(
@@ -308,6 +356,7 @@ def box_ready(
         hardware_profile_path=hardware_profile,
         service_unit_path=service_unit,
         systemd_report_path=systemd_report,
+        position_report_path=position_report,
         vision_eval_report_path=vision_eval_report,
         benchmark_report_path=benchmark_report,
         autopay_smoke_report_path=autopay_smoke_report,
@@ -323,6 +372,7 @@ def box_ready(
         require_notification_test=not allow_missing_notification_test,
         require_runtime_event_log=not allow_missing_runtime_event_log,
         require_systemd_report=not allow_missing_systemd_report,
+        require_position_report=not allow_missing_position_report,
         min_burn_in_hours=min_burn_in_hours,
     )
     write_production_report(report, output)

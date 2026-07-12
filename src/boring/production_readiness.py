@@ -49,6 +49,7 @@ def audit_production_readiness(
     hardware_profile_path: Path = Path("deploy/pi/hardware-profile.json"),
     service_unit_path: Path = Path("deploy/systemd/boring-box.service"),
     systemd_report_path: Path = Path("reports/systemd-check.json"),
+    position_report_path: Path = Path("reports/position-check.json"),
     vision_eval_report_path: Path = Path("reports/vision-eval.json"),
     benchmark_report_path: Path = Path("reports/vision-benchmark.json"),
     autopay_smoke_report_path: Path = Path("reports/autopay-smoke.json"),
@@ -64,6 +65,7 @@ def audit_production_readiness(
     require_notification_test: bool = True,
     require_runtime_event_log: bool = True,
     require_systemd_report: bool = True,
+    require_position_report: bool = True,
     min_burn_in_hours: float = 10.0,
     now: datetime | None = None,
 ) -> ProductionReadinessReport:
@@ -95,6 +97,11 @@ def audit_production_readiness(
         _check_systemd_report(
             systemd_report_path,
             require_systemd_report=require_systemd_report,
+        ),
+        _check_position_report(
+            position_report_path,
+            values,
+            require_position_report=require_position_report,
         ),
         _check_vision_eval_report(
             vision_eval_report_path,
@@ -334,6 +341,61 @@ def _check_systemd_report(path: Path, *, require_systemd_report: bool) -> Produc
             f"active={active or '-'}, sub={sub or '-'}, unit_file={unit_file or '-'}, "
             f"type={service_type or '-'}, watchdog_usec={watchdog_usec}, "
             f"user={user or '-'}, failures={failures_text}"
+        ),
+    )
+
+
+def _check_position_report(
+    path: Path,
+    env: Mapping[str, str],
+    *,
+    require_position_report: bool,
+) -> ProductionCheck:
+    if not require_position_report:
+        return ProductionCheck(
+            "position_runtime",
+            True,
+            "required=false" if not path.exists() else str(path),
+        )
+    if not path.exists():
+        return ProductionCheck("position_runtime", False, f"missing {path}")
+    try:
+        payload = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return ProductionCheck("position_runtime", False, f"invalid json {path}")
+
+    passed = bool(payload.get("passed"))
+    mode = str(payload.get("mode") or "")
+    expected_mode = (env.get("POSITION_MODE") or "static").strip().lower()
+    source = str(payload.get("source") or "")
+    lat = _json_float(payload.get("lat"))
+    lon = _json_float(payload.get("lon"))
+    expected_lat = _env_float(env, "BOX_LAT")
+    expected_lon = _env_float(env, "BOX_LON")
+    failures = payload.get("failures")
+    failures_text = (
+        ",".join(str(failure) for failure in failures) if isinstance(failures, list) else "-"
+    )
+    coords_ok = lat is not None and lon is not None and -90 <= lat <= 90 and -180 <= lon <= 180
+    mode_ok = mode == expected_mode and source == expected_mode
+    static_ok = True
+    if expected_mode == "static":
+        static_ok = (
+            expected_lat is not None
+            and expected_lon is not None
+            and lat is not None
+            and lon is not None
+            and abs(lat - expected_lat) <= 0.0005
+            and abs(lon - expected_lon) <= 0.0005
+        )
+    ok = passed and coords_ok and mode_ok and static_ok
+    return ProductionCheck(
+        "position_runtime",
+        ok,
+        (
+            f"passed={passed}, mode={mode or '-'}/{expected_mode}, "
+            f"source={source or '-'}, position={_format_coord(lat, lon)}, "
+            f"expected={_format_coord(expected_lat, expected_lon)}, failures={failures_text}"
         ),
     )
 

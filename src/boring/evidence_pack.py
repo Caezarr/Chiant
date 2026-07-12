@@ -53,6 +53,7 @@ def default_evidence_paths() -> dict[str, Path]:
         "box_ready": Path("reports/box-readiness.json"),
         "hardware_profile": Path("deploy/pi/hardware-profile.json"),
         "systemd_runtime": Path("reports/systemd-check.json"),
+        "position_runtime": Path("reports/position-check.json"),
         "vision_eval": Path("reports/vision-eval.json"),
         "vision_benchmark": Path("reports/vision-benchmark.json"),
         "autopay_smoke": Path("reports/autopay-smoke.json"),
