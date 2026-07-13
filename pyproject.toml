@@ -5,7 +5,7 @@ description = "Boring — assistant de paiement intelligent du stationnement urb
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "ultralytics>=8.4.61",
-    "opencv-python>=4.13.0.92",
+    "opencv-python>=5.0.0.93",
     "shapely>=2.0",
     "typer>=0.26.7",
     "rich>=15.0.0",
