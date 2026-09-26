@@ -254,6 +254,8 @@ Le Premium capture la valeur avec la garantie qui démolit l'objection conversio
 - **PRs** : checklist dans [`.github/pull_request_template.md`](.github/pull_request_template.md)
 - **Setup dev** : `make dev && pre-commit install`
 - **Tests** : `make test` — doit passer (417/417 actuellement) avant tout commit
+- **Code de conduite** : [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- **Support** : [SUPPORT.md](SUPPORT.md) pour signaler bugs et demandes d'aide
 
 ---
 
