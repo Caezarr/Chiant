@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from boring.camera_readiness import run_camera_check, write_report
@@ -54,4 +54,4 @@ def test_write_camera_report_includes_passed(tmp_path: Path):
 
 
 def _now() -> datetime:
-    return datetime(2026, 1, 1, tzinfo=timezone.utc)
+    return datetime(2026, 1, 1, tzinfo=UTC)

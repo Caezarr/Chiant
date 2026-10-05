@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterator
 
 import cv2
 from rich.console import Console
@@ -52,7 +52,7 @@ def probe_camera(
 def iter_frames(
     device_index: int = 0,
     fps: float | None = None,
-) -> Iterator[tuple[float, "cv2.Mat"]]:
+) -> Iterator[tuple[float, cv2.Mat]]:
     """Itère sur les frames de la webcam. fps=None → max disponible."""
     cap = open_camera(device_index)
     interval = 1.0 / fps if fps else 0.0

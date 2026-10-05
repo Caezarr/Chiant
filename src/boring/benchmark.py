@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 
 
 @dataclass(frozen=True)
@@ -57,7 +57,7 @@ def run_vision_benchmark(
         measured_fps=measured_fps,
         min_fps=min_fps,
         passed=frames_processed > 0 and detections_seen > 0 and measured_fps >= min_fps,
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=datetime.now(UTC).isoformat(),
     )
 
 

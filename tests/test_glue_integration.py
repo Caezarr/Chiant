@@ -9,8 +9,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from boring.glue import PaymentCooldown, PaymentLimits, process_trigger
-from boring.glue import _cooldown_from_state, _payment_limits_from_state
+from boring.glue import (
+    PaymentCooldown,
+    PaymentLimits,
+    _cooldown_from_state,
+    _payment_limits_from_state,
+    process_trigger,
+)
 from boring.payment.base import ParkingSession, PaymentProvider
 from boring.state import BoxStateStore
 

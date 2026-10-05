@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 from typer.testing import CliRunner
@@ -13,7 +13,6 @@ from boring.payment.base import ParkingSession, PaymentProvider
 from boring.position_readiness import PositionCheckReport
 from boring.power_readiness import PowerCheckReport
 from boring.systemd_readiness import SystemdCheckReport
-
 
 runner = CliRunner()
 
@@ -210,9 +209,8 @@ class _CliPaymentProvider(PaymentProvider):
             session_id="session-1",
             vehicle_plate=vehicle_plate,
             location_id=location_id,
-            start=datetime(2026, 7, 9, 12, 0, tzinfo=timezone.utc),
-            end=datetime(2026, 7, 9, 12, 0, tzinfo=timezone.utc)
-            + timedelta(minutes=duration_minutes),
+            start=datetime(2026, 7, 9, 12, 0, tzinfo=UTC),
+            end=datetime(2026, 7, 9, 12, 0, tzinfo=UTC) + timedelta(minutes=duration_minutes),
             amount_cents=120,
         )
         return self.session
@@ -231,7 +229,7 @@ def _run_real_autopay_smoke(**kwargs):
 
 
 def _patch_runtime_reports(monkeypatch) -> None:
-    checked_at = datetime(2026, 1, 1, tzinfo=timezone.utc).isoformat()
+    checked_at = datetime(2026, 1, 1, tzinfo=UTC).isoformat()
     monkeypatch.setattr(
         "boring.cli.run_camera_check",
         lambda **kwargs: CameraCheckReport(

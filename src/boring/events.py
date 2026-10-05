@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +17,7 @@ class EventLog:
     def write(self, event: str, **payload: Any) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         row = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "event": event,
             **payload,
         }

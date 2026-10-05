@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from boring.power import BatteryStatus
@@ -102,4 +102,4 @@ class _StaticPower:
 
 
 def _now() -> datetime:
-    return datetime(2026, 1, 1, tzinfo=timezone.utc)
+    return datetime(2026, 1, 1, tzinfo=UTC)

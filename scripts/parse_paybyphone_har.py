@@ -32,7 +32,7 @@ from rich.table import Table
 console = Console()
 
 # Domaines PayByPhone connus — élargi par sécurité
-PAYBYPHONE_HOST_PATTERN = re.compile(r"paybyphone|pbp\.com|m\.pbp|api\.pbp", re.I)
+PAYBYPHONE_HOST_PATTERN = re.compile(r"paybyphone|pbp\.com|m\.pbp|api\.pbp", re.IGNORECASE)
 
 # Headers à masquer dans le rapport (case-insensitive)
 SENSITIVE_HEADERS = {
@@ -75,7 +75,7 @@ def _scrub_body(text: str | None) -> str | None:
         pass
     # Form-urlencoded
     for key in SENSITIVE_BODY_KEYS:
-        text = re.sub(rf"({key}=)[^&]+", r"\1***", text, flags=re.I)
+        text = re.sub(rf"({key}=)[^&]+", r"\1***", text, flags=re.IGNORECASE)
     return text
 
 
@@ -133,7 +133,7 @@ def extract_config_hints(records: list[dict]) -> dict:
             break
 
     # Patterns pour account_id dans les URLs de session
-    account_session_re = re.compile(r"/parking/accounts/([^/]+)/sessions", re.I)
+    account_session_re = re.compile(r"/parking/accounts/([^/]+)/sessions", re.IGNORECASE)
 
     for rec in records:
         url = rec.get("url", "")
@@ -185,9 +185,11 @@ def extract_flow_summary(records: list[dict]) -> dict:
         "successful_statuses": 0,
         "failed_statuses": 0,
     }
-    account_sessions_re = re.compile(r"/parking/accounts/[^/]+/sessions/?$", re.I)
-    current_session_re = re.compile(r"/parking/accounts/[^/]+/sessions/(current|active)", re.I)
-    session_stop_re = re.compile(r"/parking/accounts/[^/]+/sessions/[^/?]+", re.I)
+    account_sessions_re = re.compile(r"/parking/accounts/[^/]+/sessions/?$", re.IGNORECASE)
+    current_session_re = re.compile(
+        r"/parking/accounts/[^/]+/sessions/(current|active)", re.IGNORECASE
+    )
+    session_stop_re = re.compile(r"/parking/accounts/[^/]+/sessions/[^/?]+", re.IGNORECASE)
     for rec in records:
         method = (rec.get("method") or "").upper()
         url = rec.get("url") or ""

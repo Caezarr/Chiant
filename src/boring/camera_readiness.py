@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from boring.capture import CameraProbeResult, probe_camera
 
@@ -36,7 +36,7 @@ def run_camera_check(
     now: datetime | None = None,
 ) -> CameraCheckReport:
     result = probe(device_index)
-    checked_at = (now or datetime.now(timezone.utc)).isoformat()
+    checked_at = (now or datetime.now(UTC)).isoformat()
     failures = _camera_failures(result, min_width=min_width, min_height=min_height)
     return CameraCheckReport(
         passed=not failures,

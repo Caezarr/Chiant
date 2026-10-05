@@ -67,7 +67,7 @@ def test_autopay_readiness_fails_with_empty_geofence_zones(tmp_path: Path):
     report = audit_autopay_readiness(env=env, endpoints_path=endpoints)
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "geofence_zones"][0]
+    check = next(check for check in report.checks if check.name == "geofence_zones")
     assert "features=0" in check.detail
 
 
@@ -80,7 +80,7 @@ def test_autopay_readiness_allows_missing_zones_when_geofence_disabled(tmp_path:
     report = audit_autopay_readiness(env=env, endpoints_path=endpoints)
 
     assert report.passed is True
-    check = [check for check in report.checks if check.name == "geofence_zones"][0]
+    check = next(check for check in report.checks if check.name == "geofence_zones")
     assert "required=false" in check.detail
 
 
@@ -120,7 +120,7 @@ def test_autopay_readiness_fails_when_har_hint_is_missing(tmp_path: Path):
     report = audit_autopay_readiness(env=_ready_env(tmp_path), endpoints_path=endpoints)
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "paybyphone_har_artifact"][0]
+    check = next(check for check in report.checks if check.name == "paybyphone_har_artifact")
     assert "missing_hints=payment_method_id" in check.detail
 
 

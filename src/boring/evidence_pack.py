@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from boring.hardware_profile import audit_hardware_profile
@@ -137,11 +138,11 @@ def build_evidence_pack(
             _read_report_freshness(
                 paths,
                 max_age_hours=max_report_age_hours,
-                now=now or datetime.now(timezone.utc),
+                now=now or datetime.now(UTC),
             )
         )
     return EvidencePack(
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=datetime.now(UTC).isoformat(),
         items=items,
     )
 
@@ -834,9 +835,7 @@ def _read_report_freshness(
         if timestamp is None:
             failures.append(f"{name}=missing_timestamp")
             continue
-        age_hours = (
-            now.astimezone(timezone.utc) - timestamp.astimezone(timezone.utc)
-        ).total_seconds() / 3600
+        age_hours = (now.astimezone(UTC) - timestamp.astimezone(UTC)).total_seconds() / 3600
         ages.append(f"{name}={age_hours:.1f}h")
         if age_hours < -0.1:
             failures.append(f"{name}=future_timestamp")
@@ -1347,7 +1346,7 @@ def _read_burn_in_samples(
         if timestamp is None:
             invalid_lines += 1
             continue
-        timestamps.append(timestamp.astimezone(timezone.utc))
+        timestamps.append(timestamp.astimezone(UTC))
         if payload.get("camera_ok") is not True:
             camera_failures += 1
         if payload.get("network_online") is not True:
@@ -1389,7 +1388,7 @@ def _read_burn_in_samples(
     discharging_seen = any(value is False for value in charging_values)
     max_temp = max(temp_values) if temp_values else None
     timestamps_monotonic = all(
-        previous <= current for previous, current in zip(timestamps, timestamps[1:])
+        previous <= current for previous, current in itertools.pairwise(timestamps)
     )
     max_observed_gap = _max_timestamp_gap_seconds(timestamps)
     timestamps_in_window = (
@@ -1477,8 +1476,7 @@ def _max_timestamp_gap_seconds(timestamps: list[datetime]) -> float | None:
     if len(timestamps) == 1:
         return 0.0
     return max(
-        (current - previous).total_seconds()
-        for previous, current in zip(timestamps, timestamps[1:])
+        (current - previous).total_seconds() for previous, current in itertools.pairwise(timestamps)
     )
 
 

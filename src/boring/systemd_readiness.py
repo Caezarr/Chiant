@@ -6,9 +6,8 @@ import json
 import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-
 
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
 
@@ -43,7 +42,7 @@ def run_systemd_check(
 ) -> SystemdCheckReport:
     """Inspect the installed systemd unit state on a Pi-like host."""
     execute = runner or _run_command
-    checked_at = (now or datetime.now(timezone.utc)).isoformat()
+    checked_at = (now or datetime.now(UTC)).isoformat()
     enabled_state: str | None = None
     active_state: str | None = None
     properties: dict[str, str] = {}

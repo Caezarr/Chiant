@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from boring.position import PositionProvider
@@ -38,7 +38,7 @@ def run_position_check(
     now: datetime | None = None,
 ) -> PositionCheckReport:
     position = provider.current()
-    checked_at = (now or datetime.now(timezone.utc)).isoformat()
+    checked_at = (now or datetime.now(UTC)).isoformat()
     if position is None:
         return PositionCheckReport(
             passed=False,

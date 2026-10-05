@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from boring.systemd_readiness import run_systemd_check, write_report
@@ -107,4 +107,4 @@ def _fake_runner(
 
 
 def _now() -> datetime:
-    return datetime(2026, 1, 1, tzinfo=timezone.utc)
+    return datetime(2026, 1, 1, tzinfo=UTC)

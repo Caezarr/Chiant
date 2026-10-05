@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import os
 import socket
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 
 @dataclass(frozen=True)
@@ -14,7 +14,7 @@ class SystemdNotifier:
     watchdog_usec: int | None = None
 
     @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None) -> "SystemdNotifier":
+    def from_env(cls, env: Mapping[str, str] | None = None) -> SystemdNotifier:
         values = env or os.environ
         watchdog_raw = values.get("WATCHDOG_USEC")
         watchdog_usec = None
