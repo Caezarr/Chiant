@@ -126,7 +126,7 @@ class BoxConfig:
         return failures
 
     @classmethod
-    def from_env(cls) -> "BoxConfig":
+    def from_env(cls) -> BoxConfig:
         labels = tuple(
             label.strip()
             for label in os.getenv("DETECTION_TARGET_LABELS", "car").split(",")

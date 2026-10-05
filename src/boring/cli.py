@@ -33,10 +33,10 @@ from boring.evidence_pack import (
     write_pack,
 )
 from boring.glue import make_payment_provider, run_pipeline
-from boring.notification_readiness import run_notification_test
-from boring.notification_readiness import write_report as write_notification_report
 from boring.network_readiness import run_network_check
 from boring.network_readiness import write_report as write_network_report
+from boring.notification_readiness import run_notification_test
+from boring.notification_readiness import write_report as write_notification_report
 from boring.payment.base import PaymentProvider
 from boring.position import make_position_provider
 from boring.position_readiness import run_position_check

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def parse_report_timestamp(value: object) -> datetime | None:
@@ -11,7 +11,7 @@ def parse_report_timestamp(value: object) -> datetime | None:
     if isinstance(value, bool) or value is None:
         return None
     if isinstance(value, (int, float)):
-        return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        return datetime.fromtimestamp(float(value), tz=UTC)
     if not isinstance(value, str):
         return None
     raw = value.strip()
@@ -23,12 +23,12 @@ def parse_report_timestamp(value: object) -> datetime | None:
         parsed = datetime.fromisoformat(raw)
     except ValueError:
         try:
-            return datetime.fromtimestamp(float(raw), tz=timezone.utc)
+            return datetime.fromtimestamp(float(raw), tz=UTC)
         except ValueError:
             return None
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def sha256_bytes(raw: bytes) -> str:

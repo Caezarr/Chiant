@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from boring.payment.base import PaymentProvider
@@ -47,7 +47,7 @@ def run_autopay_smoke(
     max_session_amount_cents: int | None = None,
     stop_after: bool = True,
 ) -> AutopaySmokeReport:
-    tested_at = datetime.now(timezone.utc).isoformat()
+    tested_at = datetime.now(UTC).isoformat()
     dry_run = bool(getattr(provider, "dry_run", False))
     zone_id: str | None = None
     session = None

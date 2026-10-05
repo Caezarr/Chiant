@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import configparser
+import itertools
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Mapping
 from urllib.parse import urlparse
 
 from boring.autopay_readiness import audit_autopay_readiness
@@ -31,7 +32,7 @@ class ProductionCheck:
 @dataclass(frozen=True)
 class ProductionReadinessReport:
     checks: list[ProductionCheck]
-    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    generated_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     @property
     def passed(self) -> bool:
@@ -81,7 +82,7 @@ def audit_production_readiness(
     now: datetime | None = None,
 ) -> ProductionReadinessReport:
     values = env or os.environ
-    checked_at = now or datetime.now(timezone.utc)
+    checked_at = now or datetime.now(UTC)
     vision = audit_vision_readiness(
         dataset_path=dataset_path,
         model_path=model_path,
@@ -880,7 +881,7 @@ def _check_notification_webhook(
             True,
             "required=false" if not webhook else "configured",
         )
-    ok = webhook.startswith("https://") or webhook.startswith("http://")
+    ok = webhook.startswith(("https://", "http://"))
     return ProductionCheck(
         "notification_webhook",
         ok,
@@ -1374,7 +1375,7 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
         if timestamp is None:
             invalid_lines += 1
             continue
-        timestamps.append(timestamp.astimezone(timezone.utc))
+        timestamps.append(timestamp.astimezone(UTC))
         if sample.get("camera_ok") is not True:
             camera_failures += 1
         if sample.get("network_online") is not True:
@@ -1401,7 +1402,7 @@ def _check_burn_in_samples(burn_in_report_path: Path) -> ProductionCheck:
     discharging_seen = any(value is False for value in charging_values)
     max_temp = max(temp_values) if temp_values else None
     timestamps_monotonic = all(
-        previous <= current for previous, current in zip(timestamps, timestamps[1:])
+        previous <= current for previous, current in itertools.pairwise(timestamps)
     )
     max_observed_gap = _max_timestamp_gap_seconds(timestamps)
     timestamps_in_window = (
@@ -1473,7 +1474,7 @@ def _max_timestamp_gap_seconds(timestamps: list[datetime]) -> float | None:
         return 0.0
     return max(
         (current - previous).total_seconds()
-        for previous, current in zip(timestamps, timestamps[1:])
+        for previous, current in itertools.pairwise(timestamps)
     )
 
 
@@ -1518,14 +1519,14 @@ def _check_runtime_event_log(
             continue
         timestamp = parse_report_timestamp(event.get("ts"))
         if started_at is not None and timestamp is not None:
-            if timestamp.astimezone(timezone.utc) < started_at:
+            if timestamp.astimezone(UTC) < started_at:
                 continue
         name = str(event.get("event") or "")
         scanned += 1
         if name == "heartbeat":
             heartbeat_seen = True
             if timestamp is not None:
-                timestamp = timestamp.astimezone(timezone.utc)
+                timestamp = timestamp.astimezone(UTC)
                 if earliest_heartbeat is None or timestamp < earliest_heartbeat:
                     earliest_heartbeat = timestamp
                 if latest_heartbeat is None or timestamp > latest_heartbeat:
@@ -1652,8 +1653,8 @@ def _check_report_freshness(
         if timestamp is None:
             failures.append(f"{name}=missing_timestamp")
             continue
-        timestamp = timestamp.astimezone(timezone.utc)
-        age_hours = (now.astimezone(timezone.utc) - timestamp).total_seconds() / 3600
+        timestamp = timestamp.astimezone(UTC)
+        age_hours = (now.astimezone(UTC) - timestamp).total_seconds() / 3600
         ages.append(f"{name}={age_hours:.1f}h")
         if age_hours < -0.1:
             failures.append(f"{name}=future_timestamp")

@@ -10,8 +10,8 @@ from threading import Event, Thread
 from dotenv import load_dotenv
 from rich.console import Console
 
-from boring.config import BoxConfig
 from boring.capture import probe_camera
+from boring.config import BoxConfig
 from boring.detect import Detector, StreamTracker, run_live_detection
 from boring.events import EventLog
 from boring.geofence import LilleParkingZones

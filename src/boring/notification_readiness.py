@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 from urllib.parse import urlparse
 
 import httpx
@@ -38,7 +38,7 @@ def run_notification_test(
     timeout: float = 5.0,
     post: Callable | None = None,
 ) -> NotificationTestReport:
-    tested_at = datetime.now(timezone.utc).isoformat()
+    tested_at = datetime.now(UTC).isoformat()
     url_hash = _webhook_hash(webhook_url)
     if not webhook_url:
         return NotificationTestReport(
@@ -62,7 +62,7 @@ def run_notification_test(
             json={"title": title, "message": message, "sound": sound},
             timeout=timeout,
         )
-        status_code = int(getattr(response, "status_code"))
+        status_code = int(response.status_code)
     except Exception as exc:
         return NotificationTestReport(
             passed=False,

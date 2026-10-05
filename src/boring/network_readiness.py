@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from boring.network import NetworkMonitor, NetworkStatus
 
@@ -39,7 +39,7 @@ def run_network_check(
     status = monitor.check()
     recovery_command = (recovery_command or "").strip() or None
     recovery_configured = recovery_command is not None
-    checked_at = (now or datetime.now(timezone.utc)).isoformat()
+    checked_at = (now or datetime.now(UTC)).isoformat()
     failures = _network_failures(status, recovery_command_configured=recovery_configured)
     return NetworkCheckReport(
         passed=not failures,

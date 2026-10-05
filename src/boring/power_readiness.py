@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from boring.power import (
@@ -55,7 +55,7 @@ def run_power_check(
         battery_critical_percent,
     )
     runtime_hours = estimate_runtime_hours(available_battery_wh, estimated_draw_watts)
-    checked_at = (now or datetime.now(timezone.utc)).isoformat()
+    checked_at = (now or datetime.now(UTC)).isoformat()
     failures = _power_failures(
         status,
         runtime_hours=runtime_hours,
