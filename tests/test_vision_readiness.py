@@ -72,7 +72,7 @@ def test_audit_vision_readiness_fails_without_positive_labels(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "yolo_dataset"][0]
+    check = next(check for check in report.checks if check.name == "yolo_dataset")
     assert check.ok is False
     assert "train_positive_labels=0/1" in check.detail
     assert "valid_positive_labels=0/1" in check.detail
@@ -99,7 +99,7 @@ def test_audit_vision_readiness_requires_enough_positive_label_coverage(tmp_path
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "yolo_dataset"][0]
+    check = next(check for check in report.checks if check.name == "yolo_dataset")
     assert check.ok is False
     assert "train_positive_labels=1/60" in check.detail
     assert "valid_positive_labels=1/10" in check.detail
@@ -125,7 +125,7 @@ def test_audit_vision_readiness_requires_negative_images_per_split(tmp_path: Pat
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "yolo_dataset"][0]
+    check = next(check for check in report.checks if check.name == "yolo_dataset")
     assert check.ok is False
     assert "train_negative_images=0/1" in check.detail
     assert "valid_negative_images=0/1" in check.detail
@@ -152,7 +152,7 @@ def test_audit_vision_readiness_fails_with_invalid_yolo_labels(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "yolo_dataset"][0]
+    check = next(check for check in report.checks if check.name == "yolo_dataset")
     assert check.ok is False
     assert "invalid_labels=3" in check.detail
 
@@ -207,7 +207,7 @@ def test_audit_vision_readiness_fails_without_manifest_source_trace(tmp_path: Pa
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "baseline_source_trace"][0]
+    check = next(check for check in report.checks if check.name == "baseline_source_trace")
     assert check.ok is False
     assert "missing_source=5" in check.detail
     assert "missing_locator=5" in check.detail

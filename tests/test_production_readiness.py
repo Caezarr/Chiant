@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from boring.production_readiness import audit_production_readiness, write_report
@@ -38,7 +38,7 @@ def test_production_readiness_passes_with_all_artifacts(tmp_path: Path):
 
 
 def test_production_readiness_report_records_generation_time(tmp_path: Path):
-    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=UTC)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now)
 
     report = audit_production_readiness(
@@ -216,7 +216,7 @@ def test_production_readiness_fails_without_discharge_validation(tmp_path: Path)
     )
 
     assert strict.passed is False
-    check = [check for check in strict.checks if check.name == "burn_in"][0]
+    check = next(check for check in strict.checks if check.name == "burn_in")
     assert check.ok is False
     assert "discharging_seen=False" in check.detail
     assert rehearsal.passed is True
@@ -253,7 +253,7 @@ def test_production_readiness_fails_without_burn_in_battery_metrics(tmp_path: Pa
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "burn_in"][0]
+    check = next(check for check in report.checks if check.name == "burn_in")
     assert check.ok is False
     assert "samples=0" in check.detail
     assert "battery=-" in check.detail
@@ -286,7 +286,7 @@ def test_production_readiness_fails_without_burn_in_thermal_metrics(tmp_path: Pa
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "burn_in"][0]
+    check = next(check for check in report.checks if check.name == "burn_in")
     assert check.ok is False
     assert "max_temp=-" in check.detail
 
@@ -316,7 +316,7 @@ def test_production_readiness_fails_without_burn_in_samples(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "burn_in_samples"][0]
+    check = next(check for check in report.checks if check.name == "burn_in_samples")
     assert check.ok is False
     assert "missing" in check.detail
 
@@ -359,7 +359,7 @@ def test_production_readiness_fails_when_burn_in_samples_do_not_match_report(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "burn_in_samples"][0]
+    check = next(check for check in report.checks if check.name == "burn_in_samples")
     assert check.ok is False
     assert "scanned=1/600" in check.detail
 
@@ -396,7 +396,7 @@ def test_production_readiness_recomputes_burn_in_charge_cycle_from_samples(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "burn_in_samples"][0]
+    check = next(check for check in report.checks if check.name == "burn_in_samples")
     assert check.ok is False
     assert "charging_seen=False/True" in check.detail
 
@@ -433,7 +433,7 @@ def test_production_readiness_rejects_burn_in_samples_outside_report_window(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "burn_in_samples"][0]
+    check = next(check for check in report.checks if check.name == "burn_in_samples")
     assert check.ok is False
     assert "timestamps_in_window=False" in check.detail
 
@@ -472,7 +472,7 @@ def test_production_readiness_rejects_sparse_burn_in_samples(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "burn_in_samples"][0]
+    check = next(check for check in report.checks if check.name == "burn_in_samples")
     assert check.ok is False
     assert "cadence_ok=False" in check.detail
 
@@ -511,7 +511,7 @@ def test_production_readiness_rejects_non_monotonic_burn_in_samples(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "burn_in_samples"][0]
+    check = next(check for check in report.checks if check.name == "burn_in_samples")
     assert check.ok is False
     assert "timestamps_monotonic=False" in check.detail
 
@@ -545,7 +545,7 @@ def test_production_readiness_recomputes_burn_in_thermal_threshold(tmp_path: Pat
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "burn_in"][0]
+    check = next(check for check in report.checks if check.name == "burn_in")
     assert check.ok is False
     assert "max_temp=86.0C/85.0C" in check.detail
 
@@ -578,7 +578,7 @@ def test_production_readiness_rejects_low_battery_burn_in(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "burn_in"][0]
+    check = next(check for check in report.checks if check.name == "burn_in")
     assert check.ok is False
     assert "battery_low=True" in check.detail
 
@@ -623,7 +623,7 @@ def test_production_readiness_recomputes_low_battery_from_burn_in_minimum(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "burn_in"][0]
+    check = next(check for check in report.checks if check.name == "burn_in")
     assert check.ok is False
     assert "min_above_low=False(25%)" in check.detail
 
@@ -656,7 +656,7 @@ def test_production_readiness_rejects_burn_in_threshold_mismatch(tmp_path: Path)
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "burn_in"][0]
+    check = next(check for check in report.checks if check.name == "burn_in")
     assert check.ok is False
     assert "thresholds_ok=False" in check.detail
 
@@ -725,7 +725,7 @@ def test_production_readiness_rejects_relative_state_path(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "state_path"][0]
+    check = next(check for check in report.checks if check.name == "state_path")
     assert check.ok is False
     assert "must be absolute" in check.detail
 
@@ -756,7 +756,7 @@ def test_production_readiness_rejects_missing_state_parent(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "state_path"][0]
+    check = next(check for check in report.checks if check.name == "state_path")
     assert check.ok is False
     assert "missing parent" in check.detail
 
@@ -808,7 +808,7 @@ def test_production_readiness_fails_without_systemd_service(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "systemd_service"][0]
+    check = next(check for check in report.checks if check.name == "systemd_service")
     assert check.ok is False
     assert "missing" in check.detail
 
@@ -818,18 +818,7 @@ def test_production_readiness_rejects_unsafe_systemd_service(tmp_path: Path):
     bad_service = tmp_path / "deploy" / "systemd" / "bad.service"
     bad_service.parent.mkdir(parents=True, exist_ok=True)
     bad_service.write_text(
-        "\n".join(
-            [
-                "[Service]",
-                "Type=simple",
-                "ExecStart=/usr/bin/env uv run boring box-run",
-                "Restart=on-failure",
-                "User=root",
-                "",
-                "[Install]",
-                "WantedBy=default.target",
-            ]
-        )
+        "[Service]\nType=simple\nExecStart=/usr/bin/env uv run boring box-run\nRestart=on-failure\nUser=root\n\n[Install]\nWantedBy=default.target"
     )
 
     report = audit_production_readiness(
@@ -854,7 +843,7 @@ def test_production_readiness_rejects_unsafe_systemd_service(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "systemd_service"][0]
+    check = next(check for check in report.checks if check.name == "systemd_service")
     assert check.ok is False
     assert "Type=simple" in check.detail
     assert "WatchdogSec=-" in check.detail
@@ -915,7 +904,7 @@ def test_production_readiness_accepts_custom_rendered_systemd_paths(tmp_path: Pa
         storage_path=artifacts["events"],
     )
 
-    check = [check for check in report.checks if check.name == "systemd_service"][0]
+    check = next(check for check in report.checks if check.name == "systemd_service")
     assert check.ok is True
 
 
@@ -939,7 +928,7 @@ def test_production_readiness_fails_without_systemd_runtime_report(tmp_path: Pat
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "systemd_runtime"][0]
+    check = next(check for check in report.checks if check.name == "systemd_runtime")
     assert check.ok is False
     assert "missing" in check.detail
 
@@ -974,7 +963,7 @@ def test_production_readiness_rejects_inactive_systemd_runtime(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "systemd_runtime"][0]
+    check = next(check for check in report.checks if check.name == "systemd_runtime")
     assert check.ok is False
     assert "active=inactive" in check.detail
 
@@ -1006,7 +995,7 @@ def test_production_readiness_rejects_systemd_runtime_without_main_pid(tmp_path:
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "systemd_runtime"][0]
+    check = next(check for check in report.checks if check.name == "systemd_runtime")
     assert check.ok is False
     assert "main_pid=0" in check.detail
 
@@ -1038,7 +1027,7 @@ def test_production_readiness_rejects_restarted_systemd_runtime(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "systemd_runtime"][0]
+    check = next(check for check in report.checks if check.name == "systemd_runtime")
     assert check.ok is False
     assert "n_restarts=3" in check.detail
 
@@ -1070,7 +1059,7 @@ def test_production_readiness_requires_systemd_restart_count(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "systemd_runtime"][0]
+    check = next(check for check in report.checks if check.name == "systemd_runtime")
     assert check.ok is False
     assert "n_restarts=-" in check.detail
 
@@ -1096,7 +1085,7 @@ def test_production_readiness_fails_without_position_runtime_report(tmp_path: Pa
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "position_runtime"][0]
+    check = next(check for check in report.checks if check.name == "position_runtime")
     assert check.ok is False
     assert "missing" in check.detail
 
@@ -1130,7 +1119,7 @@ def test_production_readiness_rejects_wrong_position_runtime(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "position_runtime"][0]
+    check = next(check for check in report.checks if check.name == "position_runtime")
     assert check.ok is False
     assert "lat_delta=0.362900" in check.detail
 
@@ -1171,7 +1160,7 @@ def test_production_readiness_rejects_gpsd_position_for_other_endpoint(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "position_runtime"][0]
+    check = next(check for check in report.checks if check.name == "position_runtime")
     assert check.ok is False
     assert "gpsd=gps-old.local/gps-new.local:2947/2948" in check.detail
 
@@ -1198,7 +1187,7 @@ def test_production_readiness_fails_without_camera_runtime_report(tmp_path: Path
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "camera_runtime"][0]
+    check = next(check for check in report.checks if check.name == "camera_runtime")
     assert check.ok is False
     assert "missing" in check.detail
 
@@ -1233,7 +1222,7 @@ def test_production_readiness_rejects_low_resolution_camera_runtime(tmp_path: Pa
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "camera_runtime"][0]
+    check = next(check for check in report.checks if check.name == "camera_runtime")
     assert check.ok is False
     assert "resolution=320x240" in check.detail
 
@@ -1267,7 +1256,7 @@ def test_production_readiness_rejects_camera_below_hardware_profile_resolution(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "camera_runtime"][0]
+    check = next(check for check in report.checks if check.name == "camera_runtime")
     assert check.ok is False
     assert "resolution=1280x720" in check.detail
     assert "profile_min=1920x1080" in check.detail
@@ -1296,7 +1285,7 @@ def test_production_readiness_fails_without_network_runtime_report(tmp_path: Pat
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "network_runtime"][0]
+    check = next(check for check in report.checks if check.name == "network_runtime")
     assert check.ok is False
     assert "missing" in check.detail
 
@@ -1330,7 +1319,7 @@ def test_production_readiness_rejects_offline_network_runtime(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "network_runtime"][0]
+    check = next(check for check in report.checks if check.name == "network_runtime")
     assert check.ok is False
     assert "online=false" in check.detail
 
@@ -1364,7 +1353,7 @@ def test_production_readiness_rejects_network_runtime_for_other_recovery_command
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "network_runtime"][0]
+    check = next(check for check in report.checks if check.name == "network_runtime")
     assert check.ok is False
     assert "systemctl restart other-network/systemctl restart NetworkManager" in check.detail
 
@@ -1400,7 +1389,7 @@ def test_production_readiness_rejects_network_runtime_for_other_timeout(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "network_runtime"][0]
+    check = next(check for check in report.checks if check.name == "network_runtime")
     assert check.ok is False
     assert "timeout=1.0/5.0s" in check.detail
 
@@ -1429,7 +1418,7 @@ def test_production_readiness_fails_without_power_runtime_report(tmp_path: Path)
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "power_runtime"][0]
+    check = next(check for check in report.checks if check.name == "power_runtime")
     assert check.ok is False
     assert "missing" in check.detail
 
@@ -1463,7 +1452,7 @@ def test_production_readiness_rejects_critical_power_runtime(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "power_runtime"][0]
+    check = next(check for check in report.checks if check.name == "power_runtime")
     assert check.ok is False
     assert "battery=8%" in check.detail
 
@@ -1497,7 +1486,7 @@ def test_production_readiness_rejects_power_runtime_using_full_capacity(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "power_runtime"][0]
+    check = next(check for check in report.checks if check.name == "power_runtime")
     assert check.ok is False
     assert "available=82.0/82.0Wh" in check.detail
     assert "runtime_consistent=False" in check.detail
@@ -1532,7 +1521,7 @@ def test_production_readiness_rejects_power_runtime_without_critical_reserve(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "power_runtime"][0]
+    check = next(check for check in report.checks if check.name == "power_runtime")
     assert check.ok is False
     assert "reserve=0.0/10.0Wh" in check.detail
 
@@ -1565,7 +1554,7 @@ def test_production_readiness_rejects_power_runtime_for_other_draw(tmp_path: Pat
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "power_runtime"][0]
+    check = next(check for check in report.checks if check.name == "power_runtime")
     assert check.ok is False
     assert "draw=5.0/8.0W" in check.detail
 
@@ -1599,7 +1588,7 @@ def test_production_readiness_rejects_power_runtime_for_other_required_runtime(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "power_runtime"][0]
+    check = next(check for check in report.checks if check.name == "power_runtime")
     assert check.ok is False
     assert "required=8.0/10.0h" in check.detail
 
@@ -1633,7 +1622,7 @@ def test_production_readiness_rejects_power_runtime_for_other_critical_threshold
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "power_runtime"][0]
+    check = next(check for check in report.checks if check.name == "power_runtime")
     assert check.ok is False
     assert "critical=5/10%" in check.detail
 
@@ -1664,7 +1653,7 @@ def test_production_readiness_fails_when_vehicle_charge_cannot_recover(tmp_path:
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "power_budget"][0]
+    check = next(check for check in report.checks if check.name == "power_budget")
     assert check.ok is False
     assert "required_recharge=-" in check.detail
     assert "daily_recharge_coverage=0%" in check.detail
@@ -1785,7 +1774,7 @@ def test_production_readiness_fails_when_vision_eval_has_no_negative_coverage(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "vision_eval"][0]
+    check = next(check for check in report.checks if check.name == "vision_eval")
     assert "negative_frames=0" in check.detail
     assert "negative_hours=0.0" in check.detail
 
@@ -1820,7 +1809,7 @@ def test_production_readiness_fails_when_vision_eval_frame_coverage_is_inconsist
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "vision_eval"][0]
+    check = next(check for check in report.checks if check.name == "vision_eval")
     assert "metrics_consistent=False" in check.detail
 
 
@@ -1851,7 +1840,7 @@ def test_production_readiness_fails_when_vision_eval_has_invalid_labels(tmp_path
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "vision_eval"][0]
+    check = next(check for check in report.checks if check.name == "vision_eval")
     assert check.ok is False
     assert "invalid_labels=1" in check.detail
 
@@ -1883,7 +1872,7 @@ def test_production_readiness_fails_when_vision_eval_has_no_true_positives(tmp_p
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "vision_eval"][0]
+    check = next(check for check in report.checks if check.name == "vision_eval")
     assert "true_positives=0" in check.detail
 
 
@@ -1916,7 +1905,7 @@ def test_production_readiness_recomputes_vision_eval_metrics_from_counts(tmp_pat
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "vision_eval"][0]
+    check = next(check for check in report.checks if check.name == "vision_eval")
     assert check.ok is False
     assert "metrics_consistent=False" in check.detail
 
@@ -1948,7 +1937,7 @@ def test_production_readiness_fails_when_vision_eval_uses_other_model(tmp_path: 
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "vision_eval"][0]
+    check = next(check for check in report.checks if check.name == "vision_eval")
     assert check.ok is False
     assert "other.pt" in check.detail
 
@@ -1981,7 +1970,7 @@ def test_production_readiness_fails_when_vision_eval_uses_other_dataset(tmp_path
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "vision_eval"][0]
+    check = next(check for check in report.checks if check.name == "vision_eval")
     assert check.ok is False
     assert "other-control-vehicle" in check.detail
 
@@ -2013,7 +2002,7 @@ def test_production_readiness_fails_when_vision_eval_uses_other_class(tmp_path: 
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "vision_eval"][0]
+    check = next(check for check in report.checks if check.name == "vision_eval")
     assert check.ok is False
     assert "class=car/control_vehicle" in check.detail
 
@@ -2073,7 +2062,7 @@ def test_production_readiness_fails_when_benchmark_has_no_detections(tmp_path: P
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "vision_benchmark"][0]
+    check = next(check for check in report.checks if check.name == "vision_benchmark")
     assert check.ok is False
     assert "detections=0" in check.detail
 
@@ -2105,7 +2094,7 @@ def test_production_readiness_fails_when_benchmark_uses_other_model(tmp_path: Pa
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "vision_benchmark"][0]
+    check = next(check for check in report.checks if check.name == "vision_benchmark")
     assert check.ok is False
     assert "other.pt" in check.detail
 
@@ -2137,7 +2126,7 @@ def test_production_readiness_fails_when_benchmark_uses_other_target(tmp_path: P
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "vision_benchmark"][0]
+    check = next(check for check in report.checks if check.name == "vision_benchmark")
     assert check.ok is False
     assert "target=car/control_vehicle" in check.detail
 
@@ -2166,7 +2155,7 @@ def test_production_readiness_requires_benchmark_threshold_from_hardware_preset(
     )
 
     assert report.passed is False
-    benchmark = [check for check in report.checks if check.name == "vision_benchmark"][0]
+    benchmark = next(check for check in report.checks if check.name == "vision_benchmark")
     assert "required=2.00" in benchmark.detail
 
 
@@ -2324,7 +2313,7 @@ def test_production_readiness_requires_notification_test_for_configured_webhook(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "notification_test"][0]
+    check = next(check for check in report.checks if check.name == "notification_test")
     assert "expected_host=notify.example.test" in check.detail
 
 
@@ -2354,7 +2343,7 @@ def test_production_readiness_requires_notification_test_for_exact_webhook(tmp_p
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "notification_test"][0]
+    check = next(check for check in report.checks if check.name == "notification_test")
     assert "hash=mismatch" in check.detail
 
 
@@ -2386,7 +2375,7 @@ def test_production_readiness_requires_low_battery_notification_message(tmp_path
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "notification_test"][0]
+    check = next(check for check in report.checks if check.name == "notification_test")
     assert "battery_message=False" in check.detail
 
 
@@ -2417,7 +2406,7 @@ def test_production_readiness_requires_audible_notification_test(tmp_path: Path)
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "notification_test"][0]
+    check = next(check for check in report.checks if check.name == "notification_test")
     assert check.ok is False
     assert "sound=False" in check.detail
 
@@ -2451,7 +2440,7 @@ def test_production_readiness_requires_timestamped_notification_test(tmp_path: P
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "notification_test"][0]
+    check = next(check for check in report.checks if check.name == "notification_test")
     assert "tested_at=missing" in check.detail
 
 
@@ -2539,7 +2528,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_plate(tmp_path: Pa
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    check = next(check for check in report.checks if check.name == "autopay_smoke")
     assert check.ok is False
     assert "plate=ZZ-999-ZZ/AB-123-CD" in check.detail
 
@@ -2571,7 +2560,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_provider(tmp_path:
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    check = next(check for check in report.checks if check.name == "autopay_smoke")
     assert check.ok is False
     assert "provider=easypark/paybyphone" in check.detail
 
@@ -2602,7 +2591,7 @@ def test_production_readiness_rejects_missing_geofence_zones(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "autopay"][0]
+    check = next(check for check in report.checks if check.name == "autopay")
     assert check.ok is False
     assert "geofence_zones" in check.detail
 
@@ -2634,7 +2623,7 @@ def test_production_readiness_rejects_incomplete_paybyphone_hints(tmp_path: Path
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "autopay"][0]
+    check = next(check for check in report.checks if check.name == "autopay")
     assert check.ok is False
     assert "paybyphone_har_artifact" in check.detail
 
@@ -2667,7 +2656,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_forced_zone(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    check = next(check for check in report.checks if check.name == "autopay_smoke")
     assert check.ok is False
     assert "zone=zone-1/zone-expected" in check.detail
 
@@ -2701,7 +2690,7 @@ def test_production_readiness_rejects_autopay_smoke_with_mismatched_session_zone
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    check = next(check for check in report.checks if check.name == "autopay_smoke")
     assert check.ok is False
     assert "session_zone=zone-other/zone-1" in check.detail
 
@@ -2737,7 +2726,7 @@ def test_production_readiness_rejects_autopay_smoke_above_session_limit(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    check = next(check for check in report.checks if check.name == "autopay_smoke")
     assert check.ok is False
     assert "amount=650/120/500" in check.detail
 
@@ -2772,7 +2761,7 @@ def test_production_readiness_rejects_autopay_smoke_for_unverified_active_amount
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    check = next(check for check in report.checks if check.name == "autopay_smoke")
     assert check.ok is False
     assert "amount=120/180/500" in check.detail
     assert "amount_verified=False" in check.detail
@@ -2806,7 +2795,7 @@ def test_production_readiness_requires_autopay_smoke_active_amount(tmp_path: Pat
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    check = next(check for check in report.checks if check.name == "autopay_smoke")
     assert check.ok is False
     assert "amount=120/None/500" in check.detail
     assert "amount_verified=False" in check.detail
@@ -2843,7 +2832,7 @@ def test_production_readiness_rejects_autopay_smoke_for_other_duration(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    check = next(check for check in report.checks if check.name == "autopay_smoke")
     assert check.ok is False
     assert "duration=5/15" in check.detail
 
@@ -2878,7 +2867,7 @@ def test_production_readiness_rejects_autopay_smoke_for_unverified_active_durati
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    check = next(check for check in report.checks if check.name == "autopay_smoke")
     assert check.ok is False
     assert "active_duration=5/15" in check.detail
     assert "duration_verified=False" in check.detail
@@ -2914,13 +2903,13 @@ def test_production_readiness_rejects_autopay_smoke_for_other_position(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "autopay_smoke"][0]
+    check = next(check for check in report.checks if check.name == "autopay_smoke")
     assert check.ok is False
     assert "position=48.85660,2.35220/50.63710,3.06330" in check.detail
 
 
 def test_production_readiness_rejects_stale_reports(tmp_path: Path):
-    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=UTC)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now - timedelta(hours=96))
 
     report = audit_production_readiness(
@@ -2945,13 +2934,13 @@ def test_production_readiness_rejects_stale_reports(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "report_freshness"][0]
+    check = next(check for check in report.checks if check.name == "report_freshness")
     assert check.ok is False
     assert "96.0h>72.0h" in check.detail
 
 
 def test_production_readiness_rejects_stale_runtime_reports(tmp_path: Path):
-    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=UTC)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now)
     payload = json.loads(artifacts["power"].read_text())
     payload["checked_at"] = (now - timedelta(hours=96)).isoformat()
@@ -2979,7 +2968,7 @@ def test_production_readiness_rejects_stale_runtime_reports(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "report_freshness"][0]
+    check = next(check for check in report.checks if check.name == "report_freshness")
     assert check.ok is False
     assert "power_runtime=96.0h>72.0h" in check.detail
 
@@ -3011,7 +3000,7 @@ def test_production_readiness_rejects_report_without_timestamp(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "report_freshness"][0]
+    check = next(check for check in report.checks if check.name == "report_freshness")
     assert check.ok is False
     assert "vision_eval=missing_timestamp" in check.detail
 
@@ -3043,13 +3032,13 @@ def test_production_readiness_rejects_runtime_report_without_timestamp(tmp_path:
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "report_freshness"][0]
+    check = next(check for check in report.checks if check.name == "report_freshness")
     assert check.ok is False
     assert "camera_runtime=missing_timestamp" in check.detail
 
 
 def test_production_readiness_can_disable_report_freshness_for_rehearsal(tmp_path: Path):
-    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=UTC)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now - timedelta(hours=720))
     env = _ready_env()
     env["BOX_READINESS_MAX_REPORT_AGE_HOURS"] = "0"
@@ -3076,7 +3065,7 @@ def test_production_readiness_can_disable_report_freshness_for_rehearsal(tmp_pat
     )
 
     assert report.passed is True
-    check = [check for check in report.checks if check.name == "report_freshness"][0]
+    check = next(check for check in report.checks if check.name == "report_freshness")
     assert check.detail == "disabled"
 
 
@@ -3105,13 +3094,13 @@ def test_production_readiness_requires_runtime_event_log(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    check = next(check for check in report.checks if check.name == "runtime_event_log")
     assert check.ok is False
     assert "missing required" in check.detail
 
 
 def test_production_readiness_uses_configured_event_log_path(tmp_path: Path):
-    report_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    report_time = datetime(2026, 1, 1, tzinfo=UTC)
     artifacts = _write_ready_artifacts(tmp_path, report_time=report_time)
     artifacts["events"].unlink()
     configured_events = tmp_path / "custom" / "events.jsonl"
@@ -3160,7 +3149,7 @@ def test_production_readiness_uses_configured_event_log_path(tmp_path: Path):
     )
 
     assert report.passed is True
-    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    check = next(check for check in report.checks if check.name == "runtime_event_log")
     assert check.ok is True
     assert "scanned=2" in check.detail
 
@@ -3193,7 +3182,7 @@ def test_production_readiness_can_allow_missing_runtime_event_log_for_rehearsal(
     )
 
     assert report.passed is True
-    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    check = next(check for check in report.checks if check.name == "runtime_event_log")
     assert check.ok is True
     assert "missing optional" in check.detail
 
@@ -3223,13 +3212,13 @@ def test_production_readiness_rejects_empty_runtime_event_log(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    check = next(check for check in report.checks if check.name == "runtime_event_log")
     assert check.ok is False
     assert "scanned=0" in check.detail
 
 
 def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Path):
-    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=UTC)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now)
     events = tmp_path / "events.jsonl"
     events.write_text(
@@ -3277,7 +3266,7 @@ def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Pa
     )
 
     assert report.passed is True
-    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    check = next(check for check in report.checks if check.name == "runtime_event_log")
     assert check.ok is True
     assert "scanned=2" in check.detail
     assert "heartbeat=True" in check.detail
@@ -3288,7 +3277,7 @@ def test_production_readiness_rejects_runtime_log_without_heartbeat(tmp_path: Pa
     artifacts["events"].write_text(
         json.dumps(
             {
-                "ts": datetime.now(timezone.utc).isoformat(),
+                "ts": datetime.now(UTC).isoformat(),
                 "event": "service_started",
             }
         )
@@ -3316,13 +3305,13 @@ def test_production_readiness_rejects_runtime_log_without_heartbeat(tmp_path: Pa
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    check = next(check for check in report.checks if check.name == "runtime_event_log")
     assert check.ok is False
     assert "heartbeat=False" in check.detail
 
 
 def test_production_readiness_rejects_stale_runtime_heartbeat(tmp_path: Path):
-    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=UTC)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now)
     artifacts["events"].write_text(
         json.dumps(
@@ -3355,7 +3344,7 @@ def test_production_readiness_rejects_stale_runtime_heartbeat(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    check = next(check for check in report.checks if check.name == "runtime_event_log")
     assert check.ok is False
     assert "heartbeat_start_gap=32400s/1800s" in check.detail
 
@@ -3363,7 +3352,7 @@ def test_production_readiness_rejects_stale_runtime_heartbeat(tmp_path: Path):
 def test_production_readiness_rejects_runtime_heartbeat_missing_start_coverage(
     tmp_path: Path,
 ):
-    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=UTC)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now)
     artifacts["events"].write_text(
         json.dumps(
@@ -3396,7 +3385,7 @@ def test_production_readiness_rejects_runtime_heartbeat_missing_start_coverage(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    check = next(check for check in report.checks if check.name == "runtime_event_log")
     assert check.ok is False
     assert "heartbeat_start_gap=36000s/1800s" in check.detail
 
@@ -3404,7 +3393,7 @@ def test_production_readiness_rejects_runtime_heartbeat_missing_start_coverage(
 def test_production_readiness_rejects_runtime_heartbeat_missing_end_coverage(
     tmp_path: Path,
 ):
-    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=UTC)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now)
     artifacts["events"].write_text(
         json.dumps(
@@ -3437,13 +3426,13 @@ def test_production_readiness_rejects_runtime_heartbeat_missing_end_coverage(
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    check = next(check for check in report.checks if check.name == "runtime_event_log")
     assert check.ok is False
     assert "heartbeat_end_gap=36000s/1800s" in check.detail
 
 
 def test_production_readiness_rejects_blocking_runtime_event(tmp_path: Path):
-    now = datetime(2026, 7, 12, 8, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 7, 12, 8, 0, tzinfo=UTC)
     artifacts = _write_ready_artifacts(tmp_path, report_time=now)
     events = tmp_path / "events.jsonl"
     events.write_text(
@@ -3478,7 +3467,7 @@ def test_production_readiness_rejects_blocking_runtime_event(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "runtime_event_log"][0]
+    check = next(check for check in report.checks if check.name == "runtime_event_log")
     assert check.ok is False
     assert "payment_skipped_battery_critical@line1" in check.detail
 
@@ -3541,7 +3530,7 @@ def test_production_readiness_rejects_invalid_runtime_config(tmp_path: Path):
     )
 
     assert report.passed is False
-    check = [check for check in report.checks if check.name == "runtime_config"][0]
+    check = next(check for check in report.checks if check.name == "runtime_config")
     assert check.ok is False
     assert "LOW_POWER_DETECTION_FPS=3.0>2.0" in check.detail
     assert "battery_thresholds=30/25" in check.detail
@@ -3600,7 +3589,7 @@ def _write_ready_artifacts(
     vision_recall: float = 0.93,
     vision_false_positive_per_hour: float = 1 / 3,
 ) -> dict[str, Path]:
-    report_time = report_time or datetime.now(timezone.utc)
+    report_time = report_time or datetime.now(UTC)
     report_time_iso = report_time.isoformat()
     manifest = tmp_path / "datasets" / "baseline" / "manifest.jsonl"
     manifest.parent.mkdir(parents=True)

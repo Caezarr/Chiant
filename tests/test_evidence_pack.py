@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from boring.evidence_pack import build_evidence_pack, default_evidence_paths, write_pack
@@ -25,7 +25,7 @@ def test_evidence_pack_fails_when_report_is_missing(tmp_path: Path):
     pack = build_evidence_pack(paths)
 
     assert pack.passed is False
-    missing = [item for item in pack.items if item.name == "burn_in"][0]
+    missing = next(item for item in pack.items if item.name == "burn_in")
     assert missing.present is False
     assert missing.detail == "missing"
 
@@ -37,7 +37,7 @@ def test_evidence_pack_fails_when_report_failed(tmp_path: Path):
     pack = build_evidence_pack(paths)
 
     assert pack.passed is False
-    autopay = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    autopay = next(item for item in pack.items if item.name == "autopay_smoke")
     assert autopay.passed is False
 
 
@@ -48,7 +48,7 @@ def test_evidence_pack_fails_when_required_report_has_no_passed_flag(tmp_path: P
     pack = build_evidence_pack(paths)
 
     assert pack.passed is False
-    vision_eval = [item for item in pack.items if item.name == "vision_eval"][0]
+    vision_eval = next(item for item in pack.items if item.name == "vision_eval")
     assert vision_eval.passed is False
     assert "model=missing" in vision_eval.detail
 
@@ -58,7 +58,7 @@ def test_evidence_pack_requires_complete_vision_eval(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    item = next(item for item in pack.items if item.name == "vision_eval")
     assert item.passed is True
     assert "frames=10800" in item.detail
     assert "invalid_images=0" in item.detail
@@ -72,7 +72,7 @@ def test_evidence_pack_requires_complete_hardware_profile(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "hardware_profile"][0]
+    item = next(item for item in pack.items if item.name == "hardware_profile")
     assert item.passed is True
     assert "preset=pi5-production" in item.detail
     assert "board=raspberry-pi-5" in item.detail
@@ -84,7 +84,7 @@ def test_evidence_pack_requires_complete_box_ready_report(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "box_ready"][0]
+    item = next(item for item in pack.items if item.name == "box_ready")
     assert item.passed is True
     assert "checks=23" in item.detail
     assert "generated_at=ok" in item.detail
@@ -100,7 +100,7 @@ def test_evidence_pack_rejects_box_ready_without_generated_at(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "box_ready"][0]
+    item = next(item for item in pack.items if item.name == "box_ready")
     assert pack.passed is False
     assert item.passed is False
     assert "generated_at=missing" in item.detail
@@ -112,7 +112,7 @@ def test_evidence_pack_rejects_box_ready_without_checks(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "box_ready"][0]
+    item = next(item for item in pack.items if item.name == "box_ready")
     assert pack.passed is False
     assert item.passed is False
     assert item.detail == "checks=missing"
@@ -121,14 +121,14 @@ def test_evidence_pack_rejects_box_ready_without_checks(tmp_path: Path):
 def test_evidence_pack_rejects_box_ready_with_failed_required_check(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     payload = json.loads(paths["box_ready"].read_text())
-    check = [check for check in payload["checks"] if check["name"] == "autopay_smoke"][0]
+    check = next(check for check in payload["checks"] if check["name"] == "autopay_smoke")
     check["ok"] = False
     check["detail"] = "missing reports/autopay-smoke.json"
     paths["box_ready"].write_text(json.dumps(payload))
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "box_ready"][0]
+    item = next(item for item in pack.items if item.name == "box_ready")
     assert pack.passed is False
     assert item.passed is False
     assert "failed=autopay_smoke" in item.detail
@@ -144,7 +144,7 @@ def test_evidence_pack_rejects_box_ready_missing_required_check(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "box_ready"][0]
+    item = next(item for item in pack.items if item.name == "box_ready")
     assert pack.passed is False
     assert item.passed is False
     assert "missing=runtime_event_log" in item.detail
@@ -163,18 +163,18 @@ def test_evidence_pack_requires_complete_runtime_reports(tmp_path: Path):
         "power_runtime",
         "burn_in",
     ]:
-        item = [item for item in pack.items if item.name == name][0]
+        item = next(item for item in pack.items if item.name == name)
         assert item.passed is True
         assert "failures=-" in item.detail
 
 
 def test_evidence_pack_recomputes_report_freshness(tmp_path: Path):
     paths = _write_evidence(tmp_path)
-    now = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 2, tzinfo=UTC)
 
     pack = build_evidence_pack(paths, max_report_age_hours=72, now=now)
 
-    item = [item for item in pack.items if item.name == "report_freshness"][0]
+    item = next(item for item in pack.items if item.name == "report_freshness")
     assert pack.passed is True
     assert item.passed is True
     assert "max_age=72.0h" in item.detail
@@ -186,11 +186,11 @@ def test_evidence_pack_recomputes_report_freshness(tmp_path: Path):
 
 def test_evidence_pack_rejects_stale_report_freshness(tmp_path: Path):
     paths = _write_evidence(tmp_path)
-    now = datetime(2026, 1, 6, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 6, tzinfo=UTC)
 
     pack = build_evidence_pack(paths, max_report_age_hours=72, now=now)
 
-    item = [item for item in pack.items if item.name == "report_freshness"][0]
+    item = next(item for item in pack.items if item.name == "report_freshness")
     assert pack.passed is False
     assert item.passed is False
     assert "box_ready=120.0h>72.0h" in item.detail
@@ -206,10 +206,10 @@ def test_evidence_pack_rejects_box_ready_freshness_without_timestamp(tmp_path: P
     pack = build_evidence_pack(
         paths,
         max_report_age_hours=72,
-        now=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        now=datetime(2026, 1, 2, tzinfo=UTC),
     )
 
-    item = [item for item in pack.items if item.name == "report_freshness"][0]
+    item = next(item for item in pack.items if item.name == "report_freshness")
     assert pack.passed is False
     assert item.passed is False
     assert "box_ready=missing_timestamp" in item.detail
@@ -224,10 +224,10 @@ def test_evidence_pack_rejects_autopay_freshness_without_timestamp(tmp_path: Pat
     pack = build_evidence_pack(
         paths,
         max_report_age_hours=72,
-        now=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        now=datetime(2026, 1, 2, tzinfo=UTC),
     )
 
-    item = [item for item in pack.items if item.name == "report_freshness"][0]
+    item = next(item for item in pack.items if item.name == "report_freshness")
     assert pack.passed is False
     assert item.passed is False
     assert "autopay_smoke=missing_timestamp" in item.detail
@@ -241,7 +241,7 @@ def test_evidence_pack_rejects_power_report_using_full_capacity_runtime(tmp_path
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "power_runtime"][0]
+    item = next(item for item in pack.items if item.name == "power_runtime")
     assert pack.passed is False
     assert item.passed is False
     assert "runtime_consistency" in item.detail
@@ -255,7 +255,7 @@ def test_evidence_pack_requires_power_runtime_critical_threshold(tmp_path: Path)
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "power_runtime"][0]
+    item = next(item for item in pack.items if item.name == "power_runtime")
     assert pack.passed is False
     assert item.passed is False
     assert "battery_critical_percent" in item.detail
@@ -269,7 +269,7 @@ def test_evidence_pack_requires_power_runtime_critical_reserve(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "power_runtime"][0]
+    item = next(item for item in pack.items if item.name == "power_runtime")
     assert pack.passed is False
     assert item.passed is False
     assert "critical_reserve" in item.detail
@@ -286,7 +286,7 @@ def test_evidence_pack_rejects_critical_power_runtime_battery(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "power_runtime"][0]
+    item = next(item for item in pack.items if item.name == "power_runtime")
     assert pack.passed is False
     assert item.passed is False
     assert "battery_percent_critical" in item.detail
@@ -297,7 +297,7 @@ def test_evidence_pack_requires_runtime_events_to_cover_burn_in_window(tmp_path:
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "runtime_alignment"][0]
+    item = next(item for item in pack.items if item.name == "runtime_alignment")
     assert item.format == "derived"
     assert item.passed is True
     assert "heartbeat_start_gap=0s/1800s" in item.detail
@@ -314,7 +314,7 @@ def test_evidence_pack_rejects_runtime_events_without_burn_in_end_heartbeat(
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "runtime_alignment"][0]
+    item = next(item for item in pack.items if item.name == "runtime_alignment")
     assert pack.passed is False
     assert item.passed is False
     assert "heartbeat_end_gap=36000s/1800s" in item.detail
@@ -335,7 +335,7 @@ def test_evidence_pack_rejects_blocking_runtime_event_during_burn_in_window(
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "runtime_alignment"][0]
+    item = next(item for item in pack.items if item.name == "runtime_alignment")
     assert pack.passed is False
     assert item.passed is False
     assert "blocking=network_offline@line2" in item.detail
@@ -347,7 +347,7 @@ def test_evidence_pack_rejects_generic_camera_report(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "camera_runtime"][0]
+    item = next(item for item in pack.items if item.name == "camera_runtime")
     assert pack.passed is False
     assert item.passed is False
     assert "width" in item.detail
@@ -363,7 +363,7 @@ def test_evidence_pack_rejects_runtime_report_with_failures(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "network_runtime"][0]
+    item = next(item for item in pack.items if item.name == "network_runtime")
     assert pack.passed is False
     assert item.passed is False
     assert "failures=failures" in item.detail
@@ -380,7 +380,7 @@ def test_evidence_pack_rejects_gpsd_position_without_endpoint(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "position_runtime"][0]
+    item = next(item for item in pack.items if item.name == "position_runtime")
     assert pack.passed is False
     assert item.passed is False
     assert "gpsd_host" in item.detail
@@ -395,7 +395,7 @@ def test_evidence_pack_rejects_systemd_runtime_without_main_pid(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "systemd_runtime"][0]
+    item = next(item for item in pack.items if item.name == "systemd_runtime")
     assert pack.passed is False
     assert item.passed is False
     assert "main_pid" in item.detail
@@ -410,7 +410,7 @@ def test_evidence_pack_rejects_restarted_systemd_runtime(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "systemd_runtime"][0]
+    item = next(item for item in pack.items if item.name == "systemd_runtime")
     assert pack.passed is False
     assert item.passed is False
     assert "restarted" in item.detail
@@ -424,7 +424,7 @@ def test_evidence_pack_requires_systemd_restart_count(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "systemd_runtime"][0]
+    item = next(item for item in pack.items if item.name == "systemd_runtime")
     assert pack.passed is False
     assert item.passed is False
     assert "n_restarts" in item.detail
@@ -438,7 +438,7 @@ def test_evidence_pack_rejects_network_report_without_recovery_command(tmp_path:
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "network_runtime"][0]
+    item = next(item for item in pack.items if item.name == "network_runtime")
     assert pack.passed is False
     assert item.passed is False
     assert "recovery_command" in item.detail
@@ -452,7 +452,7 @@ def test_evidence_pack_rejects_network_report_without_timeout(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "network_runtime"][0]
+    item = next(item for item in pack.items if item.name == "network_runtime")
     assert pack.passed is False
     assert item.passed is False
     assert "timeout" in item.detail
@@ -466,7 +466,7 @@ def test_evidence_pack_rejects_burn_in_without_charge_cycle(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "burn_in"][0]
+    item = next(item for item in pack.items if item.name == "burn_in")
     assert pack.passed is False
     assert item.passed is False
     assert "charging_seen" in item.detail
@@ -480,7 +480,7 @@ def test_evidence_pack_rejects_low_battery_burn_in(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "burn_in"][0]
+    item = next(item for item in pack.items if item.name == "burn_in")
     assert pack.passed is False
     assert item.passed is False
     assert "battery_low" in item.detail
@@ -496,7 +496,7 @@ def test_evidence_pack_recomputes_low_battery_from_burn_in_minimum(tmp_path: Pat
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "burn_in"][0]
+    item = next(item for item in pack.items if item.name == "burn_in")
     assert pack.passed is False
     assert item.passed is False
     assert "min_battery_low" in item.detail
@@ -511,7 +511,7 @@ def test_evidence_pack_requires_burn_in_threshold_provenance(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "burn_in"][0]
+    item = next(item for item in pack.items if item.name == "burn_in")
     assert pack.passed is False
     assert item.passed is False
     assert "battery_low_percent" in item.detail
@@ -527,7 +527,7 @@ def test_evidence_pack_recomputes_burn_in_threshold_flags(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "burn_in"][0]
+    item = next(item for item in pack.items if item.name == "burn_in")
     assert pack.passed is False
     assert item.passed is False
     assert "thermal_warning_threshold_mismatch" in item.detail
@@ -541,7 +541,7 @@ def test_evidence_pack_rejects_hardware_profile_without_preset(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "hardware_profile"][0]
+    item = next(item for item in pack.items if item.name == "hardware_profile")
     assert pack.passed is False
     assert item.passed is False
     assert "preset=-" in item.detail
@@ -556,7 +556,7 @@ def test_evidence_pack_rejects_hardware_profile_without_vehicle_charge(tmp_path:
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "hardware_profile"][0]
+    item = next(item for item in pack.items if item.name == "hardware_profile")
     assert pack.passed is False
     assert item.passed is False
     assert "vehicle_charge=-" in item.detail
@@ -572,7 +572,7 @@ def test_evidence_pack_rejects_vision_eval_without_frames(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    item = next(item for item in pack.items if item.name == "vision_eval")
     assert pack.passed is False
     assert item.passed is False
     assert "frames=0" in item.detail
@@ -588,7 +588,7 @@ def test_evidence_pack_rejects_vision_eval_without_negative_coverage(tmp_path: P
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    item = next(item for item in pack.items if item.name == "vision_eval")
     assert pack.passed is False
     assert item.passed is False
     assert "negative_frames=0" in item.detail
@@ -606,7 +606,7 @@ def test_evidence_pack_rejects_vision_eval_with_inconsistent_frame_coverage(
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    item = next(item for item in pack.items if item.name == "vision_eval")
     assert pack.passed is False
     assert item.passed is False
     assert "metrics_consistent=False" in item.detail
@@ -620,7 +620,7 @@ def test_evidence_pack_rejects_vision_eval_with_invalid_images(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    item = next(item for item in pack.items if item.name == "vision_eval")
     assert pack.passed is False
     assert item.passed is False
     assert "invalid_images=1" in item.detail
@@ -634,7 +634,7 @@ def test_evidence_pack_rejects_vision_eval_with_invalid_labels(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    item = next(item for item in pack.items if item.name == "vision_eval")
     assert pack.passed is False
     assert item.passed is False
     assert "invalid_labels=1" in item.detail
@@ -648,7 +648,7 @@ def test_evidence_pack_rejects_vision_eval_without_true_positives(tmp_path: Path
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    item = next(item for item in pack.items if item.name == "vision_eval")
     assert pack.passed is False
     assert item.passed is False
     assert "true_positives=0" in item.detail
@@ -664,7 +664,7 @@ def test_evidence_pack_recomputes_vision_eval_metrics_from_counts(tmp_path: Path
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    item = next(item for item in pack.items if item.name == "vision_eval")
     assert pack.passed is False
     assert item.passed is False
     assert "metrics_consistent=False" in item.detail
@@ -678,7 +678,7 @@ def test_evidence_pack_rejects_vision_eval_for_other_class(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "vision_eval"][0]
+    item = next(item for item in pack.items if item.name == "vision_eval")
     assert pack.passed is False
     assert item.passed is False
     assert "class=car/control_vehicle" in item.detail
@@ -689,35 +689,33 @@ def test_evidence_pack_requires_complete_vision_benchmark(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    edge_export = [item for item in pack.items if item.name == "edge_export"][0]
+    edge_export = next(item for item in pack.items if item.name == "edge_export")
     assert edge_export.passed is True
     assert edge_export.format == "binary"
     assert "best.onnx" in edge_export.detail
 
-    item = [item for item in pack.items if item.name == "vision_benchmark"][0]
+    item = next(item for item in pack.items if item.name == "vision_benchmark")
     assert item.passed is True
     assert "fps=2.00/2.00" in item.detail
     assert "frames=120" in item.detail
     assert "detections=12" in item.detail
     assert "device=ok" in item.detail
 
-    alignment = [item for item in pack.items if item.name == "hardware_benchmark_alignment"][0]
+    alignment = next(item for item in pack.items if item.name == "hardware_benchmark_alignment")
     assert alignment.passed is True
     assert "measured_fps=2.00/2.00" in alignment.detail
     assert "benchmark_min_fps=2.00/2.00" in alignment.detail
 
-    camera_alignment = [item for item in pack.items if item.name == "hardware_camera_alignment"][0]
+    camera_alignment = next(item for item in pack.items if item.name == "hardware_camera_alignment")
     assert camera_alignment.passed is True
     assert "frame=1280x720/1280x720" in camera_alignment.detail
     assert "min=1280x720/1280x720" in camera_alignment.detail
 
-    model_alignment = [item for item in pack.items if item.name == "vision_model_alignment"][0]
+    model_alignment = next(item for item in pack.items if item.name == "vision_model_alignment")
     assert model_alignment.passed is True
     assert "same_model=True" in model_alignment.detail
 
-    artifact_alignment = [item for item in pack.items if item.name == "vision_artifact_alignment"][
-        0
-    ]
+    artifact_alignment = next(item for item in pack.items if item.name == "vision_artifact_alignment")
     assert artifact_alignment.passed is True
     assert "eval_model=ok" in artifact_alignment.detail
     assert "benchmark_model=ok" in artifact_alignment.detail
@@ -733,7 +731,7 @@ def test_evidence_pack_rejects_vision_benchmark_from_other_model(tmp_path: Path)
 
     pack = build_evidence_pack(paths)
 
-    alignment = [item for item in pack.items if item.name == "vision_model_alignment"][0]
+    alignment = next(item for item in pack.items if item.name == "vision_model_alignment")
     assert pack.passed is False
     assert alignment.passed is False
     assert "best.pt" in alignment.detail
@@ -748,7 +746,7 @@ def test_evidence_pack_rejects_vision_eval_with_missing_model_artifact(tmp_path:
 
     pack = build_evidence_pack(paths)
 
-    alignment = [item for item in pack.items if item.name == "vision_artifact_alignment"][0]
+    alignment = next(item for item in pack.items if item.name == "vision_artifact_alignment")
     assert pack.passed is False
     assert alignment.passed is False
     assert "eval_model=missing" in alignment.detail
@@ -762,7 +760,7 @@ def test_evidence_pack_rejects_vision_eval_without_dataset_yaml(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    alignment = [item for item in pack.items if item.name == "vision_artifact_alignment"][0]
+    alignment = next(item for item in pack.items if item.name == "vision_artifact_alignment")
     assert pack.passed is False
     assert alignment.passed is False
     assert "dataset=ok" in alignment.detail
@@ -775,7 +773,7 @@ def test_evidence_pack_rejects_missing_edge_export(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "edge_export"][0]
+    item = next(item for item in pack.items if item.name == "edge_export")
     assert pack.passed is False
     assert item.passed is False
     assert item.present is False
@@ -788,7 +786,7 @@ def test_evidence_pack_rejects_empty_edge_export(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "edge_export"][0]
+    item = next(item for item in pack.items if item.name == "edge_export")
     assert pack.passed is False
     assert item.passed is False
     assert item.present is True
@@ -805,7 +803,7 @@ def test_evidence_pack_rejects_benchmark_below_hardware_profile_target(tmp_path:
 
     pack = build_evidence_pack(paths)
 
-    alignment = [item for item in pack.items if item.name == "hardware_benchmark_alignment"][0]
+    alignment = next(item for item in pack.items if item.name == "hardware_benchmark_alignment")
     assert pack.passed is False
     assert alignment.passed is False
     assert "measured_fps=1.50/2.00" in alignment.detail
@@ -823,7 +821,7 @@ def test_evidence_pack_rejects_benchmark_minimum_below_hardware_profile_target(
 
     pack = build_evidence_pack(paths)
 
-    alignment = [item for item in pack.items if item.name == "hardware_benchmark_alignment"][0]
+    alignment = next(item for item in pack.items if item.name == "hardware_benchmark_alignment")
     assert pack.passed is False
     assert alignment.passed is False
     assert "measured_fps=2.00/2.00" in alignment.detail
@@ -839,7 +837,7 @@ def test_evidence_pack_rejects_camera_below_hardware_profile_resolution(tmp_path
 
     pack = build_evidence_pack(paths)
 
-    alignment = [item for item in pack.items if item.name == "hardware_camera_alignment"][0]
+    alignment = next(item for item in pack.items if item.name == "hardware_camera_alignment")
     assert pack.passed is False
     assert alignment.passed is False
     assert "frame=640x480/1280x720" in alignment.detail
@@ -855,7 +853,7 @@ def test_evidence_pack_rejects_camera_check_with_loose_hardware_threshold(tmp_pa
 
     pack = build_evidence_pack(paths)
 
-    alignment = [item for item in pack.items if item.name == "hardware_camera_alignment"][0]
+    alignment = next(item for item in pack.items if item.name == "hardware_camera_alignment")
     assert pack.passed is False
     assert alignment.passed is False
     assert "frame=1280x720/1280x720" in alignment.detail
@@ -870,7 +868,7 @@ def test_evidence_pack_rejects_slow_vision_benchmark(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "vision_benchmark"][0]
+    item = next(item for item in pack.items if item.name == "vision_benchmark")
     assert pack.passed is False
     assert item.passed is False
     assert "fps=1.00/2.00" in item.detail
@@ -885,7 +883,7 @@ def test_evidence_pack_rejects_vision_benchmark_without_detections(tmp_path: Pat
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "vision_benchmark"][0]
+    item = next(item for item in pack.items if item.name == "vision_benchmark")
     assert pack.passed is False
     assert item.passed is False
     assert "detections=0" in item.detail
@@ -899,7 +897,7 @@ def test_evidence_pack_rejects_vision_benchmark_for_other_target(tmp_path: Path)
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "vision_benchmark"][0]
+    item = next(item for item in pack.items if item.name == "vision_benchmark")
     assert pack.passed is False
     assert item.passed is False
     assert "target=car/control_vehicle" in item.detail
@@ -921,7 +919,7 @@ def test_evidence_pack_includes_file_digest_and_size(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    autopay = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    autopay = next(item for item in pack.items if item.name == "autopay_smoke")
     assert autopay.size_bytes == paths["autopay_smoke"].stat().st_size
     assert autopay.sha256
     assert len(autopay.sha256) == 64
@@ -933,7 +931,7 @@ def test_evidence_pack_omits_digest_for_missing_report(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    missing = [item for item in pack.items if item.name == "burn_in"][0]
+    missing = next(item for item in pack.items if item.name == "burn_in")
     assert missing.size_bytes is None
     assert missing.sha256 is None
 
@@ -941,11 +939,11 @@ def test_evidence_pack_omits_digest_for_missing_report(tmp_path: Path):
 def test_evidence_pack_digest_changes_when_report_changes(tmp_path: Path):
     paths = _write_evidence(tmp_path)
     first = build_evidence_pack(paths)
-    first_autopay = [item for item in first.items if item.name == "autopay_smoke"][0]
+    first_autopay = next(item for item in first.items if item.name == "autopay_smoke")
 
     paths["autopay_smoke"].write_text(json.dumps({"passed": True, "session_id": "new"}))
     second = build_evidence_pack(paths)
-    second_autopay = [item for item in second.items if item.name == "autopay_smoke"][0]
+    second_autopay = next(item for item in second.items if item.name == "autopay_smoke")
 
     assert first_autopay.sha256 != second_autopay.sha256
 
@@ -955,7 +953,7 @@ def test_evidence_pack_requires_complete_autopay_smoke(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    item = next(item for item in pack.items if item.name == "autopay_smoke")
     assert item.passed is True
     assert "dry_run=False" in item.detail
     assert "amount=120/120" in item.detail
@@ -966,7 +964,7 @@ def test_evidence_pack_requires_complete_autopay_smoke(tmp_path: Path):
     assert "session=ok" in item.detail
     assert "session_zone=zone-1/zone-1" in item.detail
 
-    alignment = [item for item in pack.items if item.name == "autopay_provider_alignment"][0]
+    alignment = next(item for item in pack.items if item.name == "autopay_provider_alignment")
     assert alignment.passed is True
     assert "provider=paybyphone/paybyphone" in alignment.detail
     assert "hints=ok" in alignment.detail
@@ -981,7 +979,7 @@ def test_evidence_pack_rejects_autopay_smoke_for_other_provider(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    alignment = [item for item in pack.items if item.name == "autopay_provider_alignment"][0]
+    alignment = next(item for item in pack.items if item.name == "autopay_provider_alignment")
     assert pack.passed is False
     assert alignment.passed is False
     assert "provider=easypark/paybyphone" in alignment.detail
@@ -995,7 +993,7 @@ def test_evidence_pack_rejects_autopay_smoke_dry_run(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    item = next(item for item in pack.items if item.name == "autopay_smoke")
     assert pack.passed is False
     assert item.passed is False
     assert "dry_run=True" in item.detail
@@ -1009,7 +1007,7 @@ def test_evidence_pack_rejects_autopay_smoke_without_verified_stop(tmp_path: Pat
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    item = next(item for item in pack.items if item.name == "autopay_smoke")
     assert pack.passed is False
     assert item.passed is False
     assert "stop_verified=False" in item.detail
@@ -1024,7 +1022,7 @@ def test_evidence_pack_rejects_autopay_smoke_without_verified_duration(tmp_path:
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    item = next(item for item in pack.items if item.name == "autopay_smoke")
     assert pack.passed is False
     assert item.passed is False
     assert "duration=15/5" in item.detail
@@ -1040,7 +1038,7 @@ def test_evidence_pack_rejects_autopay_smoke_without_verified_amount(tmp_path: P
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    item = next(item for item in pack.items if item.name == "autopay_smoke")
     assert pack.passed is False
     assert item.passed is False
     assert "amount=120/180" in item.detail
@@ -1056,7 +1054,7 @@ def test_evidence_pack_requires_autopay_smoke_active_amount(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    item = next(item for item in pack.items if item.name == "autopay_smoke")
     assert pack.passed is False
     assert item.passed is False
     assert "amount=120/None" in item.detail
@@ -1071,7 +1069,7 @@ def test_evidence_pack_rejects_autopay_smoke_without_session_id(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    item = next(item for item in pack.items if item.name == "autopay_smoke")
     assert pack.passed is False
     assert item.passed is False
     assert "session=missing" in item.detail
@@ -1087,7 +1085,7 @@ def test_evidence_pack_rejects_autopay_smoke_with_mismatched_session_zone(
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "autopay_smoke"][0]
+    item = next(item for item in pack.items if item.name == "autopay_smoke")
     assert pack.passed is False
     assert item.passed is False
     assert "session_zone=zone-other/zone-1" in item.detail
@@ -1098,7 +1096,7 @@ def test_evidence_pack_requires_complete_notification_test(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "notification_test"][0]
+    item = next(item for item in pack.items if item.name == "notification_test")
     assert item.passed is True
     assert "status=204" in item.detail
     assert "host=ok" in item.detail
@@ -1117,7 +1115,7 @@ def test_evidence_pack_rejects_notification_test_non_2xx(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "notification_test"][0]
+    item = next(item for item in pack.items if item.name == "notification_test")
     assert pack.passed is False
     assert item.passed is False
     assert "status=500" in item.detail
@@ -1131,7 +1129,7 @@ def test_evidence_pack_rejects_notification_test_without_host(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "notification_test"][0]
+    item = next(item for item in pack.items if item.name == "notification_test")
     assert pack.passed is False
     assert item.passed is False
     assert "host=missing" in item.detail
@@ -1145,7 +1143,7 @@ def test_evidence_pack_rejects_notification_test_without_hash(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "notification_test"][0]
+    item = next(item for item in pack.items if item.name == "notification_test")
     assert pack.passed is False
     assert item.passed is False
     assert "hash=missing" in item.detail
@@ -1159,7 +1157,7 @@ def test_evidence_pack_rejects_notification_test_without_timestamp(tmp_path: Pat
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "notification_test"][0]
+    item = next(item for item in pack.items if item.name == "notification_test")
     assert pack.passed is False
     assert item.passed is False
     assert "tested_at=missing" in item.detail
@@ -1173,7 +1171,7 @@ def test_evidence_pack_rejects_notification_test_without_low_battery_message(tmp
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "notification_test"][0]
+    item = next(item for item in pack.items if item.name == "notification_test")
     assert pack.passed is False
     assert item.passed is False
     assert "battery_message=False" in item.detail
@@ -1187,7 +1185,7 @@ def test_evidence_pack_rejects_silent_notification_test(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "notification_test"][0]
+    item = next(item for item in pack.items if item.name == "notification_test")
     assert pack.passed is False
     assert item.passed is False
     assert "sound=False" in item.detail
@@ -1198,7 +1196,7 @@ def test_evidence_pack_includes_runtime_events_jsonl(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "runtime_events"][0]
+    item = next(item for item in pack.items if item.name == "runtime_events")
     assert item.format == "jsonl"
     assert item.passed is True
     assert "heartbeat=True" in item.detail
@@ -1212,7 +1210,7 @@ def test_evidence_pack_rejects_runtime_events_without_heartbeat(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "runtime_events"][0]
+    item = next(item for item in pack.items if item.name == "runtime_events")
     assert pack.passed is False
     assert item.passed is False
     assert "heartbeat=False" in item.detail
@@ -1229,7 +1227,7 @@ def test_evidence_pack_rejects_blocking_runtime_event(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "runtime_events"][0]
+    item = next(item for item in pack.items if item.name == "runtime_events")
     assert pack.passed is False
     assert item.passed is False
     assert "network_offline@line2" in item.detail
@@ -1240,7 +1238,7 @@ def test_evidence_pack_includes_burn_in_samples_jsonl(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    item = next(item for item in pack.items if item.name == "burn_in_samples")
     assert item.format == "jsonl"
     assert item.passed is True
     assert "scanned=600/600" in item.detail
@@ -1271,7 +1269,7 @@ def test_evidence_pack_rejects_burn_in_sample_camera_failure(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    item = next(item for item in pack.items if item.name == "burn_in_samples")
     assert pack.passed is False
     assert item.passed is False
     assert "camera_failures=1" in item.detail
@@ -1288,7 +1286,7 @@ def test_evidence_pack_rejects_burn_in_samples_charge_cycle_mismatch(tmp_path: P
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    item = next(item for item in pack.items if item.name == "burn_in_samples")
     assert pack.passed is False
     assert item.passed is False
     assert "discharging_seen=False/True" in item.detail
@@ -1305,7 +1303,7 @@ def test_evidence_pack_rejects_burn_in_samples_outside_report_window(tmp_path: P
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    item = next(item for item in pack.items if item.name == "burn_in_samples")
     assert pack.passed is False
     assert item.passed is False
     assert "timestamps_in_window=False" in item.detail
@@ -1323,7 +1321,7 @@ def test_evidence_pack_rejects_sparse_burn_in_samples(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    item = next(item for item in pack.items if item.name == "burn_in_samples")
     assert pack.passed is False
     assert item.passed is False
     assert "cadence_ok=False" in item.detail
@@ -1341,7 +1339,7 @@ def test_evidence_pack_rejects_non_monotonic_burn_in_samples(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    item = next(item for item in pack.items if item.name == "burn_in_samples")
     assert pack.passed is False
     assert item.passed is False
     assert "timestamps_monotonic=False" in item.detail
@@ -1365,7 +1363,7 @@ def test_evidence_pack_rejects_burn_in_samples_without_power_metrics(tmp_path: P
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "burn_in_samples"][0]
+    item = next(item for item in pack.items if item.name == "burn_in_samples")
     assert pack.passed is False
     assert item.passed is False
     assert "start_battery=-/90.00" in item.detail
@@ -1377,7 +1375,7 @@ def test_evidence_pack_includes_paybyphone_endpoints(tmp_path: Path):
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "paybyphone_endpoints"][0]
+    item = next(item for item in pack.items if item.name == "paybyphone_endpoints")
     assert item.format == "json"
     assert item.passed is True
     assert "missing_hints=-" in item.detail
@@ -1392,7 +1390,7 @@ def test_evidence_pack_rejects_paybyphone_endpoints_without_stop_flow(tmp_path: 
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "paybyphone_endpoints"][0]
+    item = next(item for item in pack.items if item.name == "paybyphone_endpoints")
     assert pack.passed is False
     assert item.passed is False
     assert "missing_flow=session_stop" in item.detail
@@ -1408,7 +1406,7 @@ def test_evidence_pack_rejects_paybyphone_endpoints_without_payment_method(
 
     pack = build_evidence_pack(paths)
 
-    item = [item for item in pack.items if item.name == "paybyphone_endpoints"][0]
+    item = next(item for item in pack.items if item.name == "paybyphone_endpoints")
     assert pack.passed is False
     assert item.passed is False
     assert "missing_hints=payment_method_id" in item.detail
@@ -1762,7 +1760,7 @@ def _burn_in_payload() -> dict:
 
 def _burn_in_sample_lines() -> str:
     lines = []
-    started_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    started_at = datetime(2026, 1, 1, tzinfo=UTC)
     for index in range(600):
         if index == 0:
             battery_percent = 90

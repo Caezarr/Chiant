@@ -37,7 +37,7 @@ def test_hardware_profile_fails_when_preset_requirements_are_not_met(tmp_path: P
     report = audit_hardware_profile(profile)
 
     assert report.passed is False
-    preset = [check for check in report.checks if check.name == "hardware_preset"][0]
+    preset = next(check for check in report.checks if check.name == "hardware_preset")
     assert "battery=80Wh/100Wh" in preset.detail
 
 
@@ -47,7 +47,7 @@ def test_hardware_profile_fails_when_benchmark_target_is_below_preset(tmp_path: 
     report = audit_hardware_profile(profile)
 
     assert report.passed is False
-    preset = [check for check in report.checks if check.name == "hardware_preset"][0]
+    preset = next(check for check in report.checks if check.name == "hardware_preset")
     assert "min_benchmark_fps=1/2" in preset.detail
 
 
@@ -57,7 +57,7 @@ def test_hardware_profile_rejects_invalid_camera_resolution(tmp_path: Path):
     report = audit_hardware_profile(profile)
 
     assert report.passed is False
-    camera = [check for check in report.checks if check.name == "camera"][0]
+    camera = next(check for check in report.checks if check.name == "camera")
     assert "resolution=wide" in camera.detail
 
 
@@ -67,7 +67,7 @@ def test_hardware_profile_rejects_missing_camera_resolution(tmp_path: Path):
     report = audit_hardware_profile(profile)
 
     assert report.passed is False
-    camera = [check for check in report.checks if check.name == "camera"][0]
+    camera = next(check for check in report.checks if check.name == "camera")
     assert "resolution=-" in camera.detail
 
 

@@ -5,7 +5,6 @@ from pathlib import Path
 
 from boring.storage import DiskSpaceMonitor
 
-
 Usage = namedtuple("Usage", ["total", "used", "free"])
 
 
