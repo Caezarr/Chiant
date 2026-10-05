@@ -1473,8 +1473,7 @@ def _max_timestamp_gap_seconds(timestamps: list[datetime]) -> float | None:
     if len(timestamps) == 1:
         return 0.0
     return max(
-        (current - previous).total_seconds()
-        for previous, current in itertools.pairwise(timestamps)
+        (current - previous).total_seconds() for previous, current in itertools.pairwise(timestamps)
     )
 
 

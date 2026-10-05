@@ -835,9 +835,7 @@ def _read_report_freshness(
         if timestamp is None:
             failures.append(f"{name}=missing_timestamp")
             continue
-        age_hours = (
-            now.astimezone(UTC) - timestamp.astimezone(UTC)
-        ).total_seconds() / 3600
+        age_hours = (now.astimezone(UTC) - timestamp.astimezone(UTC)).total_seconds() / 3600
         ages.append(f"{name}={age_hours:.1f}h")
         if age_hours < -0.1:
             failures.append(f"{name}=future_timestamp")
@@ -1478,8 +1476,7 @@ def _max_timestamp_gap_seconds(timestamps: list[datetime]) -> float | None:
     if len(timestamps) == 1:
         return 0.0
     return max(
-        (current - previous).total_seconds()
-        for previous, current in itertools.pairwise(timestamps)
+        (current - previous).total_seconds() for previous, current in itertools.pairwise(timestamps)
     )
 
 

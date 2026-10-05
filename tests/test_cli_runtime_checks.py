@@ -210,8 +210,7 @@ class _CliPaymentProvider(PaymentProvider):
             vehicle_plate=vehicle_plate,
             location_id=location_id,
             start=datetime(2026, 7, 9, 12, 0, tzinfo=UTC),
-            end=datetime(2026, 7, 9, 12, 0, tzinfo=UTC)
-            + timedelta(minutes=duration_minutes),
+            end=datetime(2026, 7, 9, 12, 0, tzinfo=UTC) + timedelta(minutes=duration_minutes),
             amount_cents=120,
         )
         return self.session

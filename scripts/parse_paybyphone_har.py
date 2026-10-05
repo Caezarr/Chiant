@@ -186,7 +186,9 @@ def extract_flow_summary(records: list[dict]) -> dict:
         "failed_statuses": 0,
     }
     account_sessions_re = re.compile(r"/parking/accounts/[^/]+/sessions/?$", re.IGNORECASE)
-    current_session_re = re.compile(r"/parking/accounts/[^/]+/sessions/(current|active)", re.IGNORECASE)
+    current_session_re = re.compile(
+        r"/parking/accounts/[^/]+/sessions/(current|active)", re.IGNORECASE
+    )
     session_stop_re = re.compile(r"/parking/accounts/[^/]+/sessions/[^/?]+", re.IGNORECASE)
     for rec in records:
         method = (rec.get("method") or "").upper()

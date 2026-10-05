@@ -715,7 +715,9 @@ def test_evidence_pack_requires_complete_vision_benchmark(tmp_path: Path):
     assert model_alignment.passed is True
     assert "same_model=True" in model_alignment.detail
 
-    artifact_alignment = next(item for item in pack.items if item.name == "vision_artifact_alignment")
+    artifact_alignment = next(
+        item for item in pack.items if item.name == "vision_artifact_alignment"
+    )
     assert artifact_alignment.passed is True
     assert "eval_model=ok" in artifact_alignment.detail
     assert "benchmark_model=ok" in artifact_alignment.detail

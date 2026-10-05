@@ -29,6 +29,17 @@ packages = ["src/boring"]
 line-length = 100
 target-version = "py312"
 
+[tool.ruff.lint]
+ignore = [
+    "B008",    # function-call-in-default-argument (requires refactoring mutable defaults)
+    "BLE001",  # blind-except (requires specific exception handling)
+    "DTZ001",  # datetime-without-tzinfo (requires timezone refactoring)
+    "DTZ005",  # datetime-now-without-tzinfo (requires timezone refactoring)
+    "DTZ901",  # datetime-min-max (requires timezone refactoring)
+    "S110",    # try-except-pass (requires explicit suppression)
+    "SIM102",  # collapsible-if (style preference)
+]
+
 [dependency-groups]
 dev = [
     "mitmproxy>=12.2.3",
