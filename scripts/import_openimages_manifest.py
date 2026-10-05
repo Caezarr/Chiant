@@ -17,7 +17,7 @@ import argparse
 import csv
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from rich.console import Console
@@ -109,7 +109,7 @@ def append_records(manifest_path: Path, records: list[OpenImagesRecord]) -> None
         for record in records:
             payload = asdict(record)
             if not payload["created_at"]:
-                payload["created_at"] = datetime.now(timezone.utc).isoformat()
+                payload["created_at"] = datetime.now(UTC).isoformat()
             f.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 

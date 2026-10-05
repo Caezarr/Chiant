@@ -27,7 +27,7 @@ import json
 import sys
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -154,7 +154,7 @@ def append_manifest(manifest_path: Path, record: ImageRecord) -> None:
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     payload = asdict(record)
     if not payload["created_at"]:
-        payload["created_at"] = datetime.now(timezone.utc).isoformat()
+        payload["created_at"] = datetime.now(UTC).isoformat()
     with manifest_path.open("a") as f:
         f.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
