@@ -3263,6 +3263,7 @@ def test_production_readiness_ignores_runtime_events_before_burn_in(tmp_path: Pa
         notification_report_path=artifacts["notification"],
         burn_in_report_path=artifacts["burn_in"],
         storage_path=events,
+        now=now,
     )
 
     assert report.passed is True
