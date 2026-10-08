@@ -3,8 +3,13 @@
 But : extraire le format d'API (endpoints, headers, payloads) pour pouvoir
 implémenter le client `boring.payment.paybyphone` en mode live.
 
+Note : mitmproxy n'est pas inclus dans les dev dependencies (conflit avec
+       pydantic>=2.13.5). Installe-le temporairement avec :
+       `uvx --from mitmproxy mitmproxy -s scripts/paybyphone_capture.py`
+       ou `uv pip install mitmproxy` dans un virtualenv séparé.
+
 Usage :
-    1. Sur ton Mac : `uv run mitmproxy -s scripts/paybyphone_capture.py`
+    1. Sur ton Mac : `uvx --from mitmproxy mitmproxy -s scripts/paybyphone_capture.py`
        (mitmproxy écoute par défaut sur 127.0.0.1:8080)
     2. Sur ton iPhone :
        - Réglages > Wi-Fi > ton réseau > Configurer le proxy → Manuel
