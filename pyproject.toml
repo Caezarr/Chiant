@@ -43,7 +43,7 @@ ignore = [
 [dependency-groups]
 dev = [
     "ipython>=9.17.1",
-    "ruff>=0.17.1",
+    "ruff>=0.17.2",
     "pytest>=9.1.1",
     "ddgs>=9.16.0",
     "imagehash>=4.3.2",
