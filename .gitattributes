@@ -1,0 +1,13 @@
+# Normalize line endings across macOS, Linux and the Raspberry Pi.
+* text=auto
+
+# Shell scripts run on the Pi: they must keep LF or bash fails with "bad interpreter".
+*.sh text eol=lf
+
+# Images are binary: never diff or convert them.
+*.png binary
+*.jpg binary
+*.ico binary
+
+# The lockfile is generated: collapse it in diffs and keep it out of language stats.
+uv.lock linguist-generated=true
