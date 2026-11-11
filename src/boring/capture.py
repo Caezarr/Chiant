@@ -10,6 +10,8 @@ from pathlib import Path
 import cv2
 from rich.console import Console
 
+from boring.camera_sources import FrameCapture, make_capture
+
 console = Console()
 
 
@@ -22,19 +24,24 @@ class CameraProbeResult:
     error: str | None = None
 
 
-def open_camera(device_index: int = 0) -> cv2.VideoCapture:
-    cap = cv2.VideoCapture(device_index)
+def open_camera(device_index: int = 0) -> FrameCapture:
+    """Ouvre la camera du backend configure (``CAMERA_BACKEND``)."""
+    cap = make_capture(device_index)
     if not cap.isOpened():
+        cap.release()
         raise RuntimeError(f"Impossible d'ouvrir la caméra (index={device_index})")
     return cap
 
 
 def probe_camera(
     device_index: int = 0,
-    capture_factory: Callable[[int], cv2.VideoCapture] = cv2.VideoCapture,
+    capture_factory: Callable[[int], FrameCapture] = make_capture,
 ) -> CameraProbeResult:
     """Verifie qu'une camera s'ouvre et retourne au moins une frame."""
-    cap = capture_factory(device_index)
+    try:
+        cap = capture_factory(device_index)
+    except Exception as exc:
+        return CameraProbeResult(False, device_index, error=str(exc))
     try:
         if not cap.isOpened():
             return CameraProbeResult(False, device_index, error="camera not opened")

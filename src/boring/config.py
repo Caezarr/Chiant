@@ -6,12 +6,21 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from boring.camera_sources import CAMERA_BACKENDS, CAMERA_ROTATIONS
+
 
 def env_bool(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_int(name: str) -> int | None:
+    value = os.getenv(name)
+    if value is None or value.strip() == "":
+        return None
+    return int(value)
 
 
 def env_float(name: str) -> float | None:
@@ -26,6 +35,10 @@ class BoxConfig:
     """Parametres du service headless embarque."""
 
     camera_device: int = 0
+    camera_backend: str = "opencv"
+    camera_rotation: int = 0
+    status_led_gpio: int | None = None
+    status_led_active_high: bool = True
     model_path: str = "yolov8n.pt"
     target_labels: tuple[str, ...] = ("car",)
     detection_device: str = "auto"
@@ -77,6 +90,12 @@ class BoxConfig:
 
     def validation_failures(self) -> list[str]:
         failures: list[str] = []
+        if self.camera_backend not in CAMERA_BACKENDS:
+            failures.append(f"CAMERA_BACKEND={self.camera_backend}")
+        if self.camera_rotation not in CAMERA_ROTATIONS:
+            failures.append(f"CAMERA_ROTATION={self.camera_rotation}")
+        if self.status_led_gpio is not None and not 0 <= self.status_led_gpio <= 27:
+            failures.append(f"STATUS_LED_GPIO={self.status_led_gpio}")
         if self.confidence_threshold <= 0 or self.confidence_threshold > 1:
             failures.append(f"DETECTION_CONFIDENCE_THRESHOLD={self.confidence_threshold}")
         if self.inference_fps <= 0:
@@ -134,6 +153,10 @@ class BoxConfig:
         )
         return cls(
             camera_device=int(os.getenv("CAMERA_DEVICE", "0")),
+            camera_backend=os.getenv("CAMERA_BACKEND", "opencv").strip().lower() or "opencv",
+            camera_rotation=int(os.getenv("CAMERA_ROTATION", "0")),
+            status_led_gpio=env_int("STATUS_LED_GPIO"),
+            status_led_active_high=env_bool("STATUS_LED_ACTIVE_HIGH", True),
             model_path=os.getenv("DETECTION_MODEL", "yolov8n.pt"),
             target_labels=labels or ("car",),
             detection_device=os.getenv("DETECTION_DEVICE", "auto"),

@@ -21,7 +21,7 @@ Options:
   --install-dir DIR  Destination applicative (defaut: /opt/boring)
   --state-dir DIR    Etat persistant (defaut: /var/lib/boring)
   --start            Enable + start boring-box apres installation
-  --skip-sync        Ne pas lancer uv sync --no-dev apres copie
+  --skip-sync        Ne pas lancer uv sync --no-dev --extra pi apres copie
 
 Env:
   DRY_RUN=1          Affiche les actions sans les executer
@@ -157,7 +157,7 @@ run chmod 0755 "$INSTALL_DIR/deploy/pi/network-recover.example.sh"
 run chown -R boring:boring "$INSTALL_DIR" "$STATE_DIR"
 
 if [ "$SKIP_SYNC" = "0" ]; then
-  run su -s /bin/sh boring -c "cd '$INSTALL_DIR' && uv sync --no-dev"
+  run su -s /bin/sh boring -c "cd '$INSTALL_DIR' && uv sync --no-dev --extra pi"
   run su -s /bin/sh boring -c "cd '$INSTALL_DIR' && uv run boring --help >/dev/null"
 fi
 

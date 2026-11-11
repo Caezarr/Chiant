@@ -15,6 +15,13 @@ dependencies = [
     "anthropic>=1.15.0",
 ]
 
+[project.optional-dependencies]
+# Raspberry Pi uniquement : LED d'etat sur GPIO (STATUS_LED_GPIO).
+pi = [
+    "gpiozero>=2.0; sys_platform == 'linux'",
+    "lgpio>=0.2.2; sys_platform == 'linux'",
+]
+
 [project.scripts]
 boring = "boring.cli:app"
 

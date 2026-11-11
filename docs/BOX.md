@@ -143,6 +143,37 @@ Si `BOX_STATE_PATH` devient illisible ou corrompu, l'autopaiement est bloque en 
 `BOX_EVENT_LOG_PATH` garde une trace locale JSONL des evenements critiques : demarrage, reseau offline/recovered, batterie faible, temperature elevee/revenue, disque faible, paiement bloque, paiement reussi, crash. La rotation est bornee par `BOX_EVENT_LOG_MAX_BYTES` et `BOX_EVENT_LOG_BACKUPS` pour ne pas remplir la carte SD.
 `BOX_DISK_MIN_FREE_MB` declenche une alerte si la partition qui porte le journal/etat persistant descend trop bas.
 
+## Camera CSI et LED d'etat
+
+Sur Pi 5, une camera CSI (Camera Module 3) passe par libcamera et n'est pas visible par `cv2.VideoCapture`. `CAMERA_BACKEND` choisit la source :
+
+- `opencv` (defaut) : webcam USB UVC, index `CAMERA_DEVICE`.
+- `rpicam` : lance `rpicam-vid` en sous-processus et lit son flux MJPEG. Aucune dependance Python ; `rpicam-apps` est preinstalle sur Raspberry Pi OS. Recommande pour le boitier.
+- `picamera2` : bibliotheque picamera2. Elle depend des bindings libcamera du Python systeme : le venv doit etre cree avec `--system-site-packages` sur la meme version de Python que l'OS, ce qui n'est pas le cas du `uv sync` par defaut (Python 3.12 epingle). A reserver a un besoin precis.
+
+Reglages communs aux deux backends CSI :
+
+```bash
+CAMERA_BACKEND=rpicam
+CAMERA_ROTATION=180        # camera montee connecteur vers le haut (boitier V1)
+CAMERA_WIDTH=1280
+CAMERA_HEIGHT=720
+CAMERA_FRAMERATE=10
+CAMERA_LENS_POSITION=0.0   # mise au point fixe a l'infini ; "auto" = autofocus continu
+```
+
+La mise au point fixe evite que l'autofocus accroche le pare-brise ou les gouttes. Avec `rpicam`, un thread ne conserve que la derniere image : la detection analyse toujours le present, meme a 1-2 FPS. `box-doctor` et `box-camera-check` utilisent le meme backend que `box-run`. La camera CSI n'accepte qu'un lecteur : arreter `boring-box` avant de lancer un check camera a la main.
+
+LED d'etat : une LED 5 mm + resistance 330 ohms entre `GPIO17` (broche 11) et `GND` (broche 9), puis `STATUS_LED_GPIO=17`. Vide = pas de LED. Elle utilise `gpiozero` + `lgpio`, installes par `uv sync --extra pi` ; l'utilisateur `boring` doit etre dans le groupe `gpio` (deja le cas dans l'unit fournie). Si le GPIO est indisponible, la LED se desactive, `status_led_unavailable` est journalise et le service continue.
+
+| Motif | Etat |
+|---|---|
+| Clignotement lent regulier (0,5 s / 0,5 s) | Demarrage |
+| Bref eclat toutes les 3 s | Actif, tout va bien |
+| Eclat chaque seconde (0,2 s / 0,8 s) | Degrade : reseau coupe, mode economie batterie ou thermique, jauge batterie absente, disque faible |
+| Clignotement rapide (0,1 s / 0,1 s) | Bloquant : batterie critique ou temperature critique |
+| Eteinte | Service arrete |
+
 ## Service systemd
 
 Installer le repo dans `/opt/boring`, copier `deploy/pi/box.env.example` vers `/opt/boring/.env`, synchroniser le runtime Python prod, puis installer l'unit systemd rendue pour les chemins choisis :
@@ -152,7 +183,7 @@ DRY_RUN=1 ./deploy/pi/install.sh
 sudo ./deploy/pi/install.sh
 ```
 
-`install.sh` lance `uv sync --no-dev` sous l'utilisateur `boring`, verifie `uv run boring --help`, puis rend `boring-box.service` avec `WorkingDirectory`, `EnvironmentFile` et `ReadWritePaths` alignes sur `--install-dir` et `--state-dir`. Utilise `--skip-sync` uniquement pour une repetition de copie ou un runtime deja synchronise.
+`install.sh` lance `uv sync --no-dev --extra pi` sous l'utilisateur `boring`, verifie `uv run boring --help`, puis rend `boring-box.service` avec `WorkingDirectory`, `EnvironmentFile` et `ReadWritePaths` alignes sur `--install-dir` et `--state-dir`. Utilise `--skip-sync` uniquement pour une repetition de copie ou un runtime deja synchronise.
 Si tu installes ailleurs que `/opt/boring` ou `/var/lib/boring`, lance `box-ready` avec l'unit installee et le `--state-path` final: le gate verifie que `ReadWritePaths` couvre le dossier applicatif et le parent de `BOX_STATE_PATH`.
 
 Commandes :
