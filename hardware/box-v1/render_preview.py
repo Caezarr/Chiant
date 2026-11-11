@@ -1,4 +1,5 @@
 """Shaded previews of the exported STL files (matplotlib, no GPU needed)."""
+
 from pathlib import Path
 
 import matplotlib
@@ -33,19 +34,44 @@ def scene(parts, elev, azim, name, title):
     pts = np.vstack([add(ax, OUT / f, c, dz) for f, c, dz in parts])
     mn, mx = pts.min(0), pts.max(0)
     c, r = (mn + mx) / 2, (mx - mn).max() / 2
-    ax.set_xlim(c[0] - r, c[0] + r); ax.set_ylim(c[1] - r, c[1] + r); ax.set_zlim(c[2] - r, c[2] + r)
-    ax.set_box_aspect((1, 1, 1)); ax.view_init(elev=elev, azim=azim); ax.set_axis_off()
+    ax.set_xlim(c[0] - r, c[0] + r)
+    ax.set_ylim(c[1] - r, c[1] + r)
+    ax.set_zlim(c[2] - r, c[2] + r)
+    ax.set_box_aspect((1, 1, 1))
+    ax.view_init(elev=elev, azim=azim)
+    ax.set_axis_off()
     ax.set_title(title, fontsize=11)
     fig.savefig(OUT / name, bbox_inches="tight", facecolor="white")
     plt.close(fig)
 
 
 BODY, LID, FOOT = (0.25, 0.27, 0.30), (0.55, 0.57, 0.62), (0.85, 0.45, 0.15)
-scene([("boring_box_body.stl", BODY, 0), ("_asm_lid.stl", LID, 0), ("_asm_foot.stl", FOOT, 0)],
-      25, 55, "preview_front.png", "Assemblé — face caméra (pare-brise) + côté USB")
-scene([("boring_box_body.stl", BODY, 0), ("_asm_lid.stl", LID, 0), ("_asm_foot.stl", FOOT, 0)],
-      25, -125, "preview_back.png", "Assemblé — face habitacle (USB-C, LED, ouïes) + côté microSD")
-scene([("boring_box_body.stl", BODY, 0), ("_asm_lid.stl", LID, 38), ("_asm_foot.stl", FOOT, -22)],
-      22, 60, "preview_exploded.png", "Éclaté — capot / corps / pied GoPro")
+scene(
+    [("boring_box_body.stl", BODY, 0), ("_asm_lid.stl", LID, 0), ("_asm_foot.stl", FOOT, 0)],
+    25,
+    55,
+    "preview_front.png",
+    "Assemblé — face caméra (pare-brise) + côté USB",
+)
+scene(
+    [("boring_box_body.stl", BODY, 0), ("_asm_lid.stl", LID, 0), ("_asm_foot.stl", FOOT, 0)],
+    25,
+    -125,
+    "preview_back.png",
+    "Assemblé — face habitacle (USB-C, LED, ouïes) + côté microSD",
+)
+scene(
+    [("boring_box_body.stl", BODY, 0), ("_asm_lid.stl", LID, 38), ("_asm_foot.stl", FOOT, -22)],
+    22,
+    60,
+    "preview_exploded.png",
+    "Éclaté — capot / corps / pied GoPro",
+)
 scene([("boring_box_body.stl", BODY, 0)], 62, -70, "preview_body_inside.png", "Corps — intérieur")
-scene([("_asm_lid.stl", LID, 0)], -35, 60, "preview_lid_under.png", "Capot — dessous (tubes de serrage)")
+scene(
+    [("_asm_lid.stl", LID, 0)],
+    -35,
+    60,
+    "preview_lid_under.png",
+    "Capot — dessous (tubes de serrage)",
+)

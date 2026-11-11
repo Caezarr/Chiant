@@ -19,7 +19,6 @@ from pathlib import Path
 
 from build123d import (
     Align,
-    Axis,
     Box,
     Compound,
     Cone,
@@ -41,7 +40,7 @@ OUT = Path(__file__).parent / "out"
 # Parameters (mm) — measure your parts with calipers and adjust if needed
 # --------------------------------------------------------------------------
 # Raspberry Pi 5
-PI_L, PI_W, PI_T = 85.0, 56.0, 1.5
+PI_L, PI_W, PI_T = 85.0, 56.0, 1.4
 PI_HOLES = [(3.5, 3.5), (61.5, 3.5), (3.5, 52.5), (61.5, 52.5)]
 USBC_X = 11.2  # USB-C power centre along x
 
@@ -53,16 +52,18 @@ H_INT = 28.0  # inner height
 STANDOFF = 6.0  # Pi PCB underside above the inner floor
 GAP_SD = 1.5  # PCB -> inner wall, microSD side
 GAP_USB = 0.8  # PCB -> inner wall, USB side (connectors sit in the window)
-GAP_PWR = 1.6  # PCB -> inner wall, USB-C side
-CHAMBER = 17.0  # camera chamber depth beyond the GPIO edge
+GAP_PWR = 2.0  # PCB -> inner wall, USB-C side (micro HDMI overhangs 1.63)
+CHAMBER = 14.0  # camera chamber depth beyond the GPIO edge
 R_OUT = 4.0
 
-# Camera Module 3 (Wide = 12.4 total height, standard = 11.5)
+# Camera Module 3 Wide — values from the official drawing and STEP model
 CAM_CX = 66.0  # lens centre along x
-CAM_BOARD_W, CAM_BOARD_H = 25.0, 24.0
+CAM_BOARD_W, CAM_BOARD_H = 25.0, 23.86
 CAM_HOLE_DX = 21.0
 CAM_HOLE_DZ = 12.5
-CAM_LENS_FROM_PCB = 11.4  # lens tip in front of the PCB front face
+CAM_HOLE_EDGE = 2.0  # hole pair nearest the edge opposite the connector
+CAM_LENS_FROM_EDGE = 14.4  # lens centre, from that same edge
+CAM_LENS_FROM_PCB = 8.2  # lens tip in front of the PCB front face (drawing 8.3, STEP 8.1)
 CAM_BOARD_Z0 = 0.5  # lowest edge of the camera board (connector edge UP)
 LENS_HOLE_D = 14.0
 LENS_RECESS = 1.0  # lens tip behind the outer face
@@ -85,8 +86,8 @@ CX, CY = (X0 + X1) / 2, (Y0 + Y1) / 2
 PCB_BOT, PCB_TOP = STANDOFF, STANDOFF + PI_T
 Y_OUT_FRONT = Y1 + WALL
 CAM_PCB_FRONT_Y = Y_OUT_FRONT - LENS_RECESS - CAM_LENS_FROM_PCB
-CAM_LENS_Z = CAM_BOARD_Z0 + CAM_BOARD_H - 9.5  # connector edge is up
-CAM_HOLES_Z = [CAM_LENS_Z, CAM_LENS_Z - CAM_HOLE_DZ]
+CAM_LENS_Z = CAM_BOARD_Z0 + CAM_LENS_FROM_EDGE  # connector edge is up
+CAM_HOLES_Z = [CAM_BOARD_Z0 + CAM_HOLE_EDGE + CAM_HOLE_DZ, CAM_BOARD_Z0 + CAM_HOLE_EDGE]
 FRONT_POSTS = [(X0 + 4.0, Y1 - 4.0), (X1 - 4.0, Y1 - 4.0)]
 
 BOT = (Align.CENTER, Align.CENTER, Align.MIN)
@@ -136,6 +137,15 @@ def make_body():
     for sx in (-1, 1):
         rx = CAM_CX + sx * CAM_HOLE_DX / 2
         body += box(rx - 2.2, rx + 2.2, CAM_PCB_FRONT_Y, Y1 + 0.1, 0, rib_top)
+        # the board only rests on pads around its holes
+        body -= box(
+            rx - 3,
+            rx + 3,
+            CAM_PCB_FRONT_Y - 1,
+            CAM_PCB_FRONT_Y + 1.5,
+            min(CAM_HOLES_Z) + 2.6,
+            max(CAM_HOLES_Z) - 2.6,
+        )
 
     # Front lid posts (full height, tied to the corners)
     for x, y in FRONT_POSTS:
@@ -154,16 +164,21 @@ def make_body():
     for sx in (-1, 1):  # camera M2 pilots (horizontal)
         rx = CAM_CX + sx * CAM_HOLE_DX / 2
         for z in CAM_HOLES_Z:
-            body -= ycyl(rx, z, CAM_PCB_FRONT_Y - 1, CAM_PCB_FRONT_Y + 7, M2_PILOT / 2)
+            body -= ycyl(rx, z, CAM_PCB_FRONT_Y - 1, CAM_PCB_FRONT_Y + 5.5, M2_PILOT / 2)
 
     # Lens aperture + outward chamfer
     body -= ycyl(CAM_CX, CAM_LENS_Z, Y1 - 1, Y_OUT_FRONT + 1, LENS_HOLE_D / 2)
     body -= cone_y(
-        CAM_CX, CAM_LENS_Z, Y1 + 0.4, Y_OUT_FRONT + 0.01, LENS_HOLE_D / 2, LENS_HOLE_D / 2 + WALL - 0.4
+        CAM_CX,
+        CAM_LENS_Z,
+        Y1 + 0.4,
+        Y_OUT_FRONT + 0.01,
+        LENS_HOLE_D / 2,
+        LENS_HOLE_D / 2 + WALL - 0.4,
     )
 
     # USB / Ethernet window (single opening: tolerant to port layout)
-    body -= box(X1 - 1, X1 + WALL + 1, 1.0, 55.0, PCB_TOP - 0.5, PCB_TOP + 16.8)
+    body -= box(X1 - 1, X1 + WALL + 1, 1.0, 55.0, PCB_BOT - 0.9, PCB_BOT + 18.3)
     # USB-C power
     body -= box(USBC_X - 7, USBC_X + 7, Y0 - WALL - 1, Y0 + 1, PCB_TOP - 2.4, PCB_TOP + 5.6)
     # microSD access
@@ -225,9 +240,13 @@ def make_mount():
     foot = Pos(0, 0, 0) * extrude(RectangleRounded(36, 20, 3), plate_t)
     for sy in (-1, 1):
         yc = sy * (gap + prong_t) / 2
-        prong = box(-prong_r, prong_r, yc - prong_t / 2, yc + prong_t / 2, plate_t, plate_t + axis_h)
-        prong += Pos(0, yc - prong_t / 2, plate_t + axis_h) * Rot(-90, 0, 0) * Cylinder(
-            prong_r, prong_t, align=BOT
+        prong = box(
+            -prong_r, prong_r, yc - prong_t / 2, yc + prong_t / 2, plate_t, plate_t + axis_h
+        )
+        prong += (
+            Pos(0, yc - prong_t / 2, plate_t + axis_h)
+            * Rot(-90, 0, 0)
+            * Cylinder(prong_r, prong_t, align=BOT)
         )
         foot += prong
     foot -= ycyl(0, plate_t + axis_h, -10, 10, 5.2 / 2)
@@ -249,7 +268,7 @@ def make_coupon():
         c += zcyl(x, y, 0, 3.0, 3.0)
         c -= zcyl(x, y, -1, 4, M25_PILOT / 2)
     cam = box(72, 72 + CAM_BOARD_W + 4, 0, CAM_BOARD_H + 4, 0, 1.2)
-    ox, oz = 72 + 2 + CAM_BOARD_W / 2, 2 + 9.5
+    ox, oz = 72 + 2 + CAM_BOARD_W / 2, 2 + 9.46
     cam -= zcyl(ox, oz, -1, 3, LENS_HOLE_D / 2)
     for sx in (-1, 1):
         for dz in (0.0, CAM_HOLE_DZ):
@@ -278,7 +297,9 @@ def main() -> None:
     export_stl(body, str(OUT / "boring_box_body.stl"), tolerance=0.02, angular_tolerance=0.2)
     export_stl(lid_print, str(OUT / "boring_box_lid.stl"), tolerance=0.02, angular_tolerance=0.2)
     export_stl(mount, str(OUT / "boring_box_gopro_foot.stl"), tolerance=0.02, angular_tolerance=0.2)
-    export_stl(coupon, str(OUT / "boring_box_fit_coupon.stl"), tolerance=0.02, angular_tolerance=0.2)
+    export_stl(
+        coupon, str(OUT / "boring_box_fit_coupon.stl"), tolerance=0.02, angular_tolerance=0.2
+    )
 
     # Assembly STEP (editable in Fusion / Bambu Studio)
     foot_asm = Location((42.5, 28, -FLOOR)) * (Rot(180, 0, 0) * mount)
@@ -291,30 +312,104 @@ def main() -> None:
     print(f"lens centre: x={CAM_CX} z={CAM_LENS_Z} | camera pcb front y={CAM_PCB_FRONT_Y:.1f}")
 
 
-def check() -> None:
-    """Interference checks against simplified Pi 5 / camera volumes."""
+def _report(name: str, body, lid, vol, worst: list) -> None:
+    b = body & vol
+    l = lid & vol
+    bv = b.volume if b else 0.0
+    lv = l.volume if l else 0.0
+    if bv > 0.01 or lv > 0.01:
+        worst.append((name, bv, lv))
+
+
+def check(pi_step: str | None = None, cam_step: str | None = None) -> None:
+    """Interference check.
+
+    Without arguments: simplified volumes. With the official STEP files
+    (datasheets.raspberrypi.com): the bounding box of every solid of the real
+    models, placed in the enclosure, is intersected with body and lid.
+    """
+    from build123d import import_step
+
     body, lid = make_body(), make_lid()
-    pcb = box(0, PI_L, 0, PI_W, PCB_BOT, PCB_TOP)
-    usb = box(67, PI_L + 3, 2, 54, PCB_TOP, PCB_TOP + 16)
-    cooler = box(5, 60, 10, 46, PCB_TOP, PCB_TOP + 10.5)
-    gpio = box(7, 58, 49.5, 55, PCB_TOP, PCB_TOP + 8.6)
-    cam = box(CAM_CX - 12.5, CAM_CX + 12.5, CAM_PCB_FRONT_Y - 1, CAM_PCB_FRONT_Y,
-              CAM_BOARD_Z0, CAM_BOARD_Z0 + CAM_BOARD_H)
-    lens = ycyl(CAM_CX, CAM_LENS_Z, CAM_PCB_FRONT_Y, CAM_PCB_FRONT_Y + CAM_LENS_FROM_PCB, 6.0)
-    sd = box(-2.4, 9, 22.5, 33.5, PCB_BOT - 1.6, PCB_BOT - 0.4)
-    for name, vol in (("pcb", pcb), ("usb", usb), ("cooler", cooler), ("gpio", gpio),
-                      ("camera pcb", cam), ("lens", lens), ("microSD", sd)):
-        b = (body & vol).volume if (body & vol) else 0.0
-        l = (lid & vol).volume if (lid & vol) else 0.0
-        print(f"  {name:11s} body∩={b:7.2f} mm3  lid∩={l:7.2f} mm3")
+    worst: list = []
+    count = 0
+    if pi_step:
+        for i, s in enumerate(import_step(pi_step).solids()):
+            b = s.bounding_box()
+            vol = box(b.min.X, b.max.X, b.min.Y, b.max.Y, PCB_BOT + b.min.Z, PCB_BOT + b.max.Z)
+            _report(
+                f"pi5 solid {i} x{b.min.X:.1f}..{b.max.X:.1f} y{b.min.Y:.1f}..{b.max.Y:.1f} "
+                f"z{b.min.Z:.1f}..{b.max.Z:.1f}",
+                body,
+                lid,
+                vol,
+                worst,
+            )
+            count += 1
+    else:
+        _report("pcb", body, lid, box(0, PI_L, 0, PI_W, PCB_BOT, PCB_TOP), worst)
+        _report("usb", body, lid, box(66.4, 88.05, 2.2, 54.3, PCB_TOP, PCB_BOT + 17.6), worst)
+        _report("usb-c/hdmi", body, lid, box(6.7, 45.5, -1.63, 6.2, PCB_TOP, PCB_BOT + 4.6), worst)
+        _report("microSD", body, lid, box(-2.4, 13.7, 22.1, 34.1, PCB_BOT - 1.45, PCB_BOT), worst)
+        _report("gpio", body, lid, box(7, 58, 49.9, 55.1, PCB_TOP, PCB_TOP + 8.6), worst)
+    _report("cooler", body, lid, box(5, 60, 10, 46, PCB_TOP, PCB_TOP + 10.5), worst)
+    if cam_step:
+        # camera model: x = towards connector, y = board width, -z = lens
+        pcb_front_z = -0.76  # 0.02 mm clearance: the board seats on the rib pads
+        for i, s in enumerate(import_step(cam_step).solids()):
+            b = s.bounding_box()
+            vol = box(
+                CAM_CX + 12.5 - b.max.Y,
+                CAM_CX + 12.5 - b.min.Y,
+                CAM_PCB_FRONT_Y + (pcb_front_z - b.max.Z),
+                CAM_PCB_FRONT_Y + (pcb_front_z - b.min.Z),
+                CAM_BOARD_Z0 + b.min.X,
+                CAM_BOARD_Z0 + b.max.X,
+            )
+            _report(
+                f"cam solid {i} x{b.min.X:.1f}..{b.max.X:.1f} y{b.min.Y:.1f}..{b.max.Y:.1f} "
+                f"z{b.min.Z:.1f}..{b.max.Z:.1f}",
+                body,
+                lid,
+                vol,
+                worst,
+            )
+            count += 1
+    else:
+        _report(
+            "camera pcb",
+            body,
+            lid,
+            box(
+                CAM_CX - 12.5,
+                CAM_CX + 12.5,
+                CAM_PCB_FRONT_Y - 1.1,
+                CAM_PCB_FRONT_Y,
+                CAM_BOARD_Z0,
+                CAM_BOARD_Z0 + CAM_BOARD_H,
+            ),
+            worst,
+        )
+        _report(
+            "lens",
+            body,
+            lid,
+            ycyl(CAM_CX, CAM_LENS_Z, CAM_PCB_FRONT_Y, CAM_PCB_FRONT_Y + CAM_LENS_FROM_PCB, 4.3),
+            worst,
+        )
     bl = body & lid
-    print(f"  body∩lid = {(bl.volume if bl else 0.0):.2f} mm3")
+    print(f"checked {count} real solids" if count else "checked simplified volumes")
+    print(f"body∩lid = {(bl.volume if bl else 0.0):.2f} mm3")
+    for name, bv, lv in worst:
+        print(f"  INTERFERENCE {name}: body {bv:.2f} mm3, lid {lv:.2f} mm3")
+    print("no interference" if not worst else f"{len(worst)} interference(s)")
 
 
 if __name__ == "__main__":
     import sys
 
     if "--check" in sys.argv:
-        check()
+        extra = [a for a in sys.argv[1:] if not a.startswith("--")]
+        check(*extra[:2])
         raise SystemExit(0)
     main()
