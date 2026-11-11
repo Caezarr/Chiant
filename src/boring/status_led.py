@@ -6,8 +6,9 @@ indisponible, le pilote se desactive et le runtime continue.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 
 class LedState(str, Enum):

@@ -16,8 +16,9 @@ from __future__ import annotations
 import os
 import subprocess
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 import cv2
 import numpy as np
@@ -66,7 +67,7 @@ class CameraSettings:
         return failures
 
     @classmethod
-    def from_env(cls) -> "CameraSettings":
+    def from_env(cls) -> CameraSettings:
         lens = os.getenv("CAMERA_LENS_POSITION", "0.0").strip().lower()
         return cls(
             backend=os.getenv("CAMERA_BACKEND", "opencv").strip().lower() or "opencv",

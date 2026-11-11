@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import io
+import os
 import subprocess
+import sys
 import threading
 
 import cv2
@@ -313,3 +315,38 @@ class _StaticCapture:
 
     def release(self) -> None:
         pass
+
+
+def test_rpicam_capture_end_to_end_with_real_subprocess(tmp_path, monkeypatch):
+    """Vrai sous-processus, vrai tube : un faux rpicam-vid emet du MJPEG en continu."""
+    frame_path = tmp_path / "frame.jpg"
+    frame_path.write_bytes(_jpeg(120, 320, 240))
+    args_path = tmp_path / "args.txt"
+    fake = tmp_path / "rpicam-vid"
+    fake.write_text(
+        f"#!{sys.executable}\n"
+        "import sys, time\n"
+        f"open({str(args_path)!r}, 'w').write(' '.join(sys.argv[1:]))\n"
+        f"data = open({str(frame_path)!r}, 'rb').read()\n"
+        "while True:\n"
+        "    sys.stdout.buffer.write(data)\n"
+        "    sys.stdout.buffer.flush()\n"
+        "    time.sleep(0.02)\n"
+    )
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    settings = CameraSettings(
+        backend="rpicam", rotation=180, width=320, height=240, read_timeout_seconds=10
+    )
+
+    capture = make_capture(0, settings)
+    try:
+        assert capture.isOpened() is True
+        shapes = [capture.read()[1].shape for _ in range(3)]
+    finally:
+        capture.release()
+
+    assert shapes == [(240, 320, 3)] * 3
+    assert "--codec mjpeg" in args_path.read_text()
+    assert "--lens-position 0" in args_path.read_text()
+    assert capture.isOpened() is False
