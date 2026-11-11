@@ -27,6 +27,7 @@ from boring.power import (
 )
 from boring.power_budget import build_power_budget
 from boring.state import BoxStateStore
+from boring.status_led import LedState, StatusLed, make_status_led
 from boring.storage import DiskSpaceMonitor, DiskStatus
 from boring.systemd import SystemdNotifier
 
@@ -79,6 +80,12 @@ def run_box_service(config: BoxConfig | None = None) -> None:
         config.gpsd_port,
     )
     stop_event = Event()
+    status_led = make_status_led(
+        config.status_led_gpio,
+        config.status_led_active_high,
+        on_error=lambda error: event_log.write("status_led_unavailable", error=error),
+    )
+    status_led.set(LedState.STARTING)
 
     detector = Detector(
         model_path=config.model_path,
@@ -105,12 +112,14 @@ def run_box_service(config: BoxConfig | None = None) -> None:
 
     notify(
         "Boring Box — service lance",
-        f"camera={config.camera_device}, model={config.model_path}, provider={payment.name}",
+        f"camera={config.camera_backend}:{config.camera_device}, "
+        f"model={config.model_path}, provider={payment.name}",
         sound=False,
     )
     event_log.write(
         "service_started",
         camera_device=config.camera_device,
+        camera_backend=config.camera_backend,
         model_path=config.model_path,
         provider=payment.name,
         payment_dry_run=config.payment_dry_run,
@@ -120,6 +129,7 @@ def run_box_service(config: BoxConfig | None = None) -> None:
     monitor = Thread(
         target=_background_monitor,
         args=(stop_event, power, thermal, network, disk, systemd, state, config, event_log),
+        kwargs={"status_led": status_led},
         daemon=True,
     )
     monitor.start()
@@ -153,6 +163,22 @@ def run_box_service(config: BoxConfig | None = None) -> None:
         systemd.stopping()
         stop_event.set()
         monitor.join(timeout=2)
+        status_led.close()
+
+
+def led_state_for(state: RuntimeState) -> LedState:
+    """Traduit l'etat du runtime en motif de LED."""
+    if state.battery_critical_active or state.thermal_critical_alert_sent:
+        return LedState.ERROR
+    if (
+        state.network_online is False
+        or state.battery_saver_active
+        or state.thermal_saver_active
+        or state.battery_sensor_missing_alert_sent
+        or state.disk_low_alert_sent
+    ):
+        return LedState.WARNING
+    return LedState.ACTIVE
 
 
 def _background_monitor(
@@ -165,6 +191,7 @@ def _background_monitor(
     state: RuntimeState,
     config: BoxConfig,
     event_log: EventLog,
+    status_led: StatusLed | None = None,
 ) -> None:
     while not stop_event.is_set():
         now = time.time()
@@ -173,6 +200,8 @@ def _background_monitor(
         _check_network(now, network, state, config, event_log)
         _check_disk(now, disk, state, config, event_log)
         _heartbeat(now, state, config, event_log)
+        if status_led is not None:
+            status_led.set(led_state_for(state))
         systemd.watchdog("Boring Box monitor alive")
         stop_event.wait(
             max(
@@ -218,7 +247,7 @@ def box_doctor(config: BoxConfig | None = None) -> int:
     check(
         camera.ok,
         "camera accessible",
-        f"device={config.camera_device}"
+        f"backend={config.camera_backend} device={config.camera_device}"
         + (f" {camera.width}x{camera.height}" if camera.ok else f" {camera.error}"),
     )
     check(config.zones_path.exists(), "zones de stationnement", str(config.zones_path))

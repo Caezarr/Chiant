@@ -105,3 +105,40 @@ def test_box_config_accepts_runtime_invariants():
     config = BoxConfig()
 
     assert config.validation_failures() == []
+
+
+def test_box_config_camera_and_led_from_env(monkeypatch):
+    monkeypatch.setenv("CAMERA_BACKEND", "rpicam")
+    monkeypatch.setenv("CAMERA_ROTATION", "180")
+    monkeypatch.setenv("STATUS_LED_GPIO", "17")
+    monkeypatch.setenv("STATUS_LED_ACTIVE_HIGH", "false")
+
+    config = BoxConfig.from_env()
+
+    assert config.camera_backend == "rpicam"
+    assert config.camera_rotation == 180
+    assert config.status_led_gpio == 17
+    assert config.status_led_active_high is False
+    assert config.validation_failures() == []
+
+
+def test_box_config_camera_and_led_defaults(monkeypatch):
+    for name in ("CAMERA_BACKEND", "CAMERA_ROTATION", "STATUS_LED_GPIO", "STATUS_LED_ACTIVE_HIGH"):
+        monkeypatch.delenv(name, raising=False)
+
+    config = BoxConfig.from_env()
+
+    assert config.camera_backend == "opencv"
+    assert config.camera_rotation == 0
+    assert config.status_led_gpio is None
+    assert config.status_led_active_high is True
+
+
+def test_box_config_rejects_bad_camera_and_led():
+    config = BoxConfig(camera_backend="gstreamer", camera_rotation=90, status_led_gpio=40)
+
+    failures = config.validation_failures()
+
+    assert "CAMERA_BACKEND=gstreamer" in failures
+    assert "CAMERA_ROTATION=90" in failures
+    assert "STATUS_LED_GPIO=40" in failures
